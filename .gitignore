@@ -1,0 +1,59 @@
+# ===== Unity 生成目录（每台机器本地生成，不提交）=====
+# 使用 **/ 前缀，匹配仓库内任意子目录下的 Unity 项目
+**/[Ll]ibrary/
+**/[Tt]emp/
+**/[Oo]bj/
+**/[Bb]uild/
+**/[Bb]uilds/
+**/[Ll]ogs/
+**/[Uu]ser[Ss]ettings/
+**/[Mm]emoryCaptures/
+**/[Rr]ecordings/
+
+# Asset Store 工具缓存
+**/[Aa]ssets/AssetStoreTools*
+
+# Addressables 默认构建输出
+**/[Aa]ssets/[Ss]treamingAssets/aa.meta
+**/[Aa]ssets/[Ss]treamingAssets/aa/*
+
+# Gradle 缓存（Android / Quest 打包）
+.gradle/
+
+# ===== IDE / 解决方案文件（Unity 会自动重新生成）=====
+.vs/
+.vscode/
+.idea/
+.consulo/
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+*.pdb.meta
+*.mdb.meta
+
+# Unity 崩溃报告
+sysinfo.txt
+
+# ===== 打包产物 =====
+*.apk
+*.aab
+*.unitypackage
+*.app
+crashlytics-build.properties
+
+# ===== 系统文件 =====
+.DS_Store
+Thumbs.db
+Desktop.ini
