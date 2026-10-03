@@ -57,3 +57,6 @@ crashlytics-build.properties
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# ===== 个人本地文件夹（不同步）=====
+/美术参考-Xie/
