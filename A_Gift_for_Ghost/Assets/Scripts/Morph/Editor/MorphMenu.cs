@@ -35,6 +35,45 @@ namespace Ghost.Morph.EditorTools
             return set;
         }
 
+        // 从选中的模型（场景里的实例或 Project 里的 FBX）采样节点，生成 Assets/Data/Morph/<模型名>.asset
+        [MenuItem("Ghost/Morph/Sample Plant From Selected Model")]
+        public static void SampleSelectedModel()
+        {
+            var model = Selection.activeGameObject;
+            if (model == null)
+            {
+                Debug.LogError("[Morph] 先在 Hierarchy 或 Project 里选中拆好件的植物模型");
+                return;
+            }
+            SamplePlant(model, $"Assets/Data/Morph/{model.name}.asset");
+        }
+
+        public static PlantNodeSet SamplePlant(GameObject model, string assetPath)
+        {
+            // 场景实例换成它的源资产，节点集里记录的是模型资产
+            var source = PrefabUtility.GetCorrespondingObjectFromOriginalSource(model);
+            if (source != null) model = source;
+
+            var set = AssetDatabase.LoadAssetAtPath<PlantNodeSet>(assetPath);
+            if (set == null)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(assetPath));
+                set = ScriptableObject.CreateInstance<PlantNodeSet>();
+                AssetDatabase.CreateAsset(set, assetPath);
+            }
+
+            MeshAnchorSampler.Sample(model, set, new MeshAnchorSampler.Settings());
+            LayoutGenerator.BuildAll(set.nodes, new LayoutGenerator.Settings());
+            string error = set.Validate();
+            if (error != null) Debug.LogError($"[Morph] 采样数据无效：{error}");
+
+            EditorUtility.SetDirty(set);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Morph] 从 {model.name} 采样 {set.Count} 个节点 → {assetPath}");
+            Selection.activeObject = set;
+            return set;
+        }
+
         const string NodeMaterialPath = "Assets/Art/Morph/MorphNode.mat";
 
         // 节点材质：Ghost/MorphNode 着色器 + GPU Instancing。已存在则直接返回

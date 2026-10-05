@@ -66,7 +66,8 @@ namespace Ghost.Morph
 
         public static Color FormColor(PlantNode node, MorphForm form)
         {
-            return Color.Lerp(AbstractColor(node), RealColor(node.organ), Realness(form));
+            Color real = node.realColor.a > 0f ? node.realColor : RealColor(node.organ);
+            return Color.Lerp(AbstractColor(node), real, Realness(form));
         }
     }
 }

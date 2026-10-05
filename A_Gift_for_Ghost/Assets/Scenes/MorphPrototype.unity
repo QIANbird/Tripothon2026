@@ -165,7 +165,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 162025a251e507a4e98ec222c6dbe1e1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Ghost.Morph.NodeMorpher
-  nodeSet: {fileID: 11400000, guid: 0d93c1eb2e870e54dbf8be29fe5e27c3, type: 2}
+  nodeSet: {fileID: 11400000, guid: 3a7f3617181cff94e9bb76dd1531e580, type: 2}
   mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
   material: {fileID: 2100000, guid: 2f21ab6f82f6262419b22b5bece14231, type: 2}
   startForm: 0

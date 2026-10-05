@@ -65,6 +65,10 @@ namespace Ghost.Morph
         public int parentId = -1;
         // 离根节点的层数，用于错峰动画（从根往外长）
         public int depth;
+        // 来源部件名（模型里的子物体名，如 leaf_dying_1、pepper_red_picked），玩法按它找特定节点；程序生成的为空
+        public string part;
+        // 写实形态的颜色（线性空间，从模型贴图采样）。alpha 为 0 时用 OrganPalette 的部位默认色
+        public Color realColor;
         // 下标对应 MorphForm
         public NodePose[] poses = new NodePose[FormCount];
 

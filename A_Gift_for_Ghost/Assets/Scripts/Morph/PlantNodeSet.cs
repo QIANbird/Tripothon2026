@@ -9,6 +9,12 @@ namespace Ghost.Morph
     {
         public List<PlantNode> nodes = new List<PlantNode>();
 
+        // 从模型采样时记录来源和归一化参数：节点坐标 = (模型根空间坐标 - sourceOffset) * sourceScale。
+        // 写实阶段要把真模型叠到节点上时，按这两个值摆放模型。程序生成的植物没有来源
+        public GameObject sourceModel;
+        public Vector3 sourceOffset;
+        public float sourceScale = 1f;
+
         public int Count => nodes.Count;
 
         public PlantNode Get(int id)

@@ -1,16 +1,11 @@
 fileFormatVersion: 2
-guid: 8eebd061396bdde41bb5638599723de1
+guid: ae3a07218e0b11544bc085f51d58f9d8
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
-  externalObjects:
-  - first:
-      type: UnityEngine:Material
-      assembly: UnityEngine.CoreModule
-      name: Material_tripo_node_f76f9f48-d7c5-4145-b88b-53a8f1f0efdb
-    second: {fileID: 2100000, guid: 7e695de2b336e0348a748503000015bf, type: 2}
+  externalObjects: {}
   materials:
-    materialImportMode: 1
+    materialImportMode: 2
     materialName: 0
     materialSearch: 1
     materialLocation: 1
