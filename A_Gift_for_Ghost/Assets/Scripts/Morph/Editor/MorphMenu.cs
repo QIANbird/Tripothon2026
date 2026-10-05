@@ -21,6 +21,7 @@ namespace Ghost.Morph.EditorTools
             }
 
             set.nodes = FakePlantGenerator.Generate(new FakePlantGenerator.Settings());
+            LayoutGenerator.BuildAll(set.nodes, new LayoutGenerator.Settings());
             string error = set.Validate();
             if (error != null) Debug.LogError($"[Morph] 假植物数据无效：{error}");
 

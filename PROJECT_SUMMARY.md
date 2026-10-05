@@ -106,7 +106,7 @@ tools/tripo/                  批量生成脚本 + assets.json 清单
 - 脚本：只有 `Assets/Scripts/PlayerMovement.cs`。这个脚本直接读 `Keyboard.current`，违反了 AGENTS.md "输入只读 Action"的约定，以后要改成读 `Move` Action。这个设计里玩家基本不用走动，也可以直接删掉。
 - 已装的包：URP 17.3、Input System 1.20、Timeline、Funplay MCP for Unity（`com.gamebooom.unity.mcp`，git URL 安装，供 AI 助手截图、读编译错误、模拟输入；服务只监听 127.0.0.1）。
 - 参考模型：`Assets/TripoModels/pepper_plant_3d_model/`，是一株甜椒，不是番茄，只作形态参考。约 5.1 万三角面，2K 贴图；高约 1 m（Tripo 归一化尺寸，未按真实尺寸校正）。S4 仍需番茄模型。
-- 变形原型进度：M1 数据结构已完成（`Assets/Scripts/Morph/PlantNode.cs`、`PlantNodeSet.cs`）。M2 程序化假植物已完成（`FakePlantGenerator.cs`，菜单 Ghost → Morph → Generate Fake Plant，生成 `Assets/Data/Morph/FakePlant.asset`，206 个节点，约 0.67 × 0.64 × 0.56 m）。叶片由两个节点组成（内侧宽、外侧窄），虫子贴在叶背，以那片叶为父节点。
+- 变形原型进度：M1 数据结构已完成（`Assets/Scripts/Morph/PlantNode.cs`、`PlantNodeSet.cs`）。M2 程序化假植物已完成（`FakePlantGenerator.cs`，菜单 Ghost → Morph → Generate Fake Plant，生成 `Assets/Data/Morph/FakePlant.asset`，206 个节点，约 0.67 × 0.64 × 0.56 m）。叶片由两个节点组成（内侧宽、外侧窄），虫子贴在叶背，以那片叶为父节点。M3 布局生成已完成（`LayoutGenerator.cs`，生成假植物时自动生成另外 4 种形态）：Geometric 原位、旋转量化到 45°、茎段留缝；Network 从中心放大 1.8 倍加抖动；Circuit 投影到 XY 平面并吸附 3.5 cm 网格，格子不重叠；Matrix 打乱后排成 15 × 14 方阵。所有形态共用中心点 (0, 0.32, 0)，平面形态面朝 -Z。
 
 ## 6. 除变形和交互外还要做的内容
 
