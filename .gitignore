@@ -60,3 +60,9 @@ Desktop.ini
 
 # ===== 个人本地文件夹（不同步）=====
 /美术参考-Xie/
+
+# ===== AI 工具本机生成的文件（Funplay MCP / Claude Code）=====
+/A_Gift_for_Ghost/CLAUDE.md
+/A_Gift_for_Ghost/.claude/
+/A_Gift_for_Ghost/.funplay/
+.mcp.json
