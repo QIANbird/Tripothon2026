@@ -49,6 +49,21 @@ namespace Ghost.Morph
             }
         }
 
+        // 连线参数：x = 直角折线程度（0 直线，1 直角），y = 不透明度。
+        // 矩阵没有连线；回路是直角走线；网络是直线；几何植株淡出；写实没有连线
+        public static Vector2 LinkParams(MorphForm form)
+        {
+            switch (form)
+            {
+                case MorphForm.Circuit: return new Vector2(1f, 1f);
+                case MorphForm.Network: return new Vector2(0f, 0.8f);
+                case MorphForm.Geometric: return new Vector2(0f, 0.15f);
+                default: return Vector2.zero;
+            }
+        }
+
+        public static readonly Color LinkColor = new Color(0.22f, 0.27f, 0.34f);
+
         public static Color FormColor(PlantNode node, MorphForm form)
         {
             return Color.Lerp(AbstractColor(node), RealColor(node.organ), Realness(form));

@@ -1,6 +1,9 @@
 using System.IO;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 
 namespace Ghost.Morph.EditorTools
 {
@@ -38,21 +41,102 @@ namespace Ghost.Morph.EditorTools
         [MenuItem("Ghost/Morph/Create Node Material")]
         public static Material EnsureNodeMaterial()
         {
-            var mat = AssetDatabase.LoadAssetAtPath<Material>(NodeMaterialPath);
+            return EnsureMaterial(NodeMaterialPath, "Ghost/MorphNode");
+        }
+
+        const string LineMaterialPath = "Assets/Art/Morph/MorphLine.mat";
+
+        // 连线材质：Ghost/MorphLine 着色器（顶点色 + 透明）
+        [MenuItem("Ghost/Morph/Create Line Material")]
+        public static Material EnsureLineMaterial()
+        {
+            return EnsureMaterial(LineMaterialPath, "Ghost/MorphLine");
+        }
+
+        static Material EnsureMaterial(string path, string shaderName)
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
             if (mat != null) return mat;
 
-            var shader = Shader.Find("Ghost/MorphNode");
+            var shader = Shader.Find(shaderName);
             if (shader == null)
             {
-                Debug.LogError("[Morph] 找不到着色器 Ghost/MorphNode");
+                Debug.LogError($"[Morph] 找不到着色器 {shaderName}");
                 return null;
             }
-            Directory.CreateDirectory(Path.GetDirectoryName(NodeMaterialPath));
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
             mat = new Material(shader) { enableInstancing = true };
-            AssetDatabase.CreateAsset(mat, NodeMaterialPath);
+            AssetDatabase.CreateAsset(mat, path);
             AssetDatabase.SaveAssets();
-            Debug.Log($"[Morph] 创建节点材质 → {NodeMaterialPath}");
+            Debug.Log($"[Morph] 创建材质 → {path}");
             return mat;
+        }
+
+        const string PrototypeScenePath = "Assets/Scenes/MorphPrototype.unity";
+        const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+
+        // 一键生成变形原型场景：浅灰背景、固定相机（眼高 1.6 m）、NodeMorpher + 数字键切换。已存在则覆盖
+        [MenuItem("Ghost/Morph/Build Prototype Scene")]
+        public static void BuildPrototypeScene()
+        {
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return;
+            BuildPrototypeScene(NewSceneMode.Single);
+        }
+
+        // Additive 模式不会关闭当前打开的场景（自动化检查时用）
+        public static UnityEngine.SceneManagement.Scene BuildPrototypeScene(NewSceneMode mode)
+        {
+
+            var set = AssetDatabase.LoadAssetAtPath<PlantNodeSet>(FakePlantPath);
+            if (set == null) set = GenerateFakePlant();
+            var material = EnsureNodeMaterial();
+            var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
+            if (material == null || actions == null)
+            {
+                Debug.LogError("[Morph] 缺少节点材质或 InputSystem_Actions，场景未生成");
+                return default;
+            }
+
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, mode);
+            // RenderSettings 作用于活动场景
+            UnityEngine.SceneManagement.SceneManager.SetActiveScene(scene);
+            var background = new Color(0.85f, 0.85f, 0.86f);
+            RenderSettings.skybox = null;
+            RenderSettings.ambientMode = AmbientMode.Flat;
+            RenderSettings.ambientLight = background;
+
+            // 相机放在真人眼高，略微俯视植株；植株放在一个约 0.75 m 的台面高度上
+            var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
+            var camera = cameraGo.AddComponent<Camera>();
+            camera.clearFlags = CameraClearFlags.SolidColor;
+            camera.backgroundColor = background;
+            camera.fieldOfView = 60f;
+            camera.nearClipPlane = 0.05f;
+            cameraGo.AddComponent<AudioListener>();
+            cameraGo.transform.position = new Vector3(0f, 1.6f, -1.9f);
+
+            var plantGo = new GameObject("Plant");
+            plantGo.transform.position = new Vector3(0f, 0.75f, 0f);
+            var morpher = plantGo.AddComponent<NodeMorpher>();
+            morpher.nodeSet = set;
+            morpher.material = material;
+            morpher.mesh = BuiltinCube();
+            morpher.startForm = MorphForm.Matrix;
+
+            var links = plantGo.AddComponent<NodeLinkRenderer>();
+            links.material = EnsureLineMaterial();
+
+            var switcher = plantGo.AddComponent<MorphDebugSwitcher>();
+            switcher.morpher = morpher;
+            switcher.actions = actions;
+
+            // 所有形态的中心 (0, 0.32, 0) 落在画面中央
+            Vector3 focus = plantGo.transform.TransformPoint(new LayoutGenerator.Settings().center);
+            cameraGo.transform.LookAt(focus);
+
+            EditorSceneManager.SaveScene(scene, PrototypeScenePath);
+            Debug.Log($"[Morph] 生成原型场景 → {PrototypeScenePath}。进入 Play Mode 后按 1–5 切换形态");
+            return scene;
         }
 
         // Unity 内置立方体网格，节点默认形状

@@ -32,6 +32,10 @@ namespace Ghost.Morph
         public MorphForm CurrentForm { get; private set; }
         public bool IsMorphing { get; private set; }
 
+        // 每帧插值后的节点姿态（本地空间）和连线参数，供 NodeLinkRenderer 等读取，不要修改
+        public NodePose[] CurrentPoses => currentPoses;
+        public Vector2[] CurrentLinkParams => currentLinks;
+
         // Instancing 单次调用的上限
         const int MaxInstances = 1023;
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -40,6 +44,8 @@ namespace Ghost.Morph
         NodePose[] currentPoses;
         Color[] fromColors;
         Vector4[] currentColors;
+        Vector2[] fromLinks;
+        Vector2[] currentLinks;
         float[] delays;
         Matrix4x4[] matrices;
         MaterialPropertyBlock props;
@@ -64,6 +70,8 @@ namespace Ghost.Morph
             currentPoses = new NodePose[Count];
             fromColors = new Color[Count];
             currentColors = new Vector4[Count];
+            fromLinks = new Vector2[Count];
+            currentLinks = new Vector2[Count];
             delays = new float[Count];
             matrices = new Matrix4x4[Count];
             props = new MaterialPropertyBlock();
@@ -80,6 +88,7 @@ namespace Ghost.Morph
                 var node = nodeSet.nodes[i];
                 currentPoses[i] = node.GetPose(form);
                 currentColors[i] = OrganPalette.FormColor(node, form);
+                currentLinks[i] = OrganPalette.LinkParams(form);
             }
             CurrentForm = form;
             inspectorTarget = form;
@@ -98,6 +107,7 @@ namespace Ghost.Morph
                 var node = nodeSet.nodes[i];
                 fromPoses[i] = currentPoses[i];
                 fromColors[i] = currentColors[i];
+                fromLinks[i] = currentLinks[i];
 
                 float depth01 = maxDepth > 0 ? (float)node.depth / maxDepth : 0f;
                 float order = towardReal ? depth01 : 1f - depth01;
@@ -129,6 +139,7 @@ namespace Ghost.Morph
                 float eased = EaseInOutCubic(t);
                 currentPoses[i] = NodePose.Lerp(fromPoses[i], node.GetPose(CurrentForm), eased);
                 currentColors[i] = Color.Lerp(fromColors[i], OrganPalette.FormColor(node, CurrentForm), eased);
+                currentLinks[i] = Vector2.Lerp(fromLinks[i], OrganPalette.LinkParams(CurrentForm), eased);
             }
 
             if (elapsed >= totalDuration)
