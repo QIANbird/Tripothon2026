@@ -46,14 +46,30 @@ namespace Ghost.Morph.EditorTools
                 Debug.LogError("[Morph] 先在 Hierarchy 或 Project 里选中拆好件的植物模型");
                 return;
             }
-            SamplePlant(model, $"Assets/Data/Morph/{model.name}.asset");
+            // 选中子物体时按它所在的 Prefab 命名
+            var root = EditorUtility.IsPersistent(model) ? model.transform.root.gameObject : PrefabUtility.GetNearestPrefabInstanceRoot(model);
+            if (root == null) root = model;
+            SamplePlant(model, $"Assets/Data/Morph/{root.name}.asset");
         }
 
         public static PlantNodeSet SamplePlant(GameObject model, string assetPath)
         {
-            // 场景实例换成它的源资产，节点集里记录的是模型资产
-            var source = PrefabUtility.GetCorrespondingObjectFromOriginalSource(model);
-            if (source != null) model = source;
+            // 场景实例换成离它最近的一层 Prefab 资产（Prefab Variant 里加的虫子才不会丢），节点集里记录的是资产
+            if (!EditorUtility.IsPersistent(model))
+            {
+                var instanceRoot = PrefabUtility.GetNearestPrefabInstanceRoot(model);
+                if (instanceRoot == null)
+                {
+                    Debug.LogError($"[Morph] {model.name} 不是 Prefab 实例。先把它做成 Prefab（或 Prefab Variant）再采样");
+                    return null;
+                }
+                if (PrefabUtility.GetAddedGameObjects(instanceRoot).Count > 0 || PrefabUtility.HasPrefabInstanceAnyOverrides(instanceRoot, false))
+                {
+                    Debug.LogError($"[Morph] {instanceRoot.name} 有未应用的改动（比如刚拖进去的虫子）。先 Overrides → Apply All，或者做成 Prefab Variant 再采样");
+                    return null;
+                }
+                model = PrefabUtility.GetCorrespondingObjectFromSource(instanceRoot);
+            }
 
             var set = AssetDatabase.LoadAssetAtPath<PlantNodeSet>(assetPath);
             if (set == null)

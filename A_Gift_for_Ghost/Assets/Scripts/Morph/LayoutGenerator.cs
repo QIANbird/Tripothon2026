@@ -17,7 +17,8 @@ namespace Ghost.Morph
             public Vector3 center = new Vector3(0f, 0.32f, 0f);
 
             [Header("Geometric")]
-            public float geometricAngleStep = 45f;
+            public float geometricShrink = 0.85f;
+            public float geometricStemGap = 0.75f;
 
             [Header("Network")]
             public float networkSpread = 1.8f;
@@ -44,27 +45,20 @@ namespace Ghost.Morph
             BuildMatrix(nodes, s);
         }
 
-        // 节点留在原位，旋转量化到固定角度，尺寸按部位统一。茎保留长度，这样植株轮廓不变
+        // 节点留在原位，保持写实形态的朝向和比例，整体缩小一点，块与块之间露出缝隙，读起来是“拼起来的植株”。
+        // 叶、果实等换成部位形状由 NodeShapes 负责
         public static void BuildGeometric(List<PlantNode> nodes, Settings s)
         {
             foreach (var node in nodes)
             {
                 var real = node.GetPose(MorphForm.Real);
-                var rot = QuantizeRotation(real.rotation, s.geometricAngleStep);
-                Vector3 scale;
-                switch (node.organ)
-                {
-                    // 茎、根缩短一点，段与段之间露出缝隙，读起来是"拼起来的方块"而不是连续的植物
-                    case Organ.Stem: scale = new Vector3(0.012f, real.scale.y * 0.75f, 0.012f); break;
-                    case Organ.Root: scale = new Vector3(0.008f, real.scale.y * 0.7f, 0.008f); break;
-                    // 叶片统一成方形薄片
-                    case Organ.Leaf: scale = new Vector3(0.045f, 0.006f, 0.045f); break;
-                    case Organ.Fruit: scale = Vector3.one * 0.05f; break;
-                    case Organ.Bud: scale = Vector3.one * 0.014f; break;
-                    case Organ.Bug: scale = Vector3.one * 0.01f; break;
-                    default: scale = Vector3.one * 0.02f; break;
-                }
-                node.SetPose(MorphForm.Geometric, new NodePose(real.position, rot, scale));
+                Vector3 scale = real.scale;
+                if (node.organ == Organ.Stem || node.organ == Organ.Root)
+                    // 茎、根只缩短，不变细，否则太细看不见
+                    scale.y *= s.geometricStemGap;
+                else
+                    scale *= s.geometricShrink;
+                node.SetPose(MorphForm.Geometric, new NodePose(real.position, real.rotation, scale));
             }
         }
 
@@ -131,15 +125,6 @@ namespace Ghost.Morph
                 Vector3 pos = origin + new Vector3(col, row, 0f) * s.matrixSpacing;
                 nodes[i].SetPose(MorphForm.Matrix, new NodePose(pos, Quaternion.identity, Vector3.one * s.matrixNodeSize));
             }
-        }
-
-        static Quaternion QuantizeRotation(Quaternion q, float step)
-        {
-            Vector3 e = q.eulerAngles;
-            e.x = Mathf.Round(e.x / step) * step;
-            e.y = Mathf.Round(e.y / step) * step;
-            e.z = Mathf.Round(e.z / step) * step;
-            return Quaternion.Euler(e);
         }
 
         static Vector2Int NearestFreeCell(Vector2Int start, HashSet<Vector2Int> occupied)

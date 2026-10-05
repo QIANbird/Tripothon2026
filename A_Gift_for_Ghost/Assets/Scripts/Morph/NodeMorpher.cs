@@ -9,6 +9,7 @@ namespace Ghost.Morph
     public class NodeMorpher : MonoBehaviour
     {
         public PlantNodeSet nodeSet;
+        [Tooltip("抽象形态的节点网格（立方体）；叶、果实等在几何植株形态换成 NodeShapes 里的形状")]
         public Mesh mesh;
         [Tooltip("需要开启 GPU Instancing 的 Ghost/MorphNode 材质")]
         public Material material;
@@ -58,10 +59,25 @@ namespace Ghost.Morph
         Vector4[] currentColors;
         Vector2[] fromLinks;
         Vector2[] currentLinks;
+        float[] fromShapes;
+        float[] currentShapes;
         float[] delays;
-        Matrix4x4[] matrices;
         float[] realHeights;
-        MaterialPropertyBlock props;
+
+        // 每种网格一批：立方体一批，每种部位形状各一批
+        class Batch
+        {
+            public Mesh mesh;
+            public Matrix4x4[] matrices;
+            public Vector4[] colors;
+            public MaterialPropertyBlock props;
+            public int count;
+        }
+
+        Batch cubeBatch;
+        Batch[] shapeBatches;
+        // 节点用哪一批部位形状，-1 表示始终是立方体
+        int[] shapeOf;
         int maxDepth;
         float elapsed;
         float totalDuration;
@@ -85,9 +101,10 @@ namespace Ghost.Morph
             currentColors = new Vector4[Count];
             fromLinks = new Vector2[Count];
             currentLinks = new Vector2[Count];
+            fromShapes = new float[Count];
+            currentShapes = new float[Count];
             delays = new float[Count];
-            matrices = new Matrix4x4[Count];
-            props = new MaterialPropertyBlock();
+            BuildBatches();
             foreach (var node in nodeSet.nodes) maxDepth = Mathf.Max(maxDepth, node.depth);
             CacheRealHeights();
 
@@ -103,6 +120,7 @@ namespace Ghost.Morph
                 currentPoses[i] = node.GetPose(form);
                 currentColors[i] = OrganPalette.FormColor(node, form);
                 currentLinks[i] = OrganPalette.LinkParams(form);
+                currentShapes[i] = NodeShapes.ShapeWeight(form);
             }
             CurrentForm = form;
             inspectorTarget = form;
@@ -124,6 +142,7 @@ namespace Ghost.Morph
                 fromPoses[i] = currentPoses[i];
                 fromColors[i] = currentColors[i];
                 fromLinks[i] = currentLinks[i];
+                fromShapes[i] = currentShapes[i];
 
                 float depth01 = maxDepth > 0 ? (float)node.depth / maxDepth : 0f;
                 float order = towardReal ? depth01 : 1f - depth01;
@@ -156,6 +175,7 @@ namespace Ghost.Morph
                 currentPoses[i] = NodePose.Lerp(fromPoses[i], node.GetPose(CurrentForm), eased);
                 currentColors[i] = Color.Lerp(fromColors[i], OrganPalette.FormColor(node, CurrentForm), eased);
                 currentLinks[i] = Vector2.Lerp(fromLinks[i], OrganPalette.LinkParams(CurrentForm), eased);
+                currentShapes[i] = Mathf.Lerp(fromShapes[i], NodeShapes.ShapeWeight(CurrentForm), eased);
             }
 
             if (elapsed >= totalDuration)
@@ -170,26 +190,81 @@ namespace Ghost.Morph
             // 真模型完全显现时节点全部隐藏
             if (RealReveal >= 1f) return;
 
-            int count = Mathf.Min(Count, MaxInstances);
+            cubeBatch.count = 0;
+            foreach (var batch in shapeBatches) batch.count = 0;
+
             var localToWorld = transform.localToWorldMatrix;
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < Count; i++)
             {
                 var pose = currentPoses[i];
                 if (RealReveal > 0f) pose.scale *= RevealShrink(realHeights[i]);
-                matrices[i] = localToWorld * pose.ToMatrix();
+                if (pose.scale.sqrMagnitude < 1e-12f) continue;
+
+                // 立方体缩小的同时部位形状长大，两者在中途重叠，避免一下子换形状
+                int shape = shapeOf[i];
+                float w = shape < 0 ? 0f : currentShapes[i];
+                float cubeK = 1f - w * w;
+                float shapeK = 1f - (1f - w) * (1f - w);
+                if (cubeK > 0.001f) Add(cubeBatch, localToWorld, pose, cubeK, currentColors[i]);
+                if (shape >= 0 && shapeK > 0.001f) Add(shapeBatches[shape], localToWorld, pose, shapeK, currentColors[i]);
             }
 
-            props.SetVectorArray(BaseColorId, currentColors);
+            Submit(cubeBatch);
+            foreach (var batch in shapeBatches) Submit(batch);
+        }
+
+        void BuildBatches()
+        {
+            shapeOf = new int[Count];
+            var shapeCounts = new int[NodeShapes.ShapeCount];
+            for (int i = 0; i < Count; i++)
+            {
+                shapeOf[i] = (int)NodeShapes.ShapeOf(nodeSet.nodes[i].organ);
+                if (shapeOf[i] >= 0) shapeCounts[shapeOf[i]]++;
+            }
+
+            cubeBatch = NewBatch(mesh, Count);
+            shapeBatches = new Batch[NodeShapes.ShapeCount];
+            for (int s = 0; s < NodeShapes.ShapeCount; s++)
+                shapeBatches[s] = NewBatch(NodeShapes.GetMesh((NodeShapes.Shape)s), shapeCounts[s]);
+        }
+
+        static Batch NewBatch(Mesh batchMesh, int capacity)
+        {
+            capacity = Mathf.Min(capacity, MaxInstances);
+            return new Batch
+            {
+                mesh = batchMesh,
+                matrices = new Matrix4x4[capacity],
+                // MaterialPropertyBlock 的数组长度在第一次设置时就固定了，至少给 1
+                colors = new Vector4[Mathf.Max(capacity, 1)],
+                props = new MaterialPropertyBlock(),
+            };
+        }
+
+        static void Add(Batch batch, Matrix4x4 localToWorld, NodePose pose, float scale, Vector4 color)
+        {
+            if (batch.count >= batch.matrices.Length) return;
+            pose.scale *= scale;
+            batch.matrices[batch.count] = localToWorld * pose.ToMatrix();
+            batch.colors[batch.count] = color;
+            batch.count++;
+        }
+
+        void Submit(Batch batch)
+        {
+            if (batch.count == 0 || batch.mesh == null) return;
+            batch.props.SetVectorArray(BaseColorId, batch.colors);
             var rp = new RenderParams(material)
             {
-                matProps = props,
+                matProps = batch.props,
                 // 网络形态会散开到 1 m 以上，包围盒给大一点，避免被视锥剔除
                 worldBounds = new Bounds(transform.position, Vector3.one * 6f),
                 shadowCastingMode = ShadowCastingMode.Off,
                 receiveShadows = false,
                 layer = gameObject.layer,
             };
-            Graphics.RenderMeshInstanced(rp, mesh, 0, matrices, count);
+            Graphics.RenderMeshInstanced(rp, batch.mesh, 0, batch.matrices, batch.count);
         }
 
         void OnValidate()
