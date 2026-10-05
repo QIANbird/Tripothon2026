@@ -10,6 +10,7 @@ namespace Ghost.Morph.EditorTools
     public static class MorphMenu
     {
         const string FakePlantPath = "Assets/Data/Morph/FakePlant.asset";
+        const string SampledPlantPath = "Assets/Data/Morph/pepper_plant.asset";
 
         // 生成（或覆盖）假植物的节点数据资产
         [MenuItem("Ghost/Morph/Generate Fake Plant")]
@@ -126,7 +127,9 @@ namespace Ghost.Morph.EditorTools
         public static UnityEngine.SceneManagement.Scene BuildPrototypeScene(NewSceneMode mode)
         {
 
-            var set = AssetDatabase.LoadAssetAtPath<PlantNodeSet>(FakePlantPath);
+            // 优先用从模型采样的节点集，没有时用程序生成的假植物
+            var set = AssetDatabase.LoadAssetAtPath<PlantNodeSet>(SampledPlantPath);
+            if (set == null) set = AssetDatabase.LoadAssetAtPath<PlantNodeSet>(FakePlantPath);
             if (set == null) set = GenerateFakePlant();
             var material = EnsureNodeMaterial();
             var actions = AssetDatabase.LoadAssetAtPath<InputActionAsset>(InputActionsPath);
@@ -164,6 +167,10 @@ namespace Ghost.Morph.EditorTools
 
             var links = plantGo.AddComponent<NodeLinkRenderer>();
             links.material = EnsureLineMaterial();
+
+            // 节点集来自模型采样时，写实形态交接给真模型。着色器显式引用，打包时才会被包含
+            var handoff = plantGo.AddComponent<RealModelHandoff>();
+            handoff.revealShader = Shader.Find("Ghost/RevealLit");
 
             var switcher = plantGo.AddComponent<MorphDebugSwitcher>();
             switcher.morpher = morpher;

@@ -22,6 +22,12 @@ namespace Ghost.Morph
         [Tooltip("额外的随机延迟（秒），让动作不那么整齐")]
         public float randomStagger = 0.35f;
 
+        [Header("写实交接")]
+        [Tooltip("真模型显现时，节点按高度缩小消失的过渡带（占植株高度的比例），和 RevealLit 着色器一致")]
+        public float revealBand = 0.15f;
+        [Tooltip("离开写实形态时，等真模型褪去再开始变形的时长（秒）")]
+        public float exitDelay = 0.5f;
+
         [Header("调试")]
         [Tooltip("运行时在 Inspector 里改这个值即可触发变形")]
         public MorphForm inspectorTarget;
@@ -36,6 +42,12 @@ namespace Ghost.Morph
         public NodePose[] CurrentPoses => currentPoses;
         public Vector2[] CurrentLinkParams => currentLinks;
 
+        // 真模型显现进度（0–1），由 RealModelHandoff 每帧写入；节点据此按高度缩小
+        public float RealReveal { get; set; }
+        // 写实形态下节点的高度范围（本地空间），供交接时对齐模型溶解的高度
+        public float RealMinY { get; private set; }
+        public float RealMaxY { get; private set; }
+
         // Instancing 单次调用的上限
         const int MaxInstances = 1023;
         static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
@@ -48,6 +60,7 @@ namespace Ghost.Morph
         Vector2[] currentLinks;
         float[] delays;
         Matrix4x4[] matrices;
+        float[] realHeights;
         MaterialPropertyBlock props;
         int maxDepth;
         float elapsed;
@@ -76,6 +89,7 @@ namespace Ghost.Morph
             matrices = new Matrix4x4[Count];
             props = new MaterialPropertyBlock();
             foreach (var node in nodeSet.nodes) maxDepth = Mathf.Max(maxDepth, node.depth);
+            CacheRealHeights();
 
             SnapTo(startForm);
         }
@@ -101,6 +115,8 @@ namespace Ghost.Morph
 
             // 往写实方向变形时从根往外长；往抽象方向时从枝梢先散开
             bool towardReal = form > CurrentForm;
+            // 真模型还在显示时，先等它褪去
+            float holdDelay = RealReveal * exitDelay;
             float maxDelay = 0f;
             for (int i = 0; i < Count; i++)
             {
@@ -111,7 +127,7 @@ namespace Ghost.Morph
 
                 float depth01 = maxDepth > 0 ? (float)node.depth / maxDepth : 0f;
                 float order = towardReal ? depth01 : 1f - depth01;
-                delays[i] = order * depthStagger + Hash01(node.id) * randomStagger;
+                delays[i] = holdDelay + order * depthStagger + Hash01(node.id) * randomStagger;
                 maxDelay = Mathf.Max(maxDelay, delays[i]);
             }
 
@@ -151,9 +167,17 @@ namespace Ghost.Morph
 
         void Draw()
         {
+            // 真模型完全显现时节点全部隐藏
+            if (RealReveal >= 1f) return;
+
             int count = Mathf.Min(Count, MaxInstances);
             var localToWorld = transform.localToWorldMatrix;
-            for (int i = 0; i < count; i++) matrices[i] = localToWorld * currentPoses[i].ToMatrix();
+            for (int i = 0; i < count; i++)
+            {
+                var pose = currentPoses[i];
+                if (RealReveal > 0f) pose.scale *= RevealShrink(realHeights[i]);
+                matrices[i] = localToWorld * pose.ToMatrix();
+            }
 
             props.SetVectorArray(BaseColorId, currentColors);
             var rp = new RenderParams(material)
@@ -172,6 +196,30 @@ namespace Ghost.Morph
         {
             if (Application.isPlaying && currentPoses != null && inspectorTarget != CurrentForm)
                 MorphTo(inspectorTarget);
+        }
+
+        void CacheRealHeights()
+        {
+            realHeights = new float[Count];
+            RealMinY = float.MaxValue;
+            RealMaxY = float.MinValue;
+            foreach (var node in nodeSet.nodes)
+            {
+                float y = node.GetPose(MorphForm.Real).position.y;
+                RealMinY = Mathf.Min(RealMinY, y);
+                RealMaxY = Mathf.Max(RealMaxY, y);
+            }
+            float range = Mathf.Max(RealMaxY - RealMinY, 1e-4f);
+            for (int i = 0; i < Count; i++)
+                realHeights[i] = (nodeSet.nodes[i].GetPose(MorphForm.Real).position.y - RealMinY) / range;
+        }
+
+        // 和 RevealLit 着色器同一个公式：模型在高度 h 开始出现时节点开始缩小，过渡带结束时节点消失
+        float RevealShrink(float height01)
+        {
+            float band = Mathf.Max(revealBand, 1e-4f);
+            float x = Mathf.Clamp01((RealReveal * (1f + band) - height01) / band);
+            return 1f - x * x * (3f - 2f * x);
         }
 
         static float EaseInOutCubic(float t)

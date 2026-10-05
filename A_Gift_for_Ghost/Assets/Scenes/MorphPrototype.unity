@@ -131,6 +131,7 @@ GameObject:
   - component: {fileID: 664627440}
   - component: {fileID: 664627439}
   - component: {fileID: 664627442}
+  - component: {fileID: 664627443}
   m_Layer: 0
   m_Name: Plant
   m_TagString: Untagged
@@ -172,6 +173,8 @@ MonoBehaviour:
   nodeDuration: 1.2
   depthStagger: 0.9
   randomStagger: 0.35
+  revealBand: 0.15
+  exitDelay: 0.5
   inspectorTarget: 0
 --- !u!4 &664627441
 Transform:
@@ -202,6 +205,22 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Ghost.Morph.NodeLinkRenderer
   material: {fileID: 2100000, guid: 2c4356f1ce059314eb1a5f935a04437c, type: 2}
   skipSoil: 1
+--- !u!114 &664627443
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 664627438}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 362588c45c72dd14f89b9a2f0b6b1ec5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Morph.RealModelHandoff
+  revealShader: {fileID: 4800000, guid: 12878783cbcec884bace7607171c4286, type: 3}
+  revealDuration: 1.4
+  hideDuration: 0.6
+  noiseCellSize: 0.015
 --- !u!1 &741268168
 GameObject:
   m_ObjectHideFlags: 0
