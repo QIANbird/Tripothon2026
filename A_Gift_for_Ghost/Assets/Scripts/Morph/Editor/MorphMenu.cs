@@ -31,5 +31,34 @@ namespace Ghost.Morph.EditorTools
             Selection.activeObject = set;
             return set;
         }
+
+        const string NodeMaterialPath = "Assets/Art/Morph/MorphNode.mat";
+
+        // 节点材质：Ghost/MorphNode 着色器 + GPU Instancing。已存在则直接返回
+        [MenuItem("Ghost/Morph/Create Node Material")]
+        public static Material EnsureNodeMaterial()
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(NodeMaterialPath);
+            if (mat != null) return mat;
+
+            var shader = Shader.Find("Ghost/MorphNode");
+            if (shader == null)
+            {
+                Debug.LogError("[Morph] 找不到着色器 Ghost/MorphNode");
+                return null;
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(NodeMaterialPath));
+            mat = new Material(shader) { enableInstancing = true };
+            AssetDatabase.CreateAsset(mat, NodeMaterialPath);
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[Morph] 创建节点材质 → {NodeMaterialPath}");
+            return mat;
+        }
+
+        // Unity 内置立方体网格，节点默认形状
+        public static Mesh BuiltinCube()
+        {
+            return Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        }
     }
 }
