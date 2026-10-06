@@ -227,7 +227,41 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
   7. 按 Shift + 4：跳回 S2，彩椒褪去，节点变回回路。按 Shift + 1：回到开场，变回矩阵。单按数字键（不按 Shift）不应有任何反应。
   8. 全程 Console 没有红色错误。退出 Play。
 
-**G2 节点拾取与输入**（`Scripts/Interaction/`） 状态：未开始
+**G2 节点拾取与输入**（`Scripts/Interaction/`） 状态：**完成（10-06）**
+- 文件（命名空间 `Ghost.Interaction`）：
+  - `NodePicker.cs`：射线和节点包围球求交。字段 `morpher`、`radiusFactor`（0.6，半径 = 节点最大缩放分量 × 系数）、`minPickRadius`（0.012 m，小节点也能点到）、`hiddenScale`（0.002，缩放小于它的节点视为隐藏）。`int Pick(Ray ray, out float distance)`、`int Pick(Ray ray, Func<int,bool> filter, out float distance)`，没命中返回 -1；属性 `Func<int,bool> Filter`（默认筛选，null = 全部）；`Organ? OrganOf(int id)`；`bool TryGetNodeWorldPosition(int id, out Vector3 position)`（G4 放详情弹窗用）；`NodeCount`。写实模型完全显现（`RealReveal >= 1`）时不拾取。
+  - `PointerInput.cs`：PC 端交互发起方，读 `Gameplay` 动作表的 `Point` / `Select`。字段 `rayCamera`、`picker`、`actions`、`dragThreshold`（8 px）、`allowNodeDrag`、`allowEmptyDrag`、`dragSampleStep`（6 px，拖得快也不漏节点）、`physicsMask`、`maxDistance`。
+    - 事件：`Action<int> Tap`、`Action<int> DragStart`、`Action<int> DragOver`（每进入一个新节点发一次，不含起点）、`Action DragEnd`、`Action<Vector2> DragEmpty`（每帧像素增量）、`Action DragEmptyEnd`、`Action<int> HoverChanged`（-1 = 无，只做高亮）、`Action<IInteractable> InteractableTapped`。
+    - 状态：`bool InputEnabled { get; set; }`（关掉时结束正在进行的拖拽并清悬停）、`PointerPosition`、`CurrentRay`、`HoveredNode`、`HoveredInteractable`、`HoverDistance`、`IsPressed`、`IsDraggingNode`、`IsDraggingEmpty`。
+    - 规则：按下和松开在同一目标上、移动小于阈值才算点击；节点和带 `IInteractable` 的 Collider 谁近算谁（Collider 更近会挡住节点）；从按钮上拖开什么都不发；`allowNodeDrag = false` 时从节点出发的拖拽什么都不发（也不算点击）。
+  - `IInteractable.cs`：`OnTap()`、`OnHoverEnter()`、`OnHoverExit()`。实现脚本挂在 Collider 所在物体或它的父物体上。
+  - `InteractableButton.cs`：通用按钮，`UnityEvent onTap / onHoverEnter / onHoverExit`、`bool interactable`。World Space Canvas 上的按钮要另加贴合大小的 `BoxCollider`（G4 的 Yes 按钮用它）。
+  - `PointerCursor.cs`：光标表现，独立组件。默认只显示系统光标；可选 `marker`（不带 Collider 的小物体）跟随命中点。VR 版整个替换。
+  - `PointerDebugLogger.cs`：调试日志 `[Pointer] Tap node 35(Fruit)`、`DragStart / DragOver / DragEnd path: 2(Root) > 13(Stem) > …`、`DragEmptyEnd total (x, y) over N frames`。`logEvents` 总开关，`logEveryEmptyDelta`、`logHover` 默认关。**G6 起在 `MainSceneMenu.BuildPointer` 里把它关掉（`logger.logEvents = false` 或不加这个组件）。**
+- 输入：`InputSystem_Actions.inputactions` 新增 `Gameplay` 动作表：`Point`（PassThrough / Vector2，`<Mouse>/position`、`<Pen>/position`）、`Select`（Button，`<Mouse>/leftButton`、`<Pen>/tip`），分组 Keyboard&Mouse。VR 时给这两个 Action 加 XR 绑定，或者直接换掉 `PointerInput`。
+- **本次没有提交 `Main.unity`**：提交时工作区的 Main.unity 已经被 G5 重新生成，引用了还没提交的 Narrative 脚本。拉下代码后执行一次菜单 Ghost → Core → Build Main Scene 就会带上 Pointer。
+- 主场景：`MainSceneMenu.BuildPointer()` 新建 `Pointer` 物体，挂 NodePicker、PointerInput、PointerCursor、PointerDebugLogger。阶段脚本用 `Object.FindFirstObjectByType<PointerInput>()` 或在菜单里给阶段填引用。
+- 阶段怎么用：
+  ```csharp
+  public override void Enter() { base.Enter(); pointer.Tap += OnTap; pointer.DragOver += OnDragOver; pointer.allowNodeDrag = true; }
+  public override void Exit()  { pointer.Tap -= OnTap; pointer.DragOver -= OnDragOver; base.Exit(); }
+  ```
+  一定在 `Exit()` 里退订，否则下一关还会收到事件。拖拽开始节点在 `DragStart` 里，`DragOver` 只报后续节点。变形期间（`morpher.IsMorphing`）要不要响应由阶段自己判断，PointerInput 不管。
+- 筛选：`picker.Filter = id => picker.OrganOf(id) == Organ.Bug;`（离开阶段时设回 null），或者调用 `picker.Pick(ray, filter, out d)`。被筛掉的节点不挡射线，后面的节点能点到。
+- 和计划的出入：
+  - 没复用 `UI/Point`、`UI/Click`，单独建了 `Gameplay` 表，免得和 UI 模块冲突，以后加 XR 绑定也清楚。`Point` 必须是 PassThrough：做成 Value 时，鼠标不动的那几帧 Action 不更新，第一版空白拖拽因此没触发。
+  - 隐藏判定只看 `CurrentPoses` 的缩放（G3 未提交，不依赖它的 API）。**G3 提交后**：拾取应改用 `morpher.GetNodeVisibility(id)`，小于 0.5 的跳过（隐藏动画不改 `CurrentPoses`，现在被 `Hide` 的节点仍能点到）。在那之前可以用 `picker.Filter = id => !morpher.IsHidden(id)` 临时处理。
+  - MCP 的 `simulate_mouse_click` / `simulate_mouse_drag` 只走 UI 和 Physics，不进 Input System，测不了 Action。验收改为在 Play 模式下用 `execute_code` 加一个临时 `Mouse` 设备，逐帧 `InputSystem.QueueStateEvent` 注入位置和按键，跑完移除设备。
+- 验收（10-06，Main.unity，`JumpTo(3)` 到 S2 Circuit，191 个节点）：点 23、35、188、158、2 五个节点，Console 依次打印 `Tap node 23(Leaf)`、`35(Fruit)`、`188(Bug)`、`158(Soil)`、`2(Root)`；从根 2 拖到果实 35，打印 `DragEnd path: 2(Root) > 13(Stem) > 156(Fruit) > 22(Stem) > 25(Stem) > 30(Stem) > 26(Leaf) > 52(Stem) > 35(Fruit)`；空白处 (60,60) 拖到 (200,90)，打印 `DragEmptyEnd total (140.00, 30.00) over 10 frames`；临时放一个带 `InteractableButton` 的立方体，点它触发 `onTap` 和 `Tap interactable`。Console 没有错误。没做截图检查。
+- 人工验收：
+  1. 菜单 Ghost → Core → Build Main Scene。Hierarchy 里应多出 `Pointer`（NodePicker、PointerInput、PointerCursor、PointerDebugLogger），Inspector 里 PointerInput 的 Ray Camera、Picker、Actions 已填好。
+  2. Play，按 Shift + 4 跳到 S2（回路）。鼠标单击任意节点，Console 打印 `[Pointer] Tap node <id>(<部位>)`；点在叶、果、根上部位要对。点空白处无输出。
+  3. 从根附近的节点按住拖过几个节点再松开：先打印 `DragStart`，经过每个节点一条 `DragOver`，松开打印 `DragEnd path: …`，顺序就是划过的顺序。
+  4. 在空白处按住拖动再松开：打印 `DragEmptyEnd total (…) over N frames`，方向和拖动方向一致（向右 x 为正，向上 y 为正）。
+  5. 按下节点后稍微抖动（小于 8 像素）再松开，仍算点击。
+  6. 取消 PointerDebugLogger 的 Log Events，再点节点不再打印。全程 Console 没有红色错误。
+
+原计划：
 - 节点不是 GameObject，不能用 Physics 射线。要写 `NodePicker`：用鼠标射线和 `NodeMorpher.CurrentPoses` 里每个节点的包围球求交，返回最近的那个节点 id。被隐藏或缩没的节点要跳过。
 - 写 `PointerInput`：读取 Point 和 Click 两个 Action，对外发出这几个事件：
   - `Tap(nodeId)`：点击节点。

@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Ghost.Interaction;
 using Ghost.Morph;
 using Ghost.Morph.EditorTools;
 using UnityEditor;
@@ -130,10 +131,36 @@ namespace Ghost.Core.EditorTools
             debug.actions = actions;
 
             BuildStagePanel(flow, cameraGo.transform);
+            // G2：指针输入（节点拾取 + IInteractable 射线）、光标和调试日志
+            BuildPointer(camera, morpher, actions);
 
             EditorSceneManager.SaveScene(scene, MainScenePath);
             Debug.Log($"[Flow] 生成主场景 → {MainScenePath}。Play 后按 N 进入下一关，Shift + 1–9 跳关");
             return scene;
+        }
+
+        // G2：Pointer 物体挂 NodePicker、PointerInput、PointerCursor（只用系统光标）和 PointerDebugLogger。
+        // 不想看日志时取消 PointerDebugLogger.logEvents 的勾选（或在这里设为 false）
+        static void BuildPointer(Camera camera, NodeMorpher morpher, InputActionAsset actions)
+        {
+            var pointerGo = new GameObject("Pointer");
+            var picker = pointerGo.AddComponent<NodePicker>();
+            picker.morpher = morpher;
+
+            // 先停用物体再加 PointerInput，保证 OnEnable 时引用已经填好
+            pointerGo.SetActive(false);
+            var pointer = pointerGo.AddComponent<PointerInput>();
+            pointer.rayCamera = camera;
+            pointer.picker = picker;
+            pointer.actions = actions;
+
+            var cursor = pointerGo.AddComponent<PointerCursor>();
+            cursor.pointer = pointer;
+
+            var logger = pointerGo.AddComponent<PointerDebugLogger>();
+            logger.pointer = pointer;
+            logger.picker = picker;
+            pointerGo.SetActive(true);
         }
 
         // World Space 面板：放在植株上方、玩家前方约 1.5 m，正对相机
