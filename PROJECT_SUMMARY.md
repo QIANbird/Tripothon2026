@@ -286,12 +286,63 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
   - 对外发出 `IssueAttempted`、`IssueResolved` 两个事件，供阶段判定通关。
 - 验收：测试场景里挂上三种难度的问题，点击后的表现和第 4 节"通用机制"一致。
 
-**G4 Agent 界面**（`Scripts/Agent/`，World Space Canvas） 状态：未开始
-- 任务和指标面板：显示任务列表、完成率和置信度，数值由阶段脚本推送。
-- 节点详情弹窗：显示在被点节点旁边，文本来自 G5 的详情表。
-- AI 询问框：一句提问加一个 Yes 按钮，点击走 G2 的 `IInteractable`。
-- 字号要保证远处也看得清，不依赖鼠标悬停（见 AGENTS.md 第 5 节）。
-- 验收：用假数据把三种界面都显示出来，点 Yes 能触发回调。
+**G4 Agent 界面**（`Scripts/Agent/`，World Space Canvas） 状态：**完成（10-06）**
+- 文件（命名空间 `Ghost.Agent`）：
+  - `AgentTaskPanel.cs`：任务列表 + 指标面板。另含 `enum TaskState { Pending, Running, Done, Failed }`、`struct AgentTask { string label; TaskState state; }`（构造 `new AgentTask(label, state)`）。
+  - `NodeDetailPopup.cs`：节点详情弹窗，带引线和锚点方块指回节点。
+  - `AgentQueryDialog.cs`：AI 询问框，一句提问 + Yes 按钮（`InteractableButton` + 贴合大小的 `BoxCollider`，走 G2 的 PointerInput）。
+  - `AgentUIBuilder.cs`：运行时 / 编辑器都能调用的构建器，生成三个界面的完整层级并填好引用。
+  - `AgentUIStyle.cs`：配色常量和 UGUI 小工具（内置 `LegacyRuntime.ttf`，同 StagePanel）。
+  - `AgentUITestDriver.cs`：只用于测试场景的假数据驱动。
+  - `Editor/AgentUITestMenu.cs`：菜单 Ghost → Agent → Build Agent UI Test Scene，生成 `Assets/Scenes/G4Test.unity`（Additive 新建、保存后关闭，不打断当前场景；**当前场景是未保存的 Untitled 时会失败**，先打开任意已保存场景）。
+- 接口：
+  - `AgentTaskPanel`：`SetTitle(string)`、`SetModeLabel(string)`（"FULL PROXY" / "ASSISTIVE"，空串隐藏）、`SetTasks(IList<AgentTask>)`、`int AddTask(string, TaskState = Pending)`、`UpdateTask(int index, TaskState)`、`UpdateTask(int index, string label, TaskState)`、`GetTask(int)`、`TaskCount`、`ClearTasks()`；指标 `SetMetric(string key, float value01)`（进度条 + 百分比）、`SetMetric(string key, float value01, string display)`（进度条 + 自定义文字如 "3 / 7"）、`SetMetric(string key, string value)`（纯文字）、`RemoveMetric(key)`、`ClearMetrics()`；`Show()` / `Hide()`；事件 `Action<int, TaskState> TaskChanged`。指标按 key 首次出现的顺序排列，面板高度随内容变化（顶边不动）。
+  - `NodeDetailPopup`：`Show(Vector3 worldPos, string title, string body)`、`bool ShowAtNode(NodePicker picker, int nodeId, string title, string body)`（变形中跟随节点）、`SetText(title, body)`、`Hide()`、`Visible`、`NodeId`。字段 `sideOffset`（0.1 m）、`towardCamera`（0.35 m，往相机拉近，字更大也不和节点穿插）、`autoFlip`（节点在画面右半边时弹窗翻到左侧，一次显示内不来回翻）、`yawOnly`、`autoHideSeconds`（0 = 不自动隐藏）。没有 Collider，不挡射线。
+  - `AgentQueryDialog`：`Ask(string question, Action onYes)`（再次调用替换提问和回调）、`Hide()`、`ConfirmYes()`（代码确认，以后键盘 / 手柄确认可以接这里）、`Visible`、`Question`、事件 `Action<string> Answered`。点 Yes 后先隐藏，再调 `onYes`，再发 `Answered`。`inputDelay`（0.3 s）内不接受点击，防止上一关的点击误触。悬停时按钮变蓝灰（只是反馈，信息不依赖悬停）。
+  - `AgentUIBuilder.BuildAll(Transform parent, Camera camera)` 返回 `AgentUI { root, taskPanel, detailPopup, query }`；也可单独 `BuildTaskPanel(parent, cam, pos)`、`BuildDetailPopup(parent, cam)`、`BuildQueryDialog(parent, cam, pos)`。默认位置按 Main 的固定相机（(0, 1.6, -1.9)）设计：任务面板在植株左侧（顶边 (-0.84, 1.46, -0.6)，离相机约 1.5 m），询问框在植株右侧（(0.82, 1.26, -0.6)，在植株前面，Yes 的 Collider 比节点近）。叠放顺序：任务面板 < 弹窗（sortingOrder 10）< 询问框（20）。
+- G6 接入 Main（加到 `MainSceneMenu.BuildMainScene` 里 `BuildPointer(...)` 之后，需要 `using Ghost.Agent;`）：
+  ```csharp
+  var agentUI = AgentUIBuilder.BuildAll(null, camera);
+  // 给阶段填引用：stage.taskPanel = agentUI.taskPanel; stage.detailPopup = agentUI.detailPopup; stage.query = agentUI.query;
+  ```
+- 阶段怎么用（S1 示例）：
+  ```csharp
+  public override void Enter()
+  {
+      base.Enter();
+      taskPanel.SetTitle("S1 · 植株维护");
+      taskPanel.SetModeLabel("FULL PROXY");
+      taskPanel.SetTasks(new[] { new AgentTask("叶片异常 ×6", TaskState.Running), new AgentTask("果实严重异常 ×4", TaskState.Pending) });
+      taskPanel.SetMetric("完成率", 0f);
+      taskPanel.SetMetric("置信度", 0.4f);
+      pointer.Tap += OnTap;
+  }
+  void OnTap(int id)
+  {
+      var organ = picker.OrganOf(id) ?? Organ.Stem;
+      string body = detailTable.Get(id, organ, DetailDepth.Status); // G5 详情表（占位符替换按 G5 说明）
+      detailPopup.ShowAtNode(picker, id, $"节点 #{id}", body);
+  }
+  void OnConditionsMet()
+  {
+      query.Ask("是否要进一步查看信息？", () => Complete());
+  }
+  public override void Exit() { pointer.Tap -= OnTap; detailPopup.Hide(); query.Hide(); base.Exit(); }
+  ```
+  弹窗和询问框跨关共用，离开阶段时记得 `Hide()`。结局切到 Assistive 时 `taskPanel.SetModeLabel("ASSISTIVE")`。
+- 风格：浅色半透明底（0.96 灰白）+ 2 px 黑灰细边框；字黑 / 灰，强调色蓝灰 (0.33, 0.43, 0.55)，失败用暗红；任务前的方块标记：空心灰 = 未开始、实心蓝灰（缓慢呼吸，`pulseRunning`）= 进行中、实心黑 = 完成、空心暗红 = 失败；右侧大写状态词（PENDING / RUNNING / DONE / FAILED），状态不只靠颜色区分。标题区 "AGENT · TASKS" / "AGENT · QUERY" 配蓝灰小方块，模式标签是黑底反白小块。字号：任务 38 px、指标 32 px、弹窗标题 42 / 正文 38、提问 38、YES 40（1000 px = 1 m）。Canvas 和相机画面平行（不是朝向相机位置），平面屏幕上不出现梯形变形。
+- 和计划的出入：
+  - 详情弹窗的文本由阶段脚本传入（从 G5 的 `NodeDetailTable` 取），弹窗本身不引用 G5。
+  - 构建器放在运行时程序集（`Ghost.Agent.AgentUIBuilder`），编辑器菜单和以后运行时生成都能用。
+- 验收（10-06，通过 MCP，G4Test.unity Play）：截图（960×540）里任务面板（标题、4 条任务含四种状态、3 个指标条）、果实节点 35 旁的详情弹窗（带引线）、询问框都清楚可读，互不遮挡，植株可见。用临时虚拟 `Mouse` 设备点 Yes 按钮中心（屏幕 (813, 263)）：Console 打印 `[Pointer] Tap interactable YesButton` 和 `[G4] Yes`，询问框隐藏，回调把任务 4 改成 RUNNING。点节点 10：打印 `[Pointer] Tap node 10(Root)`，弹窗移到节点 10 旁并显示 `节点 #10 · Root`。Console 没有错误。
+- 没做：VR 下的摆放（以后按 XR Origin 头部高度重新调默认位置，或把面板挂到跟随玩家的锚点）；询问框的键盘 / 手柄确认（已留 `ConfirmYes()`）。
+- 人工验收：
+  1. 打开任意已保存的场景（比如 Main），菜单 Ghost → Agent → Build Agent UI Test Scene，Console 打印 `[G4] 生成测试场景`。打开 `Assets/Scenes/G4Test.unity`。
+  2. Play。左侧是任务面板：标题"S1 · 植株维护"、右上"FULL PROXY"、4 条任务（DONE / RUNNING / FAILED / PENDING，方块标记各不相同，RUNNING 的方块缓慢明暗变化）、完成率 62%、置信度 38%、处理进度 7 / 10。站在 2 m 外看屏幕，文字要能读清。
+  3. 植株中部的果实节点旁有详情弹窗，细线指向节点。右侧是询问框"已达到当前权限下的处理上限。是否要进一步查看信息？"和 YES 按钮。
+  4. 鼠标移到 YES 上按钮变蓝灰，移开恢复。点 YES：Console 打印 `[G4] Yes`，询问框消失，任务"生成报告"变成 RUNNING。
+  5. 点任意节点：弹窗移到这个节点旁边，标题显示节点 id 和部位。点画面右半边的节点，弹窗出现在节点左侧。
+  6. 选中 AgentUITestDriver，Inspector 右键：Ask Query（询问框重新出现）、Advance Tasks（茎部异常变 DONE、完成率 85%）、Switch To Assistive（标签变"ASSISTIVE"）。全程 Console 没有红色错误。
 
 **G5 对话与语音**（`Scripts/Narrative/`） 状态：**完成（10-06）**
 - 文件（命名空间 `Ghost.Narrative`；编辑器代码在 `Ghost.Narrative.EditorTools`）：
