@@ -46,6 +46,10 @@ namespace Ghost.Stages
         public Color bugColor = BugStageUtil.DefaultBugColor;
         [Tooltip("摘除时节点闪一下的颜色")]
         public Color removeFlashColor = new Color(1f, 0.92f, 0.45f);
+        [Tooltip("虫背朝向相机的程度（点积）达到多少才点得到。0 = 侧对相机即可；调高 = 必须把叶背转得更正")]
+        [Range(-1f, 1f)] public float bugFacingThreshold = 0f;
+        [Tooltip("别的节点比虫子近多少米才算挡住虫子（拾取球偏大，留一点余量）")]
+        public float occluderMargin = 0.02f;
 
         [Header("通关")]
         [Tooltip("摘完最后一只后等多久进入下一关（秒），让最后一档写实度过渡完")]
@@ -127,6 +131,7 @@ namespace Ghost.Stages
             // 虫子都在叶背：默认正面（偏航 0）三只都背对相机，所以从正面开始，不额外转起始角度
             if (rotator != null) rotator.Enable();
 
+            ctx.SetInspectProvider(ProvideInspect);
             SetupTaskPanel();
             ctx.Play(introSequence);
         }
@@ -209,6 +214,7 @@ namespace Ghost.Stages
         void HandleTap(int id)
         {
             if (!IsActive || ctx.morpher == null || ctx.morpher.IsMorphing) return;
+            id = ResolveBugTap(id);
             var node = ctx.Node(id);
             if (node == null) return;
 
@@ -218,9 +224,49 @@ namespace Ghost.Stages
                 RemoveBug(id);
                 return;
             }
-            if (ctx.detailPopup != null && ctx.picker != null)
-                ctx.detailPopup.ShowAtNode(ctx.picker, id, BugStageUtil.PhysicalTitle(node),
-                    BugStageUtil.PhysicalBody(ctx.detailTable, node));
+        }
+
+        // 右键查看详情；叶片下面的虫子同样按 ResolveBugTap 优先
+        bool ProvideInspect(int id, out string title, out string body)
+        {
+            title = body = null;
+            if (ctx.morpher != null && ctx.morpher.IsMorphing) return false;
+            var node = ctx.Node(ResolveBugTap(id));
+            if (node == null) return false;
+            title = BugStageUtil.PhysicalTitle(node);
+            body = BugStageUtil.PhysicalBody(ctx.detailTable, node);
+            return true;
+        }
+
+        // Geometric 形态下叶片很大，叶片的拾取球（半径约 6 cm）把贴在它上面的虫子（距叶心 1–2 cm）整个包住，
+        // NodePicker 总是先命中叶片，虫子永远点不到。这里在本关内修正：点到的不是虫子时，沿同一条射线只找虫子，
+        // 满足下面两条就算点到虫子：
+        //   ① 虫背朝向相机（虫子在叶背，背 = 节点 up；要把叶背转过来才点得到）；
+        //   ② 射线上没有别的节点（除了它所在的叶片）明显挡在前面。
+        int ResolveBugTap(int tappedId)
+        {
+            var tapped = ctx.Node(tappedId);
+            if (tapped == null || tapped.organ == Organ.Bug || ctx.picker == null || ctx.pointer == null) return tappedId;
+            var morpher = ctx.morpher;
+            var poses = morpher.CurrentPoses;
+            var set = morpher.nodeSet;
+            if (poses == null || set == null) return tappedId;
+            Ray ray = ctx.pointer.CurrentRay;
+            Transform t = morpher.transform;
+
+            int bug = ctx.picker.Pick(ray, i =>
+            {
+                if (set.nodes[i].organ != Organ.Bug || removed.Contains(i)) return false;
+                Vector3 up = t.rotation * (poses[i].rotation * Vector3.up);
+                Vector3 toEye = ray.origin - t.TransformPoint(poses[i].position);
+                return Vector3.Dot(up, toEye.normalized) >= bugFacingThreshold;
+            }, out float bugDist);
+            if (bug < 0) return tappedId;
+
+            int parent = set.nodes[bug].parentId;
+            int blocker = ctx.picker.Pick(ray, i => i != parent && set.nodes[i].organ != Organ.Bug, out float blockDist);
+            if (blocker >= 0 && blockDist < bugDist - occluderMargin) return tappedId;
+            return bug;
         }
 
         // 摘除：节点闪一下并缩小隐藏（G3 Hide 动画，虫子模型跟着缩没），写实度上升一档
@@ -255,7 +301,7 @@ namespace Ghost.Stages
         void SetupTaskPanel()
         {
             if (ctx.taskPanel == null) return;
-            ctx.taskPanel.Show();
+            ctx.ShowTaskPanel();
             ctx.taskPanel.SetTitle("S4 · 手动除虫");
             // 【占位】玩家亲手操作，Agent 不再代理
             ctx.taskPanel.SetModeLabel("MANUAL");

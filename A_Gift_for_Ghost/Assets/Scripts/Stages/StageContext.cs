@@ -29,6 +29,8 @@ namespace Ghost.Stages
         public TargetRotator rotator;
 
         [Header("Agent 界面（G4）")]
+        [Tooltip("任务面板暂不使用：false 时各阶段调 ShowTaskPanel() 不会显示（代码保留，以后再开）")]
+        public bool showTaskPanel = false;
         public AgentTaskPanel taskPanel;
         public NodeDetailPopup detailPopup;
         public AgentQueryDialog query;
@@ -37,16 +39,83 @@ namespace Ghost.Stages
         public DialoguePlayer dialogue;
         public NodeDetailTable detailTable;
 
+        [Header("点击反馈")]
+        [Tooltip("左键点中节点时的脉冲：瞬间亮到 pulseColor，再在这么多秒内回落")]
+        public float tapPulseDuration = 0.6f;
+        public Color tapPulseColor = Color.white;
+
         [Tooltip("节点显示缩放小于这个值时不参与拾取（被 Hide 的节点、写实交接时缩没的节点）")]
         [Range(0f, 1f)] public float minPickVisibility = 0.5f;
 
         // 默认拾取筛选：跳过隐藏节点。阶段需要额外筛选时用 SetPickFilter，离开时 ResetShared 会恢复默认
         public Func<int, bool> DefaultFilter { get; private set; }
 
+        // 右键查看详情：当前阶段提供标题和正文（返回 false = 这个节点不显示详情）。阶段 Enter 时设置，ResetShared 清空
+        public delegate bool InspectProvider(int id, out string title, out string body);
+        InspectProvider inspectProvider;
+        // 右键查看了某个节点（S2 "已查看果实"用）
+        public event Action<int> Inspected;
+
         void Awake()
         {
             DefaultFilter = IsNodeVisible;
             if (picker != null) picker.Filter = DefaultFilter;
+        }
+
+        void OnEnable()
+        {
+            if (pointer == null) return;
+            pointer.Tap += HandleTapPulse;
+            pointer.InspectStart += HandleInspectStart;
+            pointer.InspectEnd += HandleInspectEnd;
+        }
+
+        void OnDisable()
+        {
+            if (pointer == null) return;
+            pointer.Tap -= HandleTapPulse;
+            pointer.InspectStart -= HandleInspectStart;
+            pointer.InspectEnd -= HandleInspectEnd;
+        }
+
+        // 所有阶段统一的左键点击反馈
+        void HandleTapPulse(int id)
+        {
+            if (morpher != null && tapPulseDuration > 0f) morpher.Pulse(id, tapPulseDuration, tapPulseColor);
+        }
+
+        // 阶段设置右键详情内容；传 null 关闭右键详情
+        public void SetInspectProvider(InspectProvider provider)
+        {
+            inspectProvider = provider;
+        }
+
+        void HandleInspectStart(int id)
+        {
+            if (inspectProvider == null || detailPopup == null) return;
+            if (!inspectProvider(id, out string title, out string body)) return;
+            detailPopup.Show(id, title, body);
+            Inspected?.Invoke(id);
+        }
+
+        void HandleInspectEnd()
+        {
+            if (detailPopup != null) detailPopup.Release();
+        }
+
+        // 详情弹窗正在显示时刷新文字（内容随问题状态变化）
+        public void RefreshInspect()
+        {
+            if (inspectProvider == null || detailPopup == null || !detailPopup.Visible || detailPopup.NodeId < 0) return;
+            if (inspectProvider(detailPopup.NodeId, out string title, out string body)) detailPopup.SetText(title, body);
+        }
+
+        // 尊重 showTaskPanel 开关
+        public void ShowTaskPanel()
+        {
+            if (taskPanel == null) return;
+            if (showTaskPanel) taskPanel.Show();
+            else taskPanel.Hide();
         }
 
         public bool IsNodeVisible(int id)
@@ -91,6 +160,7 @@ namespace Ghost.Stages
                 taskPanel.Hide();
             }
             if (picker != null) picker.Filter = DefaultFilter;
+            inspectProvider = null;
         }
 
         // 在某个形态的布局里，找离归一化位置（0–1，按该形态所有节点的 XY 包围盒）最近的节点。

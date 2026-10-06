@@ -50,6 +50,43 @@ namespace Ghost.Agent
             return canvas;
         }
 
+        // ---- 比赛期间的 HUD（Screen Space Overlay）----
+        // 【技术债】AGENTS.md 第 5 节要求 World Space；比赛期间经用户批准改为 HUD，赛后改回 World Space（见 PROJECT_SUMMARY）
+        public static readonly Vector2 HudReference = new Vector2(1920f, 1080f);
+        // HUD 左侧栏（Agent 信息 / 详情）的宽度和边距（参考分辨率像素），PlantFit 按它给植株让出位置
+        public const float HudLeftColumnWidth = 520f;
+        public const float HudMargin = 40f;
+
+        // 新建一个 Screen Space Overlay Canvas，CanvasScaler 按 1920×1080 缩放（宽高按 0.5 混合）
+        public static Canvas CreateHudCanvas(string name, Transform parent, int sortingOrder)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            if (parent != null) go.transform.SetParent(parent, false);
+            var canvas = go.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            canvas.sortingOrder = sortingOrder;
+            var scaler = go.AddComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = HudReference;
+            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            scaler.matchWidthOrHeight = 0.5f;
+            go.AddComponent<GraphicRaycaster>();
+            return canvas;
+        }
+
+        // HUD 上的子矩形：anchor 和 pivot 都是 anchorPivot（比如左上 (0,1)），position 是相对锚点的像素偏移
+        public static RectTransform CreateAnchored(string name, Transform parent, Vector2 anchorPivot, Vector2 position, Vector2 size)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = rect.anchorMax = anchorPivot;
+            rect.pivot = anchorPivot;
+            rect.anchoredPosition = position;
+            rect.sizeDelta = size;
+            return rect;
+        }
+
         // Canvas 朝向：和相机画面平行（forward = 相机朝向，up 取世界竖直），平面屏幕上不会出现梯形变形和倾斜。
         // 固定相机下只在构建时算一次；VR 版如需改为朝向头部，在这里统一改
         public static Quaternion FacingRotation(Vector3 position, Transform viewer)

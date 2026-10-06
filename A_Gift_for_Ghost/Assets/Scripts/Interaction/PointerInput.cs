@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace Ghost.Interaction
@@ -13,6 +14,7 @@ namespace Ghost.Interaction
     //   从节点上按下并移动超过阈值 → DragStart(nodeId)，之后每进入一个新节点 → DragOver(nodeId)，松开 → DragEnd()
     //   从空白处按下并移动超过阈值 → 每帧 DragEmpty(像素增量)，松开 → DragEmptyEnd()
     //   按下和松开都在同一个 IInteractable 上 → 调它的 OnTap()，并发 InteractableTapped
+    //   Inspect（右键）按下时指针下有节点 → InspectStart(nodeId)；松开 → InspectEnd()（查看详情用，和左键手势互不影响）
     public class PointerInput : MonoBehaviour
     {
         [Tooltip("发射线的相机（固定相机）。交互物体本身不做射线检测")]
@@ -35,6 +37,9 @@ namespace Ghost.Interaction
         public LayerMask physicsMask = ~0;
         public float maxDistance = 20f;
 
+        [Tooltip("指针在 UGUI（HUD）上时不拾取节点、不开始手势（比赛期间的 Screen Space HUD，见 PROJECT_SUMMARY 技术债）")]
+        public bool blockWhenOverUI = true;
+
         // ---- 事件 ----
         public event Action<int> Tap;
         public event Action<int> DragStart;
@@ -45,6 +50,9 @@ namespace Ghost.Interaction
         // 指针下的节点变化（-1 = 没有节点）。只用于高亮
         public event Action<int> HoverChanged;
         public event Action<IInteractable> InteractableTapped;
+        // 右键（Inspect 动作）在节点上按下 / 松开。InspectEnd 只在之前发过 InspectStart 时发出
+        public event Action<int> InspectStart;
+        public event Action InspectEnd;
 
         // ---- 状态 ----
         public Vector2 PointerPosition { get; private set; }
@@ -56,6 +64,8 @@ namespace Ghost.Interaction
         public bool IsPressed { get; private set; }
         public bool IsDraggingNode => gesture == Gesture.NodeDrag;
         public bool IsDraggingEmpty => gesture == Gesture.EmptyDrag;
+        // 正在右键查看的节点（-1 = 没有）
+        public int InspectingNode { get; private set; } = -1;
 
         // 阶段用来整体开关指针输入。关闭时会结束正在进行的拖拽（发出 DragEnd / DragEmptyEnd）并清掉悬停
         public bool InputEnabled
@@ -75,6 +85,7 @@ namespace Ghost.Interaction
         InputActionMap map;
         InputAction pointAction;
         InputAction selectAction;
+        InputAction inspectAction;
 
         Gesture gesture;
         Vector2 pressPosition;
@@ -94,6 +105,8 @@ namespace Ghost.Interaction
             map = actions.FindActionMap(mapName, throwIfNotFound: true);
             pointAction = map.FindAction("Point", throwIfNotFound: true);
             selectAction = map.FindAction("Select", throwIfNotFound: true);
+            inspectAction = map.FindAction("Inspect", throwIfNotFound: false);
+            if (inspectAction == null) Debug.LogWarning("[Pointer] Gameplay 动作表里没有 Inspect，右键查看详情不可用", this);
             map.Enable();
         }
 
@@ -120,14 +133,22 @@ namespace Ghost.Interaction
             bool pressedThisFrame = selectAction.WasPressedThisFrame();
             bool releasedThisFrame = selectAction.WasReleasedThisFrame();
 
-            if (pressedThisFrame && gesture == Gesture.None) BeginPress(position);
+            bool overUI = IsPointerOverUI();
+            if (pressedThisFrame && gesture == Gesture.None)
+            {
+                // 在 HUD 上按下：这次按压整体作废，不点节点也不旋转
+                if (overUI) { gesture = Gesture.Blocked; pressNode = -1; pressInteractable = null; pressPosition = position; }
+                else BeginPress(position);
+            }
 
             if (gesture != Gesture.None) UpdateGesture(position);
 
             if (releasedThisFrame && gesture != Gesture.None) EndPress(position);
 
             IsPressed = gesture != Gesture.None;
-            UpdateHover();
+            UpdateInspect(overUI);
+            if (overUI) SetHover(-1, null);
+            else UpdateHover();
             lastPosition = position;
         }
 
@@ -242,6 +263,35 @@ namespace Ghost.Interaction
             ResetGesture();
         }
 
+        bool IsPointerOverUI()
+        {
+            if (!blockWhenOverUI) return false;
+            var es = EventSystem.current;
+            return es != null && es.IsPointerOverGameObject();
+        }
+
+        void UpdateInspect(bool overUI)
+        {
+            if (inspectAction == null) return;
+            if (inspectAction.WasPressedThisFrame() && !overUI)
+            {
+                Raycast(CurrentRay, out int node, out _, out _);
+                if (node >= 0)
+                {
+                    InspectingNode = node;
+                    InspectStart?.Invoke(node);
+                }
+            }
+            if (inspectAction.WasReleasedThisFrame()) EndInspect();
+        }
+
+        void EndInspect()
+        {
+            if (InspectingNode < 0) return;
+            InspectingNode = -1;
+            InspectEnd?.Invoke();
+        }
+
         void UpdateHover()
         {
             int node;
@@ -279,6 +329,7 @@ namespace Ghost.Interaction
         {
             if (gesture == Gesture.NodeDrag) DragEnd?.Invoke();
             else if (gesture == Gesture.EmptyDrag) DragEmptyEnd?.Invoke();
+            EndInspect();
             ResetGesture();
             IsPressed = false;
             SetHover(-1, null);

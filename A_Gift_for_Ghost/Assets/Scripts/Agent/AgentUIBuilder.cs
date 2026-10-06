@@ -1,12 +1,13 @@
-using Ghost.Interaction;
 using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
 
 namespace Ghost.Agent
 {
-    // 用代码生成三个 Agent 界面的完整层级（Canvas、文字、按钮、Collider），并填好组件引用。
-    // 编辑器菜单（生成场景）和运行时都能调用。默认摆放按主场景的固定相机设计：
-    // 相机在 (0, 1.6, -1.9)，植株在原点、台面 0.75 m。
+    // 用代码生成三个 Agent 界面的完整层级（Canvas、文字、按钮），并填好组件引用。编辑器菜单和运行时都能调用。
+    // 【技术债】比赛期间：详情弹窗、询问框、任务面板都是 Screen Space Overlay HUD（1920×1080 参考），
+    // 赛后改回 World Space（AGENTS.md 第 5 节）。任务面板暂不使用（StageContext.showTaskPanel = false）。
     //
     //   var ui = AgentUIBuilder.BuildAll(null, camera);
     //   ui.taskPanel.SetTasks(...); ui.query.Ask("...", () => ...);
@@ -20,24 +21,33 @@ namespace Ghost.Agent
             public AgentQueryDialog query;
         }
 
-        // 任务面板：植株左侧，离相机约 1.5 m（面板顶边位置）
-        public static readonly Vector3 DefaultTaskPanelPosition = new Vector3(-0.84f, 1.46f, -0.6f);
-        // 询问框：植株右侧，离相机约 1.4 m，在植株前面（Yes 按钮的 Collider 比节点近，不会被挡），不遮住植株和详情弹窗
-        public static readonly Vector3 DefaultQueryPosition = new Vector3(0.82f, 1.26f, -0.6f);
+        // 叠放顺序：字幕 / Agent 剧情弹窗 200（NarrativeSceneBuilder）< 任务面板 205 < 详情 210 < 询问框 220
+        public const int TaskPanelSortingOrder = 205;
+        public const int PopupSortingOrder = 210;
+        public const int QuerySortingOrder = 220;
 
-        // 叠放顺序：任务面板 0 < 详情弹窗 < 询问框
-        public const int PopupSortingOrder = 10;
-        public const int QuerySortingOrder = 20;
+        // 询问框：屏幕右侧中部（左侧栏留给 Agent 信息 / 详情）
+        public static readonly Vector2 DefaultQueryOffset = new Vector2(-AgentUIStyle.HudMargin, 0f);
 
         public static AgentUI BuildAll(Transform parent, Camera camera)
         {
             var root = new GameObject("AgentUI");
             if (parent != null) root.transform.SetParent(parent, false);
             var ui = new AgentUI { root = root };
-            ui.taskPanel = BuildTaskPanel(root.transform, camera, DefaultTaskPanelPosition);
+            ui.taskPanel = BuildTaskPanel(root.transform, camera, Vector3.zero);
             ui.detailPopup = BuildDetailPopup(root.transform, camera);
-            ui.query = BuildQueryDialog(root.transform, camera, DefaultQueryPosition);
+            ui.query = BuildQueryDialog(root.transform, camera, Vector3.zero);
+            EnsureEventSystem();
             return ui;
+        }
+
+        // HUD 按钮需要 EventSystem + InputSystemUIInputModule（新输入系统，默认 UI 动作表）
+        public static void EnsureEventSystem()
+        {
+            if (Object.FindAnyObjectByType<EventSystem>() != null) return;
+            var go = new GameObject("EventSystem");
+            go.AddComponent<EventSystem>();
+            go.AddComponent<InputSystemUIInputModule>();
         }
 
         // ---- 任务面板 ----
@@ -47,9 +57,10 @@ namespace Ghost.Agent
             var host = NewInactiveHost("AgentTaskPanel", parent);
             var p = host.AddComponent<AgentTaskPanel>();
 
-            var canvas = AgentUIStyle.CreateWorldCanvas("Canvas", host.transform, camera, position,
-                new Vector2(p.width, 400f), new Vector2(0.5f, 1f));
-            var panel = (RectTransform)canvas.transform;
+            // HUD 左上角（和详情、Agent 剧情弹窗同一栏；暂时隐藏不用）。position 参数留给赛后的 World Space 版本
+            var canvas = AgentUIStyle.CreateHudCanvas("Canvas", host.transform, TaskPanelSortingOrder);
+            var panel = AgentUIStyle.CreateAnchored("Panel", canvas.transform, new Vector2(0f, 1f),
+                new Vector2(AgentUIStyle.HudMargin, -AgentUIStyle.HudMargin), new Vector2(p.width, 400f));
             AgentUIStyle.AddFramedBackground(panel, AgentUIStyle.PanelFill, AgentUIStyle.PanelBorder, 2f);
 
             // 左上角的小方块 + 标题行
@@ -91,22 +102,16 @@ namespace Ghost.Agent
             var host = NewInactiveHost("NodeDetailPopup", parent);
             var p = host.AddComponent<NodeDetailPopup>();
 
-            var canvas = AgentUIStyle.CreateWorldCanvas("Canvas", host.transform, camera, Vector3.zero,
-                new Vector2(p.width, 200f), new Vector2(0f, 0.5f));
-            var panel = (RectTransform)canvas.transform;
-            // 弹窗压在任务面板之上（World Space Canvas 同层时 sortingOrder 生效）
-            canvas.sortingOrder = PopupSortingOrder;
+            var canvas = AgentUIStyle.CreateHudCanvas("Canvas", host.transform, PopupSortingOrder);
+            var panel = AgentUIStyle.CreateAnchored("Panel", canvas.transform, new Vector2(0f, 1f),
+                p.topLeft, new Vector2(p.width, 160f));
+            var group = panel.gameObject.AddComponent<CanvasGroup>();
+            group.blocksRaycasts = false;
+            group.interactable = false;
 
-            // 引线和锚点方块先建，画在弹窗下面
-            var leader = AgentUIStyle.CreateRect("Leader", panel, Vector2.zero, new Vector2(100f, 3f));
-            AgentUIStyle.AddImage(leader, AgentUIStyle.BlueGray);
-            var dot = AgentUIStyle.CreateRect("AnchorDot", panel, Vector2.zero, new Vector2(18f, 18f));
-            AgentUIStyle.AddImage(dot, AgentUIStyle.BlueGray);
-            AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Hole", dot, 4f), AgentUIStyle.PanelFill);
-
-            var box = AgentUIStyle.CreateRect("Box", panel, Vector2.zero, new Vector2(p.width, 200f));
+            var box = AgentUIStyle.CreateRect("Box", panel, Vector2.zero, new Vector2(p.width, 160f));
             AgentUIStyle.AddFramedBackground(box, AgentUIStyle.PanelFill, AgentUIStyle.PanelBorder, 2f);
-            // 左侧蓝灰色竖条，和任务面板的方块呼应
+            // 左侧蓝灰色竖条
             var bar = AgentUIStyle.CreateRect("Accent", box, Vector2.zero, new Vector2(6f, 0f));
             bar.anchorMin = new Vector2(0f, 0f);
             bar.anchorMax = new Vector2(0f, 1f);
@@ -114,59 +119,66 @@ namespace Ghost.Agent
             bar.offsetMax = new Vector2(8f, -2f);
             AgentUIStyle.AddImage(bar, AgentUIStyle.BlueGray);
 
-            var titleRect = AgentUIStyle.CreateRect("Title", box, Vector2.zero, new Vector2(100f, 48f));
-            var title = AgentUIStyle.AddText(titleRect, "", 42, AgentUIStyle.Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var titleRect = AgentUIStyle.CreateRect("Title", box, Vector2.zero, new Vector2(100f, 40f));
+            var title = AgentUIStyle.AddText(titleRect, "", 28, AgentUIStyle.Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
             var bodyRect = AgentUIStyle.CreateRect("Body", box, Vector2.zero, new Vector2(100f, 100f));
-            var body = AgentUIStyle.AddText(bodyRect, "", 38, AgentUIStyle.Ink, TextAnchor.UpperLeft);
-            body.lineSpacing = 1.1f;
+            var body = AgentUIStyle.AddText(bodyRect, "", 24, AgentUIStyle.Gray, TextAnchor.UpperLeft);
+            body.lineSpacing = 1.15f;
 
-            p.viewCamera = camera;
             p.panel = panel;
             p.box = box;
             p.titleLabel = title;
             p.bodyLabel = body;
-            p.leader = leader;
-            p.anchorDot = dot;
+            p.group = group;
+            p.stackBelow = FindAgentMessageRect();
             host.SetActive(true);
             return p;
         }
 
-        // ---- AI 询问框 ----
+        // Agent 剧情弹窗（NarrativeSceneBuilder 建的 DialogueHUD/AgentMessage）；详情和它同时出现时放在它下方
+        static RectTransform FindAgentMessageRect()
+        {
+            var subtitle = Object.FindAnyObjectByType<Ghost.Narrative.SubtitlePanel>(FindObjectsInactive.Include);
+            return subtitle != null && subtitle.agentRoot != null ? subtitle.agentRoot.transform as RectTransform : null;
+        }
+
+        // ---- 询问框 ----
 
         public static AgentQueryDialog BuildQueryDialog(Transform parent, Camera camera, Vector3 position)
         {
             var host = NewInactiveHost("AgentQueryDialog", parent);
             var q = host.AddComponent<AgentQueryDialog>();
 
-            var canvas = AgentUIStyle.CreateWorldCanvas("Canvas", host.transform, camera, position,
-                new Vector2(q.width, 320f), new Vector2(0.5f, 0.5f));
-            var panel = (RectTransform)canvas.transform;
-            canvas.sortingOrder = QuerySortingOrder;
+            // HUD 屏幕右侧中部。position 参数留给赛后的 World Space 版本
+            var canvas = AgentUIStyle.CreateHudCanvas("Canvas", host.transform, QuerySortingOrder);
+            var panel = AgentUIStyle.CreateAnchored("Panel", canvas.transform, new Vector2(1f, 0.5f),
+                DefaultQueryOffset, new Vector2(q.width, 260f));
             AgentUIStyle.AddFramedBackground(panel, AgentUIStyle.PanelFill, AgentUIStyle.PanelBorder, 3f);
 
             var tick = AgentUIStyle.CreateRect("Tick", panel, new Vector2(q.padding, -q.padding - 9f), new Vector2(16f, 16f));
             AgentUIStyle.AddImage(tick, AgentUIStyle.BlueGray);
             var headerRect = AgentUIStyle.CreateRect("Header", panel, new Vector2(q.padding + 28f, -q.padding),
                 new Vector2(q.width - q.padding * 2f - 28f, 34f));
-            var header = AgentUIStyle.AddText(headerRect, q.header, 24, AgentUIStyle.Gray, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var header = AgentUIStyle.AddText(headerRect, q.header, 20, AgentUIStyle.Gray, TextAnchor.MiddleLeft, FontStyle.Bold);
 
             var questionRect = AgentUIStyle.CreateRect("Question", panel, Vector2.zero, new Vector2(100f, 60f));
-            var question = AgentUIStyle.AddText(questionRect, "", 38, AgentUIStyle.Ink, TextAnchor.UpperLeft);
+            var question = AgentUIStyle.AddText(questionRect, "", 30, AgentUIStyle.Ink, TextAnchor.UpperLeft);
             question.lineSpacing = 1.1f;
 
-            // Yes 按钮：深色块 + 反白字 + BoxCollider + InteractableButton
+            // Yes 按钮：深色块 + 反白字，UGUI Button（EventSystem 点击）
             var buttonRect = AgentUIStyle.CreateRect("YesButton", panel, Vector2.zero, new Vector2(q.buttonWidth, q.buttonHeight));
             var buttonImage = AgentUIStyle.AddImage(buttonRect, q.buttonColor);
-            var collider = buttonRect.gameObject.AddComponent<BoxCollider>();
-            var button = buttonRect.gameObject.AddComponent<InteractableButton>();
+            buttonImage.raycastTarget = true;
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = buttonImage;
+            button.transition = Selectable.Transition.None;
             var yesRect = AgentUIStyle.CreateStretch("Label", buttonRect);
-            var yes = AgentUIStyle.AddText(yesRect, q.yesText, 40, q.buttonTextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            var yes = AgentUIStyle.AddText(yesRect, q.yesText, 30, q.buttonTextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
 
             q.panel = panel;
             q.headerLabel = header;
             q.questionLabel = question;
             q.yesButton = button;
-            q.yesCollider = collider;
             q.yesBackground = buttonImage;
             q.yesLabel = yes;
             question.text = "（AI 询问）";

@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Ghost.Stages
 {
     // 教学和 S1 共用的"节点问题"阶段基类（第 4 节通用机制）：
-    // 点击节点 = 授权 Agent 尝试一次（NodeIssueSystem.TryAttempt），同时弹出节点详情（Status 深度）。
+    // 左键点击节点 = 授权 Agent 尝试一次（NodeIssueSystem.TryAttempt）；右键按住查看节点详情（Status 深度）。
     // Enter 订阅指针和问题事件，Exit 全部退订并清理（问题、闪烁、弹窗、询问框、对白），保证 N 键和 Shift + 数字跳关两个方向都干净。
     public abstract class IssueStage : Stage
     {
@@ -36,7 +36,8 @@ namespace Ghost.Stages
                 ctx.issues.IssueAttempted += HandleAttempted;
                 ctx.issues.IssueResolved += HandleResolved;
             }
-            if (ctx.taskPanel != null) ctx.taskPanel.Show();
+            ctx.SetInspectProvider(ProvideInspect);
+            ctx.ShowTaskPanel();
         }
 
         public override void Exit()
@@ -59,15 +60,13 @@ namespace Ghost.Stages
             if (!IsActive || ctx == null || ctx.detailPopup == null || !ctx.detailPopup.Visible) return;
             if (Time.time < nextPopupRefresh) return;
             nextPopupRefresh = Time.time + popupRefreshInterval;
-            int id = ctx.detailPopup.NodeId;
-            if (id >= 0) ctx.detailPopup.SetText(PopupTitle(id), PopupBody(id));
+            ctx.RefreshInspect();
         }
 
         void HandleTap(int id)
         {
             if (!IsActive) return;
             if (ctx.issues != null) ctx.issues.TryAttempt(id);
-            ShowPopup(id);
             OnNodeTapped(id);
         }
 
@@ -85,11 +84,12 @@ namespace Ghost.Stages
         protected virtual void OnIssueAttempted(NodeIssue issue, bool solved) { }
         protected virtual void OnIssueResolved(NodeIssue issue) { }
 
-        protected void ShowPopup(int id)
+        bool ProvideInspect(int id, out string title, out string body)
         {
-            if (ctx.detailPopup == null || ctx.picker == null) return;
             nextPopupRefresh = Time.time + popupRefreshInterval;
-            ctx.detailPopup.ShowAtNode(ctx.picker, id, PopupTitle(id), PopupBody(id));
+            title = PopupTitle(id);
+            body = PopupBody(id);
+            return true;
         }
 
         protected virtual string PopupTitle(int id)

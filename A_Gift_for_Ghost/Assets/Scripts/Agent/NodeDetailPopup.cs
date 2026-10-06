@@ -1,52 +1,46 @@
-using Ghost.Interaction;
 using UnityEngine;
 using UnityEngine.UI;
 
 namespace Ghost.Agent
 {
-    // 节点详情弹窗（World Space）。显示在被点节点的侧面，用一条细引线连回节点，不挡住节点本身。
-    // 正对相机（只在位置变化时重算朝向，固定相机下完全不抖）；节点在画面右半边时自动翻到左侧。
-    // 没有 Collider，不挡指针射线。
+    // 节点详情弹窗（比赛期间为 HUD，固定在屏幕左侧 Agent 栏）。
+    // 行为：右键按下 Show → 按住期间一直显示 → 松开 Release 后停留 lingerSeconds → CanvasGroup 淡出后隐藏。
+    // 和 Agent 剧情弹窗（AgentMessagePanel）同时出现时，放在它下方，不叠在一起（见 stackBelow）。
+    // 不挡指针射线（文字和底板都不接收 UI 射线）。
+    // 【技术债】赛后改回 World Space（AGENTS.md 第 5 节）
     public class NodeDetailPopup : MonoBehaviour
     {
         [Header("引用（AgentUIBuilder 会填好）")]
-        public Camera viewCamera;
         public RectTransform panel;
         public RectTransform box;
         public Text titleLabel;
         public Text bodyLabel;
-        public RectTransform leader;
-        public RectTransform anchorDot;
+        public CanvasGroup group;
+        [Tooltip("可选：显示时如果它可见，就把详情放在它下方")]
+        public RectTransform stackBelow;
 
-        [Header("摆放（米）")]
-        [Tooltip("弹窗离节点的横向距离（沿相机右方向）")]
-        public float sideOffset = 0.1f;
-        [Tooltip("往相机方向拉近（米），字更大，也不会和周围节点穿插")]
-        public float towardCamera = 0.35f;
-        [Tooltip("节点在画面右半边时翻到左侧")]
-        public bool autoFlip = true;
-        [Tooltip("只绕竖直轴转向相机；关掉时和相机画面平行（PC 固定相机推荐）")]
-        public bool yawOnly = false;
+        [Header("摆放（参考分辨率像素，左上角锚定）")]
+        public Vector2 topLeft = new Vector2(AgentUIStyle.HudMargin, -AgentUIStyle.HudMargin);
+        public float stackGap = 16f;
 
-        [Header("尺寸（像素，1000 px = 1 m）")]
-        public float width = 520f;
-        public float padding = 24f;
-        public float titleHeight = 56f;
-        public float titleBodyGap = 10f;
+        [Header("尺寸（像素）")]
+        public float width = AgentUIStyle.HudLeftColumnWidth;
+        public float padding = 20f;
+        public float titleHeight = 40f;
+        public float titleBodyGap = 6f;
 
         [Header("行为")]
-        [Tooltip("显示多少秒后自动隐藏，0 = 不自动隐藏")]
-        public float autoHideSeconds = 0f;
+        [Tooltip("松开右键后停留多久再淡出（秒），2–3 s")]
+        [Range(0f, 5f)] public float lingerSeconds = 2.5f;
+        [Tooltip("淡出时长（秒）")]
+        public float fadeSeconds = 0.4f;
 
         public bool Visible => panel != null && panel.gameObject.activeSelf;
         public int NodeId { get; private set; } = -1;
+        // 正在按住（Release 之前）
+        public bool Held { get; private set; }
 
-        NodePicker followPicker;
-        Vector3 anchorWorld;
-        Vector3 lastPlacedAnchor;
-        Vector3 lastCameraPosition;
-        bool flipped;
-        float hideAt = -1f;
+        float releaseAt = -1f;
 
         void Awake()
         {
@@ -56,37 +50,40 @@ namespace Ghost.Agent
                 enabled = false;
                 return;
             }
-            if (viewCamera == null) viewCamera = Camera.main;
+            if (group == null) group = panel.GetComponent<CanvasGroup>();
             panel.gameObject.SetActive(false);
         }
 
-        // 在世界坐标 worldPos（节点位置）旁边显示
-        public void Show(Vector3 worldPos, string title, string body)
+        // 显示节点 nodeId 的详情（右键按下时调用）。之后调 Release 开始倒计时
+        public void Show(int nodeId, string title, string body)
         {
-            followPicker = null;
-            NodeId = -1;
-            Open(worldPos, title, body);
+            if (!enabled) return;
+            NodeId = nodeId;
+            Held = true;
+            releaseAt = -1f;
+            panel.gameObject.SetActive(true);
+            if (group != null) group.alpha = 1f;
+            SetText(title, body);
+            Place();
         }
 
-        // 显示在节点 id 旁边，并在节点移动时（变形中）跟随。拿不到位置时返回 false
-        public bool ShowAtNode(NodePicker picker, int nodeId, string title, string body)
+        // 右键松开：停留 lingerSeconds 后淡出
+        public void Release()
         {
-            if (picker == null || !picker.TryGetNodeWorldPosition(nodeId, out Vector3 pos)) return false;
-            followPicker = picker;
-            NodeId = nodeId;
-            Open(pos, title, body);
-            return true;
+            if (!Visible || !Held) return;
+            Held = false;
+            releaseAt = Time.time;
         }
 
         public void Hide()
         {
-            followPicker = null;
             NodeId = -1;
-            hideAt = -1f;
+            Held = false;
+            releaseAt = -1f;
             if (panel != null) panel.gameObject.SetActive(false);
         }
 
-        // 只改文字，不动位置（比如同一节点的进度在变）
+        // 只改文字（比如同一节点的进度在变）
         public void SetText(string title, string body)
         {
             titleLabel.text = title ?? "";
@@ -94,92 +91,25 @@ namespace Ghost.Agent
             Resize();
         }
 
-        void Open(Vector3 worldPos, string title, string body)
-        {
-            if (!enabled) return;
-            anchorWorld = worldPos;
-            panel.gameObject.SetActive(true);
-            SetText(title, body);
-            // 在一次显示内固定左右侧，节点跟随时不来回翻
-            flipped = autoFlip && IsOnRightHalf(worldPos);
-            Place(true);
-            hideAt = autoHideSeconds > 0f ? Time.time + autoHideSeconds : -1f;
-        }
-
         void LateUpdate()
         {
             if (!Visible) return;
-            if (hideAt > 0f && Time.time >= hideAt)
-            {
-                Hide();
-                return;
-            }
-            if (followPicker != null && followPicker.TryGetNodeWorldPosition(NodeId, out Vector3 pos)) anchorWorld = pos;
-            Place(false);
+            Place();
+            if (Held || releaseAt < 0f) return;
+            float t = Time.time - releaseAt - lingerSeconds;
+            if (t < 0f) return;
+            float a = fadeSeconds > 0f ? 1f - t / fadeSeconds : 0f;
+            if (a <= 0f) { Hide(); return; }
+            if (group != null) group.alpha = a;
         }
 
-        static Quaternion YawRotation(Vector3 forward, Transform cam)
+        // 左上角；Agent 剧情弹窗可见时放到它下方
+        void Place()
         {
-            forward.y = 0f;
-            if (forward.sqrMagnitude < 1e-6f) forward = cam.forward;
-            return Quaternion.LookRotation(forward, Vector3.up);
-        }
-
-        bool IsOnRightHalf(Vector3 worldPos)
-        {
-            if (viewCamera == null) return false;
-            return viewCamera.WorldToViewportPoint(worldPos).x > 0.5f;
-        }
-
-        void Place(bool force)
-        {
-            if (viewCamera == null) return;
-            var cam = viewCamera.transform;
-            if (!force && (anchorWorld - lastPlacedAnchor).sqrMagnitude < 1e-8f
-                && (cam.position - lastCameraPosition).sqrMagnitude < 1e-8f) return;
-            lastPlacedAnchor = anchorWorld;
-            lastCameraPosition = cam.position;
-
-            Vector3 toCamera = cam.position - anchorWorld;
-            Vector3 right = Vector3.Cross(Vector3.up, -toCamera).normalized;
-            if (right.sqrMagnitude < 1e-6f) right = cam.right;
-            float side = flipped ? -1f : 1f;
-
-            // 引线和锚点方块放在 Canvas 本地坐标里：节点在 pivot 侧外 sideOffset 处
-            Vector3 position = anchorWorld + right * (sideOffset * side) + toCamera.normalized * towardCamera;
-            panel.position = position;
-            panel.rotation = yawOnly ? YawRotation(position - cam.position, cam)
-                : AgentUIStyle.FacingRotation(position, cam);
-
-            panel.pivot = new Vector2(flipped ? 1f : 0f, 0.5f);
-            box.anchorMin = box.anchorMax = new Vector2(flipped ? 1f : 0f, 0.5f);
-            box.pivot = new Vector2(flipped ? 1f : 0f, 0.5f);
-            box.anchoredPosition = Vector2.zero;
-
-            // 节点在 Canvas 平面上的投影（沿相机视线），引线端点在画面上正好落在节点上
-            Vector3 onPlane = anchorWorld;
-            Vector3 viewDir = anchorWorld - cam.position;
-            float denom = Vector3.Dot(viewDir, panel.forward);
-            if (Mathf.Abs(denom) > 1e-5f)
-                onPlane = cam.position + viewDir * (Vector3.Dot(position - cam.position, panel.forward) / denom);
-            Vector3 local = panel.InverseTransformPoint(onPlane);
-            var nodeLocal = new Vector2(local.x, local.y);
-            if (leader != null)
-            {
-                Vector2 start = Vector2.zero;
-                Vector2 d = nodeLocal - start;
-                leader.anchorMin = leader.anchorMax = panel.pivot;
-                leader.pivot = new Vector2(0f, 0.5f);
-                leader.anchoredPosition = start;
-                leader.sizeDelta = new Vector2(d.magnitude, leader.sizeDelta.y);
-                leader.localRotation = Quaternion.Euler(0f, 0f, Mathf.Atan2(d.y, d.x) * Mathf.Rad2Deg);
-            }
-            if (anchorDot != null)
-            {
-                anchorDot.anchorMin = anchorDot.anchorMax = panel.pivot;
-                anchorDot.pivot = new Vector2(0.5f, 0.5f);
-                anchorDot.anchoredPosition = nodeLocal;
-            }
+            Vector2 pos = topLeft;
+            if (stackBelow != null && stackBelow.gameObject.activeInHierarchy)
+                pos.y = stackBelow.anchoredPosition.y - stackBelow.rect.height - stackGap;
+            panel.anchoredPosition = pos;
         }
 
         // 高度随正文行数变化

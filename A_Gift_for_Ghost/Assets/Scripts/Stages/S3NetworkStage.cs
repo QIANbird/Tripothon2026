@@ -73,6 +73,7 @@ namespace Ghost.Stages
 
             CollectBugs();
             ApplyColors();
+            ctx.SetInspectProvider(ProvideInspect);
             SetupTaskPanel();
             ctx.Play(introSequence);
         }
@@ -129,9 +130,19 @@ namespace Ghost.Stages
                 ctx.morpher.SetHighlight(id, foundColor);
                 RefreshPanel();
             }
-            if (ctx.detailPopup != null && ctx.picker != null)
-                ctx.detailPopup.ShowAtNode(ctx.picker, id, PopupTitle(node), PopupBody(node));
+            ctx.RefreshInspect();
             TryFinish();
+        }
+
+        // 右键查看详情（左键仍然是标记虫子）
+        bool ProvideInspect(int id, out string title, out string body)
+        {
+            var node = ctx.Node(id);
+            title = body = null;
+            if (node == null || (ctx.morpher != null && ctx.morpher.IsMorphing)) return false;
+            title = PopupTitle(node);
+            body = PopupBody(node);
+            return true;
         }
 
         static string PopupTitle(PlantNode node) => BugStageUtil.PhysicalTitle(node);
@@ -145,7 +156,7 @@ namespace Ghost.Stages
         void SetupTaskPanel()
         {
             if (ctx.taskPanel == null) return;
-            ctx.taskPanel.Show();
+            ctx.ShowTaskPanel();
             ctx.taskPanel.SetTitle("S3 · 异常识别");
             ctx.taskPanel.SetModeLabel("FULL PROXY");
             // 【占位】任务名等策划替换

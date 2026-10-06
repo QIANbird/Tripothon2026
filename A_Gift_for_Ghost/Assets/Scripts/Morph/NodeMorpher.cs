@@ -39,6 +39,8 @@ namespace Ghost.Morph
 
         public MorphForm CurrentForm { get; private set; }
         public bool IsMorphing { get; private set; }
+        // 最近一次 MorphTo 的总时长（秒，含逐节点延迟）。MorphStarted 发出时已经是新值，PlantFit 用它同步过渡
+        public float MorphDuration => totalDuration;
 
         // 每帧插值后的节点姿态（本地空间）和连线参数，供 NodeLinkRenderer 等读取，不要修改
         public NodePose[] CurrentPoses => currentPoses;

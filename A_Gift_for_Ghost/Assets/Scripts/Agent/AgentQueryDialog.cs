@@ -1,21 +1,20 @@
 using System;
-using Ghost.Interaction;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Ghost.Agent
 {
-    // AI 询问框（World Space）：一句提问 + 一个 Yes 按钮。
-    // Yes 按钮是 InteractableButton + 贴合大小的 BoxCollider，由 G2 的 PointerInput 射线点击
-    // （以后 VR 换成手柄射线发起方，这里不用改）。点 Yes 后先隐藏，再回调 onYes 并发 Answered。
+    // AI 询问框：一句提问 + 一个 Yes 按钮。点 Yes 后先隐藏，再回调 onYes 并发 Answered。
+    // 【技术债】比赛期间是 Screen Space HUD，Yes 是 UGUI Button（EventSystem + InputSystemUIInputModule，走 UI 动作表）；
+    // 赛后改回 World Space，VR 版用 XR UI 射线点同一个 Button（AGENTS.md 第 5 节）。
     public class AgentQueryDialog : MonoBehaviour
     {
         [Header("引用（AgentUIBuilder 会填好）")]
         public RectTransform panel;
         public Text headerLabel;
         public Text questionLabel;
-        public InteractableButton yesButton;
-        public BoxCollider yesCollider;
+        public Button yesButton;
         public Image yesBackground;
         public Text yesLabel;
 
@@ -23,13 +22,13 @@ namespace Ghost.Agent
         public string header = "AGENT · QUERY";
         public string yesText = "YES";
 
-        [Header("尺寸（像素，1000 px = 1 m）")]
-        public float width = 620f;
-        public float padding = 36f;
-        public float headerHeight = 56f;
-        public float buttonHeight = 96f;
-        public float buttonWidth = 220f;
-        public float gap = 28f;
+        [Header("尺寸（HUD 参考分辨率像素）")]
+        public float width = 560f;
+        public float padding = 28f;
+        public float headerHeight = 40f;
+        public float buttonHeight = 64f;
+        public float buttonWidth = 180f;
+        public float gap = 22f;
 
         [Header("颜色")]
         public Color buttonColor = AgentUIStyle.Ink;
@@ -50,7 +49,7 @@ namespace Ghost.Agent
 
         void Awake()
         {
-            if (panel == null || questionLabel == null || yesButton == null || yesCollider == null)
+            if (panel == null || questionLabel == null || yesButton == null)
             {
                 Debug.LogError("[Agent] AgentQueryDialog 缺少界面引用，请用 AgentUIBuilder 生成", this);
                 enabled = false;
@@ -58,15 +57,25 @@ namespace Ghost.Agent
             }
             if (headerLabel != null) headerLabel.text = header;
             if (yesLabel != null) yesLabel.text = yesText;
-            yesButton.onTap.AddListener(OnYes);
-            yesButton.onHoverEnter.AddListener(() => SetHover(true));
-            yesButton.onHoverExit.AddListener(() => SetHover(false));
+            yesButton.onClick.AddListener(OnYes);
+            // 悬停变色：按钮上挂 EventTrigger
+            var trigger = yesButton.gameObject.GetComponent<EventTrigger>();
+            if (trigger == null) trigger = yesButton.gameObject.AddComponent<EventTrigger>();
+            AddTrigger(trigger, EventTriggerType.PointerEnter, () => SetHover(true));
+            AddTrigger(trigger, EventTriggerType.PointerExit, () => SetHover(false));
             panel.gameObject.SetActive(false);
         }
 
         void OnDestroy()
         {
-            if (yesButton != null) yesButton.onTap.RemoveListener(OnYes);
+            if (yesButton != null) yesButton.onClick.RemoveListener(OnYes);
+        }
+
+        static void AddTrigger(EventTrigger trigger, EventTriggerType type, Action action)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(_ => action());
+            trigger.triggers.Add(entry);
         }
 
         // 显示提问。再次调用会替换当前的提问和回调
@@ -109,7 +118,7 @@ namespace Ghost.Agent
             if (yesBackground != null) yesBackground.color = hover ? buttonHoverColor : buttonColor;
         }
 
-        // 按提问行数调整高度；按钮在底部居中，BoxCollider 跟按钮一样大。
+        // 按提问行数调整高度；按钮在底部居中。
         // 构建时（编辑器里）也调一次，场景里看到的布局和运行时一致
         public void Resize()
         {
@@ -128,9 +137,6 @@ namespace Ghost.Agent
             bRect.pivot = new Vector2(0.5f, 0f);
             bRect.anchoredPosition = new Vector2(0f, padding);
             bRect.sizeDelta = new Vector2(buttonWidth, buttonHeight);
-            // Collider 用按钮自身的本地坐标（像素，物体缩放 0.001 由 Canvas 继承），中心在矩形中心
-            yesCollider.size = new Vector3(buttonWidth, buttonHeight, 20f);
-            yesCollider.center = new Vector3(0f, buttonHeight * 0.5f, 0f);
         }
     }
 }

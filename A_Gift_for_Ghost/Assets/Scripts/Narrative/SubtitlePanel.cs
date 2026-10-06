@@ -3,39 +3,57 @@ using UnityEngine.UI;
 
 namespace Ghost.Narrative
 {
-    // World Space 字幕面板：订阅 DialoguePlayer，显示说话人名字和台词，颜色按说话人区分。
-    // 面板本身放在场景里玩家前方（由场景生成菜单摆放），不跟随鼠标、不依赖悬停。
-    // 文字用 UGUI Text + 内置动态字体（和 StagePanel 一样），中文由系统字体补字。
+    // 对白显示（比赛期间为 Screen Space HUD，【技术债】赛后改回 World Space）。按策划规则把台词分到两处：
+    //   字幕（屏幕下方一行小字，可折两行）：EmotionalFemale（署名"亲切的声音"）、Protagonist（暂按字幕、无署名，待策划确认）。
+    //     浅色背景用黑字；黑屏（blackout 不透明）时用白字。不加深色底板。
+    //   Agent 弹窗（屏幕左侧，带底板）：MechanicalFemale 和 Agent 都归这一类，署名"没有温度的声音"。
+    // 订阅 DialoguePlayer，不读输入。
     public class SubtitlePanel : MonoBehaviour
     {
+        public enum Channel { Subtitle, AgentPopup }
+
         [System.Serializable]
         public struct SpeakerStyle
         {
             public Speaker speaker;
-            [Tooltip("字幕上显示的名字；为空时不显示名字行")]
+            public Channel channel;
+            [Tooltip("署名；为空时不显示名字")]
             public string displayName;
-            public Color color;
         }
 
         public DialoguePlayer player;
-        [Tooltip("整个面板的根（含底板），没有台词时隐藏")]
+
+        [Header("字幕（屏幕下方）")]
+        [Tooltip("字幕根物体，没有台词时隐藏")]
         public GameObject root;
         public Text speakerLabel;
         public Text textLabel;
+        [Tooltip("可选：黑屏，不透明时字幕用白字")]
+        public ScreenBlackout blackout;
+        public Color lightBackgroundText = new Color(0.08f, 0.09f, 0.11f);
+        public Color darkBackgroundText = new Color(0.95f, 0.95f, 0.95f);
+
+        [Header("Agent 弹窗（屏幕左侧）")]
+        public GameObject agentRoot;
+        public Text agentSpeakerLabel;
+        public Text agentTextLabel;
+
         [Tooltip("打字机效果的速度（字 / 秒）；0 = 一次显示整句")]
         public float typewriterCharsPerSecond = 30f;
 
         public SpeakerStyle[] styles =
         {
-            new SpeakerStyle { speaker = Speaker.EmotionalFemale, displayName = "她", color = new Color(1f, 0.80f, 0.60f) },
-            new SpeakerStyle { speaker = Speaker.MechanicalFemale, displayName = "系统", color = new Color(0.62f, 0.74f, 0.86f) },
-            new SpeakerStyle { speaker = Speaker.Protagonist, displayName = "我", color = new Color(0.95f, 0.95f, 0.95f) },
-            new SpeakerStyle { speaker = Speaker.Agent, displayName = "Agent", color = new Color(0.55f, 0.88f, 0.80f) },
+            new SpeakerStyle { speaker = Speaker.EmotionalFemale, channel = Channel.Subtitle, displayName = "亲切的声音" },
+            new SpeakerStyle { speaker = Speaker.MechanicalFemale, channel = Channel.AgentPopup, displayName = "没有温度的声音" },
+            new SpeakerStyle { speaker = Speaker.Agent, channel = Channel.AgentPopup, displayName = "没有温度的声音" },
+            // 【待策划确认】主角暂按字幕样式，不加署名
+            new SpeakerStyle { speaker = Speaker.Protagonist, channel = Channel.Subtitle, displayName = "" },
         };
 
         string fullText = "";
         float revealStart;
         bool revealing;
+        Text activeLabel;
 
         void OnEnable()
         {
@@ -61,31 +79,43 @@ namespace Ghost.Narrative
 
         void Update()
         {
-            if (!revealing) return;
+            // 字幕颜色跟随黑屏（黑屏淡入淡出过程中也平滑变化）
+            if (root.activeSelf)
+            {
+                float dark = blackout != null && blackout.group != null ? blackout.group.alpha : 0f;
+                Color c = Color.Lerp(lightBackgroundText, darkBackgroundText, dark);
+                textLabel.color = c;
+                if (speakerLabel != null) speakerLabel.color = new Color(c.r, c.g, c.b, 0.7f);
+            }
+
+            if (!revealing || activeLabel == null) return;
             int count = Mathf.FloorToInt((Time.time - revealStart) * typewriterCharsPerSecond);
             if (count >= fullText.Length)
             {
-                textLabel.text = fullText;
+                activeLabel.text = fullText;
                 revealing = false;
             }
-            else textLabel.text = fullText.Substring(0, Mathf.Max(0, count));
+            else activeLabel.text = fullText.Substring(0, Mathf.Max(0, count));
         }
 
         public void Show(DialogueLine line)
         {
+            Hide();
             var style = StyleOf(line.speaker);
-            if (speakerLabel != null)
+            bool popup = style.channel == Channel.AgentPopup && agentRoot != null && agentTextLabel != null;
+            var nameLabel = popup ? agentSpeakerLabel : speakerLabel;
+            activeLabel = popup ? agentTextLabel : textLabel;
+            if (nameLabel != null)
             {
-                speakerLabel.text = style.displayName ?? "";
-                speakerLabel.color = style.color;
-                speakerLabel.gameObject.SetActive(!string.IsNullOrEmpty(style.displayName));
+                nameLabel.text = style.displayName ?? "";
+                nameLabel.gameObject.SetActive(!string.IsNullOrEmpty(style.displayName));
             }
-            textLabel.color = style.color;
             fullText = line.text ?? "";
             revealing = typewriterCharsPerSecond > 0f && fullText.Length > 0;
             revealStart = Time.time;
-            textLabel.text = revealing ? "" : fullText;
-            root.SetActive(true);
+            activeLabel.text = revealing ? "" : fullText;
+            (popup ? agentRoot : root).SetActive(true);
+            if (popup) ResizeAgentPopup();
         }
 
         public void Hide()
@@ -93,15 +123,31 @@ namespace Ghost.Narrative
             revealing = false;
             textLabel.text = "";
             root.SetActive(false);
+            if (agentTextLabel != null) agentTextLabel.text = "";
+            if (agentRoot != null) agentRoot.SetActive(false);
         }
 
         void HideLine(DialogueLine line) => Hide();
+
+        // Agent 弹窗高度按整句（不是打字机进度）算，避免打字时弹窗一直变高、把下方详情弹窗挤来挤去
+        void ResizeAgentPopup()
+        {
+            var rect = agentRoot.transform as RectTransform;
+            var body = agentTextLabel.rectTransform;
+            if (rect == null) return;
+            string shown = agentTextLabel.text;
+            agentTextLabel.text = fullText;
+            float bodyH = agentTextLabel.preferredHeight;
+            agentTextLabel.text = shown;
+            float top = -body.offsetMax.y, bottom = body.offsetMin.y;
+            rect.sizeDelta = new Vector2(rect.sizeDelta.x, top + bodyH + bottom);
+        }
 
         SpeakerStyle StyleOf(Speaker speaker)
         {
             foreach (var s in styles)
                 if (s.speaker == speaker) return s;
-            return new SpeakerStyle { speaker = speaker, displayName = speaker.ToString(), color = Color.white };
+            return new SpeakerStyle { speaker = speaker, channel = Channel.Subtitle, displayName = "" };
         }
     }
 }

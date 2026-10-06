@@ -90,7 +90,7 @@ namespace Ghost.Core.EditorTools
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = background;
 
-            // 固定相机：眼高 1.6 m，离植株 1.9 m
+            // 固定相机：眼高 1.6 m，水平正视 +Z（不俯仰，AGENTS.md 第 3 节）。植株的大小和位置由 PlantFit 按形态适配
             var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
             var camera = cameraGo.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
@@ -99,10 +99,12 @@ namespace Ghost.Core.EditorTools
             camera.nearClipPlane = 0.05f;
             cameraGo.AddComponent<AudioListener>();
             cameraGo.transform.position = new Vector3(0f, 1.6f, -1.9f);
+            cameraGo.transform.rotation = Quaternion.identity;
 
-            // 植株放在约 0.75 m 的台面高度
+            // PlantFit：植株的适配根（缩放 + 平移），Plant 是它的子物体、本地变换为单位变换
+            var fitGo = new GameObject("PlantFit");
             var plantGo = new GameObject("Plant");
-            plantGo.transform.position = new Vector3(0f, 0.75f, 0f);
+            plantGo.transform.SetParent(fitGo.transform, false);
             var morpher = plantGo.AddComponent<NodeMorpher>();
             morpher.nodeSet = set;
             morpher.material = material;
@@ -120,8 +122,12 @@ namespace Ghost.Core.EditorTools
             handoff.revealShader = Shader.Find("Ghost/RevealLit");
             // 注意：不加 MorphDebugSwitcher。主场景的形态只由 GameFlow 控制
 
-            Vector3 focus = plantGo.transform.TransformPoint(new LayoutGenerator.Settings().center);
-            cameraGo.transform.LookAt(focus);
+            var fit = fitGo.AddComponent<PlantFit>();
+            fit.morpher = morpher;
+            fit.viewCamera = camera;
+            // 编辑器里也先摆到 Matrix 的适配位置（场景里看到的和 Play 一致；Play 时 Start 会按实际屏幕比例再算一次）
+            fit.ClearCache();
+            fitGo.transform.localScale = Vector3.one;
 
             // G2：指针输入（节点拾取 + IInteractable 射线）和光标
             var pointer = BuildPointer(camera, morpher, actions);
@@ -131,10 +137,10 @@ namespace Ghost.Core.EditorTools
             rotator.pointer = pointer;
             rotator.viewCamera = camera;
             rotator.localPivot = new LayoutGenerator.Settings().center;
-            // G4：Agent 任务面板、节点详情弹窗、AI 询问框
-            var agentUI = AgentUIBuilder.BuildAll(null, camera);
-            // G5：对白播放器和字幕
+            // G5：对白播放器和字幕 / Agent 剧情弹窗（先建：详情弹窗要排在 Agent 剧情弹窗下方）
             var dialogue = NarrativeSceneBuilder.EnsureDialogue(cameraGo.transform);
+            // G4：Agent 任务面板、节点详情弹窗、AI 询问框（HUD），以及 EventSystem
+            var agentUI = AgentUIBuilder.BuildAll(null, camera);
 
             // 流程：每个阶段一个子物体
             var flowGo = new GameObject("GameFlow");
@@ -157,6 +163,8 @@ namespace Ghost.Core.EditorTools
             ctx.rotator = rotator;
             // 任务面板在进入真实阶段时才显示
             agentUI.taskPanel.Hide();
+            // 旧对白资产里"点击查看"的占位台词改成右键（不覆盖策划改过的句子）
+            StageAssets.MigrateRightClickInspect();
             var stageList = new List<Stage>();
             foreach (var spec in Stages)
             {
@@ -308,24 +316,17 @@ namespace Ghost.Core.EditorTools
             return pointer;
         }
 
-        // World Space 面板：放在植株上方、玩家前方约 1.5 m，正对相机
+        // 阶段面板（占位阶段的提示文字）。【技术债】比赛期间和其他界面一样是 Screen Space HUD，屏幕顶部居中
         static void BuildStagePanel(GameFlow flow, Transform cameraTransform)
         {
-            var canvasGo = new GameObject("StagePanel");
-            var canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.worldCamera = cameraTransform.GetComponent<Camera>();
-            canvasGo.AddComponent<CanvasScaler>().dynamicPixelsPerUnit = 4f;
-
-            // 1000 × 160 像素，缩放 0.001 → 1 m × 0.16 m
-            var rect = canvasGo.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(1000f, 160f);
-            canvasGo.transform.localScale = Vector3.one * 0.001f;
-            canvasGo.transform.position = new Vector3(0f, 1.62f, -0.4f);
-            canvasGo.transform.rotation = Quaternion.LookRotation(canvasGo.transform.position - cameraTransform.position);
+            var canvas = Ghost.Agent.AgentUIStyle.CreateHudCanvas("StagePanel", null, 150);
+            var canvasGo = canvas.gameObject;
+            Object.DestroyImmediate(canvasGo.GetComponent<GraphicRaycaster>());
+            var holder = Ghost.Agent.AgentUIStyle.CreateAnchored("Holder", canvasGo.transform, new Vector2(0.5f, 1f),
+                new Vector2(0f, -40f), new Vector2(1000f, 80f));
 
             var textGo = new GameObject("Label");
-            textGo.transform.SetParent(canvasGo.transform, false);
+            textGo.transform.SetParent(holder, false);
             var textRect = textGo.AddComponent<RectTransform>();
             textRect.anchorMin = Vector2.zero;
             textRect.anchorMax = Vector2.one;
@@ -333,7 +334,7 @@ namespace Ghost.Core.EditorTools
             textRect.offsetMax = Vector2.zero;
             var label = textGo.AddComponent<Text>();
             label.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-            label.fontSize = 64;
+            label.fontSize = 34;
             label.alignment = TextAnchor.MiddleCenter;
             label.color = new Color(0.15f, 0.17f, 0.2f);
             label.horizontalOverflow = HorizontalWrapMode.Wrap;

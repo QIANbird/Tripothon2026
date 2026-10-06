@@ -47,7 +47,7 @@ namespace Ghost.Gameplay
         [Tooltip("中等问题要点几次")]
         public int mediumClicks = 3;
         [Tooltip("中等问题每次没点完后，隔多久重新闪烁（秒）")]
-        public float mediumRetryDelay = 0.6f;
+        public float mediumRetryDelay = 5f;
         [Tooltip("困难问题每次尝试后暂停的时长范围（秒）")]
         public Vector2 hardRetryDelay = new Vector2(2f, 3f);
 

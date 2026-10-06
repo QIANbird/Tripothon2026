@@ -38,6 +38,10 @@ namespace Ghost.Morph
         Color[] stateFromColors;
         float[] visibility;
         float[] visibilityTarget;
+        // 点击反馈脉冲：叠加在当前状态之上，不改 visualStates
+        float[] pulseStart;
+        float[] pulseDuration;
+        Color[] pulseColors;
 
         bool realnessOverride;
         float realnessTarget;
@@ -101,6 +105,19 @@ namespace Ghost.Morph
         {
             if (!IsValid(id)) return;
             SetState(id, NodeVisualState.Tint, color);
+        }
+
+        [Tooltip("点击反馈脉冲的默认时长（秒）")]
+        public float defaultPulseDuration = 0.6f;
+
+        // 点击反馈：瞬间亮到 color（默认白色），在 duration 秒内缓慢回落到节点当前状态的显示色。
+        // 叠加在现有状态（Blink / Highlight / Tint）之上，不替换状态
+        public void Pulse(int id, float duration = 0f, Color? color = null)
+        {
+            if (!IsValid(id)) return;
+            pulseStart[id] = Time.time;
+            pulseDuration[id] = duration > 0f ? duration : defaultPulseDuration;
+            pulseColors[id] = color ?? Color.white;
         }
 
         // 恢复按形态正常显示（停止闪烁、取消高亮和着色）
@@ -176,6 +193,9 @@ namespace Ghost.Morph
             stateFromColors = new Color[Count];
             visibility = new float[Count];
             visibilityTarget = new float[Count];
+            pulseStart = new float[Count];
+            pulseDuration = new float[Count];
+            pulseColors = new Color[Count];
             for (int i = 0; i < Count; i++)
             {
                 visibility[i] = 1f;
@@ -185,8 +205,8 @@ namespace Ghost.Morph
 
         void SetState(int id, NodeVisualState state, Color color)
         {
-            // 从当前看到的颜色淡入新状态
-            stateFromColors[id] = DisplayColor(id);
+            // 从当前看到的颜色淡入新状态（不含脉冲，脉冲另外叠加）
+            stateFromColors[id] = StateColor(id);
             visualStates[id] = state;
             stateColors[id] = color;
             stateStartTimes[id] = Time.time;
@@ -219,6 +239,25 @@ namespace Ghost.Morph
         }
 
         Color DisplayColor(int i)
+        {
+            Color c = StateColor(i);
+            if (pulseDuration[i] > 0f)
+            {
+                float t = (Time.time - pulseStart[i]) / pulseDuration[i];
+                if (t >= 1f) pulseDuration[i] = 0f;
+                else
+                {
+                    // 瞬间到顶，再按 ease-out 缓慢回落
+                    float k = 1f - t;
+                    c = Color.Lerp(c, pulseColors[i], k * k);
+                }
+            }
+            c.a = 1f;
+            return c;
+        }
+
+        // 状态本身的显示色（不含点击脉冲）
+        Color StateColor(int i)
         {
             Color baseColor = BaseColor(i);
             Color target;

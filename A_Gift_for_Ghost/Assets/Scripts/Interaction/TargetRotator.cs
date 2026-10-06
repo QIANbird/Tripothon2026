@@ -64,13 +64,14 @@ namespace Ghost.Interaction
             CaptureRestPose();
         }
 
-        // 记录当前姿态为静止姿态（角度清零）
+        // 记录当前姿态为静止姿态（角度清零）。
+        // 姿态和枢轴都记录在 target 的父空间里：父物体（PlantFit）按形态缩放 / 平移时，旋转和枢轴自动跟着走，不用重新记录
         public void CaptureRestPose()
         {
             if (target == null) return;
-            restPosition = target.position;
-            restRotation = target.rotation;
-            worldPivot = target.TransformPoint(localPivot);
+            restPosition = target.localPosition;
+            restRotation = target.localRotation;
+            worldPivot = restPosition + restRotation * Vector3.Scale(target.localScale, localPivot);
             hasRest = true;
             yaw = pitch = targetYaw = targetPitch = 0f;
             yawVel = pitchVel = 0f;
@@ -201,7 +202,15 @@ namespace Ghost.Interaction
             Vector3 up = Vector3.up;
             Vector3 right = PitchAxis();
             Quaternion r = Quaternion.AngleAxis(pitch, right) * Quaternion.AngleAxis(yaw, up);
-            target.SetPositionAndRotation(worldPivot + r * (restPosition - worldPivot), r * restRotation);
+            // 旋转轴是世界方向，换算到父空间（PlantFit 只有均匀缩放和平移，方向不变；保险起见仍按父旋转换算）
+            var parent = target.parent;
+            if (parent != null)
+            {
+                Quaternion inv = Quaternion.Inverse(parent.rotation);
+                r = inv * r * parent.rotation;
+            }
+            target.localPosition = worldPivot + r * (restPosition - worldPivot);
+            target.localRotation = r * restRotation;
         }
 
         // 相机水平方向的右侧（相机固定，所以每帧算一次也不贵）

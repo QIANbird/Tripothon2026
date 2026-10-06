@@ -21,7 +21,9 @@ namespace Ghost.Morph
             public float geometricStemGap = 0.75f;
 
             [Header("Network")]
-            public float networkSpread = 1.8f;
+            // 1.0 = 外轮廓和 Geometric / Real 基本一致：S3→S4 变形时节点几乎原地不动，只是方块"长成"叶片和三角片。
+            // （原来 1.8，变形时整体往中心缩，看起来在变小）
+            public float networkSpread = 1.0f;
             public float networkJitter = 0.05f;
             public float networkNodeSize = 0.018f;
 

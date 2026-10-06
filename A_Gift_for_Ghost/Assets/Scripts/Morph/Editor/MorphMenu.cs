@@ -36,6 +36,24 @@ namespace Ghost.Morph.EditorTools
             return set;
         }
 
+        // 只重算现有节点集的 Network 布局（读 Real 姿态，不重新采样），节点 id、部位、父子关系都不变，
+        // S1 / S2 写死的节点 id 继续有效。改了 LayoutGenerator.Settings 的 network* 参数后用它
+        [MenuItem("Ghost/Morph/Rebuild Network Layout (Keep Ids)")]
+        public static void RebuildNetworkLayout()
+        {
+            foreach (var path in new[] { SampledPlantPath, FakePlantPath })
+            {
+                var set = AssetDatabase.LoadAssetAtPath<PlantNodeSet>(path);
+                if (set == null) continue;
+                LayoutGenerator.BuildNetwork(set.nodes, new LayoutGenerator.Settings());
+                string error = set.Validate();
+                if (error != null) Debug.LogError($"[Morph] {path} 数据无效：{error}");
+                EditorUtility.SetDirty(set);
+                Debug.Log($"[Morph] 重算 Network 布局：{set.Count} 个节点 → {path}");
+            }
+            AssetDatabase.SaveAssets();
+        }
+
         // 从选中的模型（场景里的实例或 Project 里的 FBX）采样节点，生成 Assets/Data/Morph/<模型名>.asset
         [MenuItem("Ghost/Morph/Sample Plant From Selected Model")]
         public static void SampleSelectedModel()

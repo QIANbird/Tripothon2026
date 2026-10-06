@@ -3,8 +3,8 @@ using UnityEngine;
 
 namespace Ghost.Agent
 {
-    // 只用于 G4Test 场景：用假数据填任务面板，在固定节点旁打开详情弹窗，弹出询问框（Yes 打印 "[G4] Yes"）。
-    // 点击节点时把弹窗移到被点的节点旁边（这也是 G6 接 G2 Tap 的写法示例）。
+    // 只用于 G4Test 场景：用假数据填任务面板，打开一次详情弹窗，弹出询问框（Yes 打印 "[G4] Yes"）。
+    // 右键按住节点显示该节点的详情，松开后停留再淡出（正式阶段由 StageContext 统一处理）。
     public class AgentUITestDriver : MonoBehaviour
     {
         public AgentTaskPanel taskPanel;
@@ -13,9 +13,8 @@ namespace Ghost.Agent
         public PointerInput pointer;
         public NodePicker picker;
 
-        [Tooltip("开局在这个节点旁打开详情弹窗；节点不存在时用 fallbackPosition")]
+        [Tooltip("开局为这个节点打开一次详情弹窗（随后按 lingerSeconds 淡出）")]
         public int popupNode = 35;
-        public Vector3 fallbackPosition = new Vector3(0.1f, 1.1f, 0f);
 
         public string question = "已达到当前权限下的处理上限。是否要进一步查看信息？";
 
@@ -35,22 +34,28 @@ namespace Ghost.Agent
             taskPanel.SetMetric("处理进度", 0.7f, "7 / 10");
 
             const string body = "状态  RUNNING\n进度  2 / 3\n置信度  41%";
-            if (picker == null || !detailPopup.ShowAtNode(picker, popupNode, $"节点 #{popupNode}", body))
-                detailPopup.Show(fallbackPosition, "节点", body);
+            detailPopup.Show(popupNode, $"节点 #{popupNode}", body);
+            detailPopup.Release();
 
             AskQuery();
-            if (pointer != null) pointer.Tap += OnTap;
+            if (pointer != null)
+            {
+                pointer.InspectStart += OnInspect;
+                pointer.InspectEnd += detailPopup.Release;
+            }
         }
 
         void OnDestroy()
         {
-            if (pointer != null) pointer.Tap -= OnTap;
+            if (pointer == null) return;
+            pointer.InspectStart -= OnInspect;
+            pointer.InspectEnd -= detailPopup.Release;
         }
 
-        void OnTap(int id)
+        void OnInspect(int id)
         {
             string organ = picker != null ? picker.OrganOf(id)?.ToString() : "?";
-            detailPopup.ShowAtNode(picker, id, $"节点 #{id} · {organ}", "状态  PENDING\n进度  0 / 1\n置信度  87%");
+            detailPopup.Show(id, $"节点 #{id} · {organ}", "状态  PENDING\n进度  0 / 1\n置信度  87%");
         }
 
         [ContextMenu("Ask Query")]

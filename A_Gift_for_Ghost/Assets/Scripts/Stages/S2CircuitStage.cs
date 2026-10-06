@@ -106,6 +106,8 @@ namespace Ghost.Stages
                 ctx.pointer.DragEnd += HandleDragEnd;
             }
             if (ctx.issues != null) ctx.issues.IssueResolved += HandleResolved;
+            ctx.SetInspectProvider(ProvideInspect);
+            ctx.Inspected += HandleInspected;
 
             CollectSupportNodes();
             SpawnIssues();
@@ -128,6 +130,7 @@ namespace Ghost.Stages
                     ctx.pointer.DragEnd -= HandleDragEnd;
                 }
                 if (ctx.issues != null) ctx.issues.IssueResolved -= HandleResolved;
+                ctx.Inspected -= HandleInspected;
                 if (ctx.picker != null && savedRadiusFactor > 0f) ctx.picker.radiusFactor = savedRadiusFactor;
                 savedRadiusFactor = -1f;
                 if (ctx.pointer != null) ctx.pointer.allowNodeDrag = savedAllowNodeDrag;
@@ -357,11 +360,21 @@ namespace Ghost.Stages
             return false;
         }
 
-        void HandleTap(int id)
+        // 左键点节点在本关不做事（S2 靠拖拽连线）；点击反馈由 StageContext 统一处理
+        void HandleTap(int id) { }
+
+        // 右键查看详情
+        bool ProvideInspect(int id, out string title, out string body)
+        {
+            title = PopupTitle(id);
+            body = PopupBody(id);
+            return !Morphing;
+        }
+
+        // 通关条件之一"已查看果实"：右键查看任意果实节点
+        void HandleInspected(int id)
         {
             if (!IsActive || Morphing) return;
-            if (ctx.detailPopup != null && ctx.picker != null)
-                ctx.detailPopup.ShowAtNode(ctx.picker, id, PopupTitle(id), PopupBody(id));
             var node = ctx.Node(id);
             if (node != null && node.organ == Organ.Fruit && !viewedFruit)
             {
@@ -413,7 +426,7 @@ namespace Ghost.Stages
             if (!IsActive) return;
             // 正在显示这个节点的详情时刷新状态行
             if (ctx.detailPopup != null && ctx.detailPopup.Visible && ctx.detailPopup.NodeId == issue.nodeId)
-                ctx.detailPopup.SetText(PopupTitle(issue.nodeId), PopupBody(issue.nodeId));
+                ctx.RefreshInspect();
             if (!waterSolved && WaterResolved() >= waterTotal)
             {
                 waterSolved = true;
@@ -434,7 +447,7 @@ namespace Ghost.Stages
         void SetupTaskPanel()
         {
             if (ctx.taskPanel == null) return;
-            ctx.taskPanel.Show();
+            ctx.ShowTaskPanel();
             ctx.taskPanel.SetTitle("S2 · 资源调配");
             ctx.taskPanel.SetModeLabel("FULL PROXY");
             // 【占位】任务名等策划替换

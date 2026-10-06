@@ -1,3 +1,4 @@
+using Ghost.Agent;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -31,73 +32,88 @@ namespace Ghost.Narrative.EditorTools
             source.spatialBlend = 0f;
             var player = go.AddComponent<DialoguePlayer>();
             player.audioSource = source;
-            BuildSubtitlePanel(player, cameraTransform);
+            BuildSubtitlePanel(player);
             return player;
         }
 
         static Font BuiltinFont => Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
 
-        // 字幕：相机前方 1.2 m、略低于视线，1.4 m × 0.4 m（够放 4 行）；排序在黑屏之上
-        static SubtitlePanel BuildSubtitlePanel(DialoguePlayer player, Transform cam)
+        // 排序：黑屏 100 < 字幕 / Agent 弹窗 200（详情 210、询问框 220 在 AgentUIBuilder）
+        public const int BlackoutSortingOrder = 100;
+        public const int DialogueSortingOrder = 200;
+
+        // 【技术债】比赛期间改为 Screen Space Overlay HUD（1920×1080 参考），赛后改回 World Space（AGENTS.md 第 5 节）。
+        // 字幕：屏幕下方居中，一行小字（30 px），宽 1400 px，长句折两行；没有深色底板。
+        // Agent 弹窗：屏幕左上角，带浅色底板（黑屏时也清楚），署名 + 正文
+        static SubtitlePanel BuildSubtitlePanel(DialoguePlayer player)
         {
-            var canvasGo = new GameObject("SubtitlePanel");
-            var canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.worldCamera = cam.GetComponent<Camera>();
-            canvas.sortingOrder = 200;
-            canvasGo.AddComponent<CanvasScaler>().dynamicPixelsPerUnit = 4f;
-            var rect = canvasGo.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(1400f, 400f);
-            canvasGo.transform.localScale = Vector3.one * 0.001f;
-            canvasGo.transform.position = cam.position + cam.forward * 1.2f - cam.up * 0.3f;
-            canvasGo.transform.rotation = Quaternion.LookRotation(canvasGo.transform.position - cam.position, cam.up);
+            var canvas = AgentUIStyle.CreateHudCanvas("DialogueHUD", null, DialogueSortingOrder);
+            var canvasRect = (RectTransform)canvas.transform;
 
-            // 底板：半透明深色，亮背景下也能看清；没有台词时整个隐藏
-            var plate = new GameObject("Plate");
-            plate.transform.SetParent(canvasGo.transform, false);
-            Stretch(plate.AddComponent<RectTransform>());
-            var image = plate.AddComponent<Image>();
-            image.color = new Color(0.05f, 0.06f, 0.08f, 0.72f);
-            image.raycastTarget = false;
-
-            var speaker = MakeText(plate.transform, "Speaker", 40, FontStyle.Bold);
+            // ---- 字幕 ----
+            var subRoot = AgentUIStyle.CreateAnchored("Subtitle", canvasRect, new Vector2(0.5f, 0f),
+                new Vector2(0f, 56f), new Vector2(1400f, 110f));
+            var speaker = MakeText(subRoot, "Speaker", 22, FontStyle.Normal);
             var speakerRect = speaker.rectTransform;
             speakerRect.anchorMin = new Vector2(0f, 1f);
             speakerRect.anchorMax = new Vector2(1f, 1f);
             speakerRect.pivot = new Vector2(0.5f, 1f);
-            speakerRect.sizeDelta = new Vector2(-80f, 56f);
-            speakerRect.anchoredPosition = new Vector2(0f, -24f);
+            speakerRect.sizeDelta = new Vector2(0f, 30f);
+            speakerRect.anchoredPosition = Vector2.zero;
+            speaker.alignment = TextAnchor.LowerCenter;
 
-            var body = MakeText(plate.transform, "Text", 52, FontStyle.Normal);
+            var body = MakeText(subRoot, "Text", 30, FontStyle.Normal);
             var bodyRect = body.rectTransform;
             Stretch(bodyRect);
-            bodyRect.offsetMin = new Vector2(40f, 20f);
-            bodyRect.offsetMax = new Vector2(-40f, -88f);
-            body.lineSpacing = 1.1f;
+            bodyRect.offsetMin = new Vector2(0f, 0f);
+            bodyRect.offsetMax = new Vector2(0f, -34f);
+            body.alignment = TextAnchor.UpperCenter;
+            body.lineSpacing = 1.05f;
 
-            var panel = canvasGo.AddComponent<SubtitlePanel>();
+            // ---- Agent 弹窗 ----
+            float w = AgentUIStyle.HudLeftColumnWidth, m = AgentUIStyle.HudMargin;
+            var agentRoot = AgentUIStyle.CreateAnchored("AgentMessage", canvasRect, new Vector2(0f, 1f),
+                new Vector2(m, -m), new Vector2(w, 140f));
+            AgentUIStyle.AddFramedBackground(agentRoot, AgentUIStyle.PanelFill, AgentUIStyle.PanelBorder, 2f);
+            var tick = AgentUIStyle.CreateRect("Tick", agentRoot, new Vector2(20f, -24f), new Vector2(12f, 12f));
+            AgentUIStyle.AddImage(tick, AgentUIStyle.BlueGray).raycastTarget = false;
+            var agentName = MakeText(agentRoot, "Speaker", 22, FontStyle.Bold);
+            var anRect = agentName.rectTransform;
+            anRect.anchorMin = new Vector2(0f, 1f);
+            anRect.anchorMax = new Vector2(1f, 1f);
+            anRect.pivot = new Vector2(0f, 1f);
+            anRect.anchoredPosition = new Vector2(42f, -14f);
+            anRect.sizeDelta = new Vector2(-62f, 32f);
+            agentName.color = AgentUIStyle.Gray;
+            agentName.alignment = TextAnchor.MiddleLeft;
+            var agentText = MakeText(agentRoot, "Text", 28, FontStyle.Normal);
+            var atRect = agentText.rectTransform;
+            Stretch(atRect);
+            atRect.offsetMin = new Vector2(20f, 20f);
+            atRect.offsetMax = new Vector2(-20f, -56f);
+            agentText.color = AgentUIStyle.Ink;
+            agentText.lineSpacing = 1.1f;
+
+            var panel = canvas.gameObject.AddComponent<SubtitlePanel>();
             panel.player = player;
-            panel.root = plate;
+            panel.root = subRoot.gameObject;
             panel.speakerLabel = speaker;
             panel.textLabel = body;
-            plate.SetActive(false);
+            panel.agentRoot = agentRoot.gameObject;
+            panel.agentSpeakerLabel = agentName;
+            panel.agentTextLabel = agentText;
+            panel.blackout = Object.FindAnyObjectByType<ScreenBlackout>();
+            subRoot.gameObject.SetActive(false);
+            agentRoot.gameObject.SetActive(false);
             return panel;
         }
 
-        // 黑屏：相机的子物体，前方 1.4 m 一块 4 m × 4 m 的黑板（比植株和阶段面板近、比字幕远），盖住整个视野
+        // 黑屏：Screen Space Overlay 全屏黑块（比赛期间 HUD），排在字幕和 Agent 弹窗下面
         static ScreenBlackout BuildBlackout(Transform cam)
         {
-            var canvasGo = new GameObject("Blackout");
-            canvasGo.transform.SetParent(cam, false);
-            var canvas = canvasGo.AddComponent<Canvas>();
-            canvas.renderMode = RenderMode.WorldSpace;
-            canvas.worldCamera = cam.GetComponent<Camera>();
-            canvas.sortingOrder = 100;
-            var rect = canvasGo.GetComponent<RectTransform>();
-            rect.sizeDelta = new Vector2(4000f, 4000f);
-            canvasGo.transform.localScale = Vector3.one * 0.001f;
-            canvasGo.transform.localPosition = new Vector3(0f, 0f, 1.4f);
-            canvasGo.transform.localRotation = Quaternion.identity;
+            var canvas = AgentUIStyle.CreateHudCanvas("Blackout", null, BlackoutSortingOrder);
+            Object.DestroyImmediate(canvas.GetComponent<GraphicRaycaster>());
+            var canvasGo = canvas.gameObject;
 
             var group = canvasGo.AddComponent<CanvasGroup>();
             group.alpha = 0f;
@@ -113,6 +129,9 @@ namespace Ghost.Narrative.EditorTools
 
             var blackout = canvasGo.AddComponent<ScreenBlackout>();
             blackout.group = group;
+            // 字幕按黑屏切换黑 / 白字
+            var subtitle = Object.FindAnyObjectByType<SubtitlePanel>();
+            if (subtitle != null) subtitle.blackout = blackout;
             return blackout;
         }
 
