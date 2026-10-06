@@ -51,7 +51,8 @@ namespace Ghost.Core.EditorTools
             new StageSpec("S1", true, MorphForm.Matrix, ""),
             // G7：S2 是真实阶段（S2CircuitStage）
             new StageSpec("S2", true, MorphForm.Circuit, ""),
-            new StageSpec("S3", true, MorphForm.Network, "S3：按 N 完成"),
+            // G8：S3 是真实阶段（S3NetworkStage）
+            new StageSpec("S3", true, MorphForm.Network, ""),
             new StageSpec("S4", true, MorphForm.Geometric, "S4：按 N 完成"),
             new StageSpec("Transition", true, MorphForm.Real, "过渡：按 N 继续"),
             new StageSpec("Pick", true, MorphForm.Real, "采摘：按 N 继续"),
@@ -121,6 +122,12 @@ namespace Ghost.Core.EditorTools
 
             // G2：指针输入（节点拾取 + IInteractable 射线）和光标
             var pointer = BuildPointer(camera, morpher, actions);
+            // G8：旋转植株（S3 / S4 共用），绕布局中心转，挂在 Plant 上
+            var rotator = plantGo.AddComponent<TargetRotator>();
+            rotator.target = plantGo.transform;
+            rotator.pointer = pointer;
+            rotator.viewCamera = camera;
+            rotator.localPivot = new LayoutGenerator.Settings().center;
             // G4：Agent 任务面板、节点详情弹窗、AI 询问框
             var agentUI = AgentUIBuilder.BuildAll(null, camera);
             // G5：对白播放器和字幕
@@ -144,6 +151,7 @@ namespace Ghost.Core.EditorTools
             ctx.query = agentUI.query;
             ctx.dialogue = dialogue;
             ctx.detailTable = NarrativeAssets.EnsureNodeDetails();
+            ctx.rotator = rotator;
             // 任务面板在进入真实阶段时才显示
             agentUI.taskPanel.Hide();
             var stageList = new List<Stage>();
@@ -175,6 +183,15 @@ namespace Ghost.Core.EditorTools
                     s2.wrongStartSequence = StageAssets.EnsureS2WrongStart();
                     s2.waterSolvedSequence = StageAssets.EnsureS2WaterSolved();
                     stage = s2;
+                }
+                else if (spec.name == "S3")
+                {
+                    var s3 = stageGo.AddComponent<S3NetworkStage>();
+                    s3.ctx = ctx;
+                    s3.rotator = rotator;
+                    s3.introSequence = StageAssets.EnsureS3Intro();
+                    s3.allFoundSequence = StageAssets.EnsureS3AllFound();
+                    stage = s3;
                 }
                 else
                 {

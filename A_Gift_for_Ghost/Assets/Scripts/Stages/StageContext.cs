@@ -25,6 +25,8 @@ namespace Ghost.Stages
         [Header("输入")]
         public PointerInput pointer;
         public NodePicker picker;
+        [Tooltip("G8：旋转植株（S3 / S4 共用）")]
+        public TargetRotator rotator;
 
         [Header("Agent 界面（G4）")]
         public AgentTaskPanel taskPanel;

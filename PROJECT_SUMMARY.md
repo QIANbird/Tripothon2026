@@ -452,10 +452,46 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
   8. 点 YES：面板、弹窗、蓝线全部消失，植株变成 3D 网络（S3）。
   9. 按 Shift + 4 回到 S2：问题重新出现，没有残留的蓝线；按 Shift + 3 去 S1 再回来，同样干净。全程 Console 没有红色错误。
 
-**G8 S3 找虫** 状态：未开始
-- 写 `TargetRotator`：在空白处拖拽时，旋转 NodeMorpher 的根物体，只绕竖直轴并限制俯仰角，带惯性但不要过快。S4 复用这个组件。
-- 节点按部位显示颜色。被点过的虫子节点保持高亮，点击其他节点显示物体描述。
-- 所有虫子都点过之后，弹出 AI 询问。
+**G8 S3 找虫**（`Scripts/Interaction/TargetRotator.cs`、`Scripts/Stages/S3NetworkStage.cs`） 状态：**完成（10-06）**。**依赖未提交的 G3**（同 G6）
+- 文件：
+  - `Interaction/TargetRotator.cs`（新，命名空间 `Ghost.Interaction`，通用 3C 组件，S4 复用）：旋转目标物体，不动相机。
+  - `Stages/S3NetworkStage.cs`（新，直接继承 `Stage`）。
+  - `Stages/StageContext.cs`：新增字段 `rotator`（TargetRotator）。
+  - `Stages/Editor/StageAssets.cs`：新增 `EnsureS3Intro()`、`EnsureS3AllFound()`。
+  - `Core/Editor/MainSceneMenu.cs`：Plant 上加 TargetRotator（`target` = Plant、`pointer`、`viewCamera`、`localPivot` = 布局中心 (0, 0.32, 0)），填进 `ctx.rotator`；S3 一行换成 `S3NetworkStage`，占位文字设为空。
+- `TargetRotator` 接口（给 G9）：
+  - 字段：`target`、`pointer`、`viewCamera`、`localPivot`（target 静止姿态下的本地枢轴点，转动时它在世界里不动）；手感 `degreesPerPixel`（0.25）、`maxPitch`（±25°）、`smoothTime`（0.12 s）、`maxAngularSpeed`（90°/s）、`inertiaSeconds`（0.18 s，松手后按拖拽速度多转一点）、`rotateOnNodeDrag`（true：从节点上按下拖动也旋转，需要 `pointer.allowNodeDrag = true`；本关不能同时用节点拖拽玩法）。
+  - 方法：`Enable()` / `Disable()`（订阅 / 退订 `PointerInput.DragEmpty`、`DragEmptyEnd`；Disable 后已开始的平滑运动会走完）、`ResetRotation(bool smooth = true)`（偏航走最近方向转回 0）、`AddRotation(yaw, pitch)`（以后手柄摇杆可以接这里）、`CaptureRestPose()`（把当前姿态记为静止姿态）。属性 `IsEnabled`、`Yaw`、`Pitch`、`IsMoving`。
+  - 规则：左右拖 = 绕世界竖直轴偏航（不限角度）；上下拖 = 绕相机水平右轴俯仰（限 ±25°）。实际角度用 SmoothDamp 追随目标角，并限最大角速度，不会突然甩动（VR 舒适）。执行顺序 -50，先于拾取和绘制更新姿态。**每帧都写 target 的位置和旋转**，别的脚本不要同时移动 Plant。
+  - S4 用法：`Enter` 里 `ctx.rotator.Enable()` + `ctx.pointer.allowEmptyDrag = true`；`Exit` 里 `Disable()`，要不要 `ResetRotation` 由 G9 决定。
+  - 拾取和弹窗：`NodePicker`、`NodeMorpher`、`NodeLinkRenderer`、`NodeDetailPopup` 都用 `morpher.transform`，旋转后自动跟随，不用改。`RealModelHandoff` 的写实模型是 Plant 的子物体（`RealModel`），也会一起转。**G10 注意**：`RealModelHandoff` 的溶解高度按 `transform.TransformPoint(0, RealMinY, 0).y` 算，Plant 有俯仰时会有一点偏差。进入 Real 前先 `ResetRotation(false)`，或者让旋转停在 0 俯仰。
+- S3 流程：
+  - 进入时 `ResetShared()`、清连线颜色，`allowEmptyDrag = true`、`allowNodeDrag = true`（只为在节点上也能拖动旋转，本关不订阅 DragOver），`rotator.Enable()`。播 S3Intro。
+  - 颜色：Network 形态本身是灰阶（`OrganPalette.Realness(Network) = 0`），所以 S3 用 G3 的 `morpher.Realness = networkRealness`（0.9），整株平滑过渡到部位真实颜色（采样色），没有改 Morph 代码。虫子节点再 `SetTint(bugColor)`：黄绿色 (0.46, 0.58, 0.10)，和叶片（暗绿，约 (0.12–0.2, 0.2–0.34, 0.01)）同属绿色系，但更亮更黄，仔细看才分得出。默认的虫子写实色是近黑紫，和土、根放一起太显眼，所以没用。
+  - 点击：任意节点弹出物体描述，标题"叶片 #23"/"小虫 #188"这类，正文是 `NodeDetailTable` 的 Physical 档。点到虫子：`SetHighlight(foundColor)`（暖黄色，整关保持），计数加 1，正文多一行"已标记 x / n"。变形中不响应。
+  - 任务面板："S3 · 异常识别"，FULL PROXY；任务 识别异常个体（RUNNING → DONE）、制定处理方案（全部找到后 RUNNING）；指标"已识别 x / n"。
+  - 通关：全部虫子点过 → 播 S3AllFound → `query.Ask("除虫是精细操作，机械臂摘除有伤害植物的风险，是否要进一步手动介入？", Complete)` → YES → 进入 S4，同一帧变形到 Geometric。
+  - 离开时：退订 Tap，恢复 `allowEmptyDrag` / `allowNodeDrag`，`ResetShared()`、`morpher.RestoreAll()`、`morpher.ClearRealness()`，`rotator.Disable()` + `ResetRotation(true)`。**复位策略**：离开 S3 时平滑转回正面，和变形同时进行，S4 从正面开始。
+- **虫子数量：3 个**（彩椒节点集里的 `Organ.Bug` 节点 188、189、190，`part = "bug"`，是采样器生成的假虫子，分别挂在叶片 138、70、49 下面）。真虫子 FBX 还没放进彩椒（G9 待办）。换成 `pepper_plant_bugs` 节点集后，S3 自动按新的 Bug 节点计数，不用改代码。节点集里没有 Bug 时会打警告，这一关无法通关。没有拿叶片节点冒充虫子。
+- 给策划（C）的占位内容：`Assets/Data/Narrative/S3Intro.asset`（她："颜色回来了。仔细看，有些东西不属于这株植物。"/"在空白处按住拖动，可以转动它。叶子背面也看看。" Agent："点击可疑节点进行标记。"）、`S3AllFound.asset`（Agent："已标记全部异常个体。"）；物体名（`S3NetworkStage.PopupTitle`）、任务名；详情正文仍是 `NodeDetails.asset` 的 Physical 档；虫子颜色、写实度和旋转手感可以在 Inspector 调（重新生成场景会恢复代码默认值）。询问台词用的是流程图原文。
+- 和计划的出入：除了空白处，从节点上拖动也能旋转（网络节点很密，空白处不好找）。颜色用 G3 的 `Realness` 覆盖实现，没有逐节点 `SetTint`。
+- G3 相关：没改任何 G3 文件。可选的改进：把 `OrganPalette.Realness(Network)` 改成非 0，就不用在阶段里覆盖写实度（现在这样也没问题）。
+- 验收（10-06，通过 MCP，Main.unity Play，`JumpTo(4)`，Game View 1020×574）：
+  - 进入 S3：形态 Network、`Realness` = 0.9、3 个虫子 `Tint`、旋转器已启用。
+  - 虚拟 `Mouse` 在空白处拖 (+160, +200) px：偏航 -50°（40° 加惯性），俯仰在 25° 停住，枢轴点世界坐标一直是 (0, 1.07, 0)，约 1 s 内平稳停下。反方向拖 (-280, -320)：偏航 +30.6°，俯仰 -25°。
+  - 旋转后按 `WorldToScreenPoint` 真实点击：叶片 23 弹出 Physical 描述；虫子 188、189 变 `Highlight`，计数 2 / 3；虫子 190 在这个角度被它的叶片 48 挡住（点到的是 48），这正是"要转过来才看得见"的设计。转到另一面后点到 190 → 3 / 3 → 播完 S3AllFound 弹出询问，文字和流程图一致。
+  - 真实点击 YES（屏幕 (813, 254)）→ 当前阶段 S4、形态 Geometric；没有非 Normal 节点、写实度覆盖已清除、旋转器已停用，偏航和俯仰平滑回到 0；询问框隐藏。
+  - 再 `JumpTo(4)`：计数 0 / 3、虫子重新 `Tint`、弹窗隐藏；`JumpTo(3)` 回 S2 正常。Console 没有错误（只有 MCP 截图引起的 RenderTexture 警告）。
+  - 截图 2 张：旋转后的彩色网络（任务面板 2 / 3 + 详情弹窗）；全部找到后的询问框（任务面板 DONE / RUNNING、3 / 3）。
+- 跳过 / 已知：没有用真人鼠标测手感（`degreesPerPixel`、惯性都可以调）。截图里虫子和叶片的颜色差别比较小，是故意的；如果试玩觉得太难，把 `bugColor` 调得更黄，或把 `networkRealness` 调低。MCP 的 `prepare_editor` 仍返回 "Request cancelled"，改为等待后读编译错误。
+- 人工验收：
+  1. 确认 G3 在工作区或已提交（`Assets/Scripts/Gameplay/NodeIssueSystem.cs` 存在）。菜单 Ghost → Core → Build Main Scene。Hierarchy 里 `Plant` 上有 TargetRotator，`GameFlow/S3` 上是 S3NetworkStage，两个对白字段已填。
+  2. Play，按 Shift + 5 跳到 S3：植株变成散开的 3D 网络，节点渐渐变成绿、褐、红黄等真实颜色；左侧任务面板"S3 · 异常识别"，"已识别 0 / 3"；字幕提示拖动空白处旋转。
+  3. 在空白处按住左右拖：结构绕竖直轴平稳转动，松手后再滑一点停下，不会甩得很快。上下拖：前后倾斜，最多倾约 25° 就停住。相机始终不动。
+  4. 找颜色偏黄绿、比叶子亮一点的小方块（叶片背后，可能要转过来才看到），点它：变成暖黄色常亮，旁边弹出"小虫 #…"和描述，计数加 1。点叶片、果实、茎：弹出颜色、形状、质感的描述，计数不变。
+  5. 3 只都找到后：字幕"已标记全部异常个体"，右侧弹出询问"除虫是精细操作，机械臂摘除有伤害植物的风险，是否要进一步手动介入？"。
+  6. 点 YES：面板、弹窗消失，植株一边平滑转回正面，一边变成几何植株（S4）。
+  7. 按 Shift + 5 再进 S3：计数归零，虫子恢复黄绿色，没有残留高亮；按 Shift + 4 回 S2，节点是回路的灰阶颜色，没有残留颜色。全程 Console 没有红色错误。
 
 **G9 S4 除虫变写实** 状态：未开始
 - 进入时变形到 Geometric，用 `TargetRotator` 旋转盆栽。

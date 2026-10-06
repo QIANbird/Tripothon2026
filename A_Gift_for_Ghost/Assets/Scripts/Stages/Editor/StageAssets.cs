@@ -46,6 +46,18 @@ namespace Ghost.Stages.EditorTools
             new DialogueLine(Speaker.Agent, "[占位] 供给已恢复。核心产出仍然异常，原因未知。"),
             new DialogueLine(Speaker.EmotionalFemale, "[占位] 点一下那些还在闪的果实看看。"));
 
+        // G8：S3 找虫
+        public const string S3IntroPath = NarrativeAssets.Folder + "/S3Intro.asset";
+        public const string S3AllFoundPath = NarrativeAssets.Folder + "/S3AllFound.asset";
+
+        public static DialogueSequence EnsureS3Intro() => Ensure(S3IntroPath, 0.8f,
+            new DialogueLine(Speaker.EmotionalFemale, "[占位] 颜色回来了。仔细看，有些东西不属于这株植物。"),
+            new DialogueLine(Speaker.EmotionalFemale, "[占位] 在空白处按住拖动，可以转动它。叶子背面也看看。"),
+            new DialogueLine(Speaker.Agent, "[占位] 点击可疑节点进行标记。"));
+
+        public static DialogueSequence EnsureS3AllFound() => Ensure(S3AllFoundPath, 0.3f,
+            new DialogueLine(Speaker.Agent, "[占位] 已标记全部异常个体。"));
+
         static DialogueSequence Ensure(string path, float startDelay, params DialogueLine[] lines)
         {
             var seq = AssetDatabase.LoadAssetAtPath<DialogueSequence>(path);
