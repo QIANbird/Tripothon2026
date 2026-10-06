@@ -187,7 +187,7 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
 
 ### 模块清单
 
-**G0 提交现状（10 分钟）** 状态：未开始
+**G0 提交现状（10 分钟）** 状态：**完成（10-06）**。`dev/auto` 已创建并推送。Tripo3d Unity Bridge 按用户决定只留在本地，没有进仓库：本机的 `manifest.json` 和 `packages-lock.json` 里保留了这一行，所以这两个文件会一直显示为已修改。**以后提交这两个文件时，必须排除 `com.tripo3d.unitybridge` 这一行。**
 - 从 `main` 创建 `dev/auto` 分支（见第 10 节）。
 - `Packages/manifest.json` 里的 `com.tripo3d.unitybridge` 指向本机下载目录（`file:C:/Users/qianc/Downloads/...`），队友拉下来后会报"包解析失败"。处理方式有两种，要先问用户选哪个：
   - 从 manifest 里移除，只在本机用；
@@ -199,13 +199,33 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
   - 本文件。
 - 推送 `dev/auto`。
 
-**G1 流程骨架**（`Scripts/Core/`） 状态：未开始
-- 写 `Stage` 基类：`Enter()`、`Exit()`、`Complete()`、`Completed` 事件，以及一个 `form` 字段，表示进入这一关时要变形到哪种形态。
-- 写 `GameFlow`：按顺序运行阶段列表，在上一关的 `Completed` 事件里切到下一关，并调用 `NodeMorpher.MorphTo(form)`。
-- 先建 8 个空阶段：Intro、Tutorial、S1、S2、S3、S4、Transition、Pick，再加一个 Outro。每个空阶段都在 World Space 面板上显示一行占位字，比如"S1：按 N 完成"。
-- 调试键：按 N 进入下一关，按 Shift + 数字跳到指定关。这两个键要加到 `Debug` 动作表里，不能直接读键盘。
-- 搭主场景 `Assets/Scenes/Main.unity`，参照 MorphPrototype 的相机和台面布置，把 NodeMorpher 和 RealModelHandoff 接进来。
-- 验收：从 Intro 一路按 N 能到 Outro，每一关都变形到正确的形态。
+**G1 流程骨架**（`Scripts/Core/`） 状态：**完成（10-06）**
+- 文件（命名空间 `Ghost.Core`）：
+  - `Stage.cs`：阶段基类（抽象 MonoBehaviour）。字段 `stageName`、`changesForm`、`form`；`virtual Enter()` / `virtual Exit()`；`protected Complete()`；`event Action<Stage> Completed`；`IsActive`；`virtual string PanelText`（阶段面板显示的字）。
+  - `GameFlow.cs`：阶段状态机。字段 `Stage[] stages`、`NodeMorpher morpher`；`Next()`、`JumpTo(int index)`、`CurrentIndex`、`CurrentStage`、`FormAt(int index)`；事件 `StageEntered(Stage)`、`StageExited(Stage)`。`Start()` 进入第 0 关；当前阶段 `Complete()` 后自动 `Next()`。进入阶段时 `morpher.MorphTo(...)` 和 `stage.Enter()` 在同一帧调用（变形就是进入下一关的标志）。
+  - `PlaceholderStage.cs`：占位阶段，字段 `message`，没有通关条件，靠 N 键过关。
+  - `StagePanel.cs`：World Space 面板，订阅 `StageEntered`，显示 `stage.PanelText`。
+  - `GameFlowDebug.cs`：读 `Debug` 动作表的 `NextStage`（N）和 `JumpStage1`–`JumpStage9`（Shift + 1–9，OneModifier 组合绑定，跳到下标 0–8）。
+  - `Editor/MainSceneMenu.cs`：菜单 Ghost → Core → Build Main Scene，生成 `Assets/Scenes/Main.unity`（已存在则覆盖）。
+- 阶段顺序（下标）：0 Intro、1 Tutorial、2 S1（Matrix）、3 S2（Circuit）、4 S3（Network）、5 S4（Geometric）、6 Transition（Real）、7 Pick（Real）、8 Outro（Real）。
+- 和计划的出入：
+  - Intro 的 `changesForm = false`，停在植株初始形态 Matrix。开场要黑屏的话，由 G5/G10 再处理。
+  - 跳关时，如果目标阶段不变形，`GameFlow` 会往前找最近一个会变形的阶段，用它的形态（`FormAt`）。所以跳到任何一关，形态都是对的。
+  - 文字用 UGUI 旧版 `Text` + 内置动态字体 `LegacyRuntime.ttf`，没有用 TMP：工程里没有导入 TMP Essential Resources，TMP 默认字体也没有中文。动态字体缺字时会用系统字体补字，中文能正常显示。G4 如果改用 TMP，要另外准备中文字体资产。
+  - Main 场景里不放 `MorphDebugSwitcher`：它读不带修饰键的数字键 1–5，会和 Shift + 数字跳关冲突。形态只由 GameFlow 控制。
+- 写新阶段：继承 `Stage`。重写 `Enter()` 时先调 `base.Enter()`；重写 `Exit()` 时最后调 `base.Exit()`。满足通关条件时调用 `Complete()`。需要改面板文字就重写 `PanelText`。
+- 往主场景加阶段或换阶段：改 `MainSceneMenu.cs` 里的 `Stages` 表（名字、是否变形、形态、占位文字），再执行菜单。真实阶段做好后，把对应那一行的 `AddComponent<PlaceholderStage>` 换成新子类（可以给 `StageSpec` 加一个类型字段）。注意：菜单会覆盖整个 Main.unity，在场景里手动做的改动会丢失，要做的改动都写进菜单代码。
+- 验收（10-06，通过 MCP）：Play Main.unity，按 9 次 N，从 Intro 走到 Outro，每关的形态和面板文字都正确；截图看过 S2（直角回路）、S4（几何植株）、Transition（写实彩椒）。在 Outro 再按 N 无反应。Shift + 4 跳到 S2，形态变回 Circuit。Console 里没有错误。
+- 已知：编辑器在后台、没有焦点时，Play 模式不跑帧。用 MCP 自动测试时，要先在 Play 模式里设置 `Application.runInBackground = true`。这只影响自动化测试，不影响人工游玩。
+- 人工验收：
+  1. 打开 Unity，菜单 Ghost → Core → Build Main Scene。确认 `Assets/Scenes/Main.unity` 已打开，Hierarchy 里有 Main Camera、Plant、GameFlow（下面 9 个阶段子物体）、StagePanel。
+  2. 按 Play。植株上方的面板显示"开场剧情：按 N 继续"，植株是灰色方块矩阵。
+  3. 按 N：显示"新手教学：按 N 完成"，形态不变（仍是 Matrix）。再按 N 到 S1，仍是 Matrix。
+  4. 再按 N 到 S2：节点飞成平面的直角回路，带连线。
+  5. 再按 N 到 S3：变成散开的 3D 网络。再按 N 到 S4：变成带颜色的几何植株。
+  6. 再按 N 到"过渡"：写实彩椒从下往上显现。再按 N 到"采摘"，再按 N 到"结局剧情（最后一关）"，形态都保持写实。再按 N 无反应，Console 提示"已经是最后一关"。
+  7. 按 Shift + 4：跳回 S2，彩椒褪去，节点变回回路。按 Shift + 1：回到开场，变回矩阵。单按数字键（不按 Shift）不应有任何反应。
+  8. 全程 Console 没有红色错误。退出 Play。
 
 **G2 节点拾取与输入**（`Scripts/Interaction/`） 状态：未开始
 - 节点不是 GameObject，不能用 Physics 射线。要写 `NodePicker`：用鼠标射线和 `NodeMorpher.CurrentPoses` 里每个节点的包围球求交，返回最近的那个节点 id。被隐藏或缩没的节点要跳过。
