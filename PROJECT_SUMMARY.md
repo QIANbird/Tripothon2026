@@ -293,11 +293,42 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
 - 字号要保证远处也看得清，不依赖鼠标悬停（见 AGENTS.md 第 5 节）。
 - 验收：用假数据把三种界面都显示出来，点 Yes 能触发回调。
 
-**G5 对话与语音**（`Scripts/Narrative/`） 状态：未开始
-- `DialogueLine`（ScriptableObject）：说话人（有情感的女声、机械女声、主角）、文本、音频、时长。
-- `DialoguePlayer`：按顺序播放并显示字幕，播完发出事件；没有音频时按字数估算时长。
-- `NodeDetailTable`：按"部位 × 阶段"存放详情文本。策划直接填这张表。
-- 验收：Intro 阶段播完开场的三段对白后，自动进入教学。
+**G5 对话与语音**（`Scripts/Narrative/`） 状态：**完成（10-06）**
+- 文件（命名空间 `Ghost.Narrative`；编辑器代码在 `Ghost.Narrative.EditorTools`）：
+  - `DialogueLine.cs`：`enum Speaker { EmotionalFemale, MechanicalFemale, Protagonist, Agent }`；`[Serializable] class DialogueLine`：`speaker`、`text`、`AudioClip clip`、`float durationOverride`（> 0 时直接用）、`float pauseAfter`（< 0 用播放器默认间隔）。和计划的出入：台词不是单独的 ScriptableObject，而是 `DialogueSequence` 里的列表项，策划在一个资产里按顺序填整段。
+  - `DialogueSequence.cs`：ScriptableObject（Create → Ghost → Dialogue Sequence），`startDelay`、`List<DialogueLine> lines`。
+  - `DialoguePlayer.cs`：MonoBehaviour。
+    - `void Play(DialogueSequence seq, Action onComplete = null)`：打断当前播放、清空队列，立刻播放（被打断的那段不回调）。
+    - `void Enqueue(DialogueSequence seq, Action onComplete = null)`：排队，空闲时立刻开始。
+    - `void Skip()`：跳过当前这句（最后一句被跳过时整段正常结束并回调）。`void Stop()`：停止并清空，不回调、不发 `SequenceFinished`。
+    - `bool IsPlaying`、`DialogueSequence CurrentSequence`、`DialogueLine CurrentLine`、`float DurationOf(DialogueLine)`。
+    - 事件：`LineStarted(DialogueLine)`、`LineFinished(DialogueLine)`、`SequenceFinished(DialogueSequence)`、`Stopped`。
+    - 时长：`durationOverride` > 音频长度 > 字数 / `charsPerSecond`（默认 5 字/秒，下限 `minDuration` 1.5 s）。句间默认间隔 `defaultPause` 0.4 s。音频走 2D `AudioSource`（脑机接口直接听到，不做空间化）。回调里可以安全地再调 Play / Stop。
+  - `SubtitlePanel.cs`：World Space 字幕，订阅 DialoguePlayer。说话人名字 + 台词，颜色按说话人（`styles` 数组可在 Inspector 改）：有情感的女声"她"暖橙、机械女声"系统"冷灰蓝、主角"我"白、Agent 青绿。带简单打字机效果（`typewriterCharsPerSecond` 30，设 0 关闭）。没有台词时隐藏。
+  - `ScreenBlackout.cs`：相机前 1.4 m 的 World Space 黑板（CanvasGroup），`SetImmediate(bool black)`、`FadeTo(bool black, float fade = -1)`、`IsBlack`。只遮挡，不改相机。结局等也可以复用。
+  - `IntroStage.cs`：`Stage` 子类，字段 `player`、`sequence`、`blackout`、`fadeOutTime`。`Enter()` 立刻黑屏并 `player.Play(sequence, Complete)`；`Exit()` 停止对白、黑屏 1.2 s 淡出。`PanelText` 为空。
+  - `NodeDetailTable.cs`：ScriptableObject（Create → Ghost → Node Detail Table）。`enum DetailDepth { Status, Project, Physical }`（S1 / S2 / S3）。
+    - `string Get(Organ organ, DetailDepth depth)`、`string Get(int nodeId, Organ organ, DetailDepth depth)`（先查 `overrides` 里的节点专属文字）。
+    - `string Format(int nodeId, Organ organ, DetailDepth depth, params (string key, object value)[] values)`：取文字并替换 `{key}` 占位符；`static string Fill(template, values)`。
+    - `static DetailDepth DepthForStage(string stageName)`：Tutorial / S1 → Status，S2 → Project，其余 → Physical。
+  - `Editor/NarrativeAssets.cs`：菜单 Ghost → Narrative → Create Default Assets；`EnsureIntroSequence()`、`EnsureNodeDetails()`。资产已存在时不覆盖（策划改过的内容不会丢；要恢复默认就删掉资产再执行）。
+  - `Editor/NarrativeSceneBuilder.cs`：`AddIntroStage(stageGo, cameraTransform)`、`EnsureDialogue(cameraTransform)`（全场景只建一套 Dialogue + SubtitlePanel）。
+- 资产：`Assets/Data/Narrative/Intro.asset`（开场三句，暂无配音，按字数估算，约 2 + 7 + 17 s，开头先黑 1.5 s）、`Assets/Data/Narrative/NodeDetails.asset`。
+- 主场景：`MainSceneMenu.cs` 里 Intro 一行改为 `NarrativeSceneBuilder.AddIntroStage(...)`，其余阶段仍是占位。场景里新增 `Dialogue`（DialoguePlayer + AudioSource）、`SubtitlePanel`（相机前 1.2 m、视线下方 0.3 m，1.4 m × 0.4 m，正文 52 号字）、`Main Camera/Blackout`。
+- G6 / G10 怎么用：
+  - 播对白：在 `MainSceneMenu` 里用 `NarrativeSceneBuilder.EnsureDialogue(cameraGo.transform)` 拿到播放器，赋给阶段的字段；阶段里 `player.Play(seq, () => ...)`。AI 询问前的提示、过渡独白都建成新的 `DialogueSequence` 资产（建议放 `Assets/Data/Narrative/`），可以照 `NarrativeAssets` 写 Ensure 方法。阶段 `Exit()` 里记得 `player.Stop()`。
+  - 查详情：`table.Format(node.id, node.organ, NodeDetailTable.DepthForStage(stageName), ("status", "异常"), ("progress", 42), ("confidence", 63))`，结果交给 G4 的详情弹窗。S1 模板占位符：`{id}`、`{status}`、`{progress}`、`{confidence}`。
+- 给策划（C）：`NodeDetails.asset` 里 7 个部位 × 3 档全部是**占位文字**，以"[占位]"开头，直接在 Inspector 里改；个别节点要专属文字就加到 `overrides`（节点 id + 深度 + 文字）。开场台词在 `Intro.asset`，有配音后把 AudioClip 拖进对应台词的 `clip`，时长自动按音频走。字幕说话人显示名（她 / 系统 / 我 / Agent）也是暂定，在场景 `SubtitlePanel` 的 `styles` 里改（注意重新生成场景会恢复默认，长期要改的话改 `SubtitlePanel.cs` 里的默认值）。
+- 验收（10-06，通过 MCP）：生成 Main 场景后 Play，开场全黑，三句字幕依次出现，暖橙 / 冷灰蓝 / 暖橙；长句 4 行完整显示在底板内；播完自动进入 Tutorial，黑屏淡出，植株和"新手教学"面板恢复。回到 Intro 播放中按 N：立刻进入 Tutorial，对白停止（`IsPlaying` = false）、黑屏透明度归 0、字幕隐藏。Console 没有错误。没有配音资源，音频播放路径未实测。
+- 人工验收：
+  1. 菜单 Ghost → Core → Build Main Scene，Hierarchy 里有 `Dialogue`、`SubtitlePanel`、`Main Camera/Blackout`，`GameFlow/Intro` 上是 IntroStage。
+  2. Play：画面全黑，约 1.5 s 后出现"她：嗨，你醒了。"（暖橙色）。
+  3. 接着"系统：神经连接已恢复……"（冷灰蓝），再是"她"的长句（暖橙，约 4 行，不溢出底板）。字在当前距离下清晰可读。
+  4. 长句结束后自动进入新手教学：黑屏约 1 s 淡出，看到灰色方块矩阵和"新手教学：按 N 完成"。
+  5. 重新 Play，在对白中途按 N：立刻进入教学，字幕消失，黑屏淡出，之后不会再冒出对白。
+  6. 按 Shift + 1 回到开场：重新黑屏，从第一句开始播放。
+  7. 打开 `Assets/Data/Narrative/NodeDetails.asset`，7 个部位 × 3 档文字都在，都以"[占位]"开头。
+  8. 全程 Console 没有红色错误。
 
 **G6 教学 + S1**（`Scripts/Stages/`） 状态：未开始，依赖 G1–G5
 - 教学：用少量节点逐个演示简单、中等、困难三种问题，并配上提示文字。

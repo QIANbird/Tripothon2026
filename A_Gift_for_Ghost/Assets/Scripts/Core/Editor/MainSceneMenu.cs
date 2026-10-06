@@ -117,11 +117,21 @@ namespace Ghost.Core.EditorTools
             {
                 var stageGo = new GameObject(spec.name);
                 stageGo.transform.SetParent(flowGo.transform, false);
-                var stage = stageGo.AddComponent<PlaceholderStage>();
+                Stage stage;
+                if (spec.name == "Intro")
+                {
+                    // G5：开场用 IntroStage（黑屏 + 对白字幕，播完自动进入教学）
+                    stage = Ghost.Narrative.EditorTools.NarrativeSceneBuilder.AddIntroStage(stageGo, cameraGo.transform);
+                }
+                else
+                {
+                    var placeholder = stageGo.AddComponent<PlaceholderStage>();
+                    placeholder.message = spec.message;
+                    stage = placeholder;
+                }
                 stage.stageName = spec.name;
                 stage.changesForm = spec.changesForm;
                 stage.form = spec.form;
-                stage.message = spec.message;
                 stageList.Add(stage);
             }
             flow.stages = stageList.ToArray();
