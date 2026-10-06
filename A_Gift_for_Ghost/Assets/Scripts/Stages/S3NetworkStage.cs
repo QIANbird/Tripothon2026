@@ -27,7 +27,7 @@ namespace Ghost.Stages
         [Tooltip("S3 期间整体写实度（Network 形态本身是 0 = 灰阶）。1 = 完全用部位真实颜色")]
         [Range(0f, 1f)] public float networkRealness = 0.9f;
         [Tooltip("虫子节点的颜色：和叶片同是绿色系，但更黄更亮，仔细看才分得出")]
-        public Color bugColor = new Color(0.46f, 0.58f, 0.10f);
+        public Color bugColor = BugStageUtil.DefaultBugColor;
         [Tooltip("识别出的虫子保持的高亮色")]
         public Color foundColor = new Color(1f, 0.92f, 0.45f);
 
@@ -108,13 +108,7 @@ namespace Ghost.Stages
         void CollectBugs()
         {
             bugNodes.Clear();
-            if (Set == null) return;
-            foreach (var n in Set.nodes)
-                if (n.organ == Organ.Bug) bugNodes.Add(n.id);
-            if (bugNodes.Count == 0)
-                Debug.LogWarning("[S3] 节点集里没有 Organ.Bug 节点，本关无法通关（见 G9 待办：接入虫子模型）", this);
-            else
-                Debug.Log($"[S3] 虫子节点 {bugNodes.Count} 个：{string.Join(", ", bugNodes)}", this);
+            bugNodes.AddRange(BugStageUtil.CollectBugs(Set, "S3", this));
         }
 
         // 节点显示真实颜色：整体写实度覆盖（G3 Realness，平滑过渡）。虫子再单独染成和叶片相近的黄绿色
@@ -140,30 +134,12 @@ namespace Ghost.Stages
             TryFinish();
         }
 
-        // 【占位】物体名，和 NodeDetails.asset 的 Physical 档对应
-        static string PopupTitle(PlantNode node)
-        {
-            string name;
-            switch (node.organ)
-            {
-                case Organ.Soil: name = "土壤"; break;
-                case Organ.Root: name = "根"; break;
-                case Organ.Stem: name = "茎"; break;
-                case Organ.Leaf: name = "叶片"; break;
-                case Organ.Bud: name = "花苞"; break;
-                case Organ.Fruit: name = "果实"; break;
-                case Organ.Bug: name = "小虫"; break;
-                default: name = "未知"; break;
-            }
-            return $"{name} #{node.id}";
-        }
+        static string PopupTitle(PlantNode node) => BugStageUtil.PhysicalTitle(node);
 
         string PopupBody(PlantNode node)
         {
-            string body = ctx.detailTable != null ? ctx.detailTable.Get(node.id, node.organ, DetailDepth.Physical) : "";
-            if (node.organ != Organ.Bug) return body;
-            string mark = $"已标记 {found.Count} / {bugNodes.Count}";
-            return string.IsNullOrEmpty(body) ? mark : body + "\n" + mark;
+            string mark = node.organ == Organ.Bug ? $"已标记 {found.Count} / {bugNodes.Count}" : null;
+            return BugStageUtil.PhysicalBody(ctx.detailTable, node, mark);
         }
 
         void SetupTaskPanel()

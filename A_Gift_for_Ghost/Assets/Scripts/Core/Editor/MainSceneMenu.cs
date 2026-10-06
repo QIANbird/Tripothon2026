@@ -24,6 +24,8 @@ namespace Ghost.Core.EditorTools
         const string SampledPlantPath = "Assets/Data/Morph/pepper_plant.asset";
         const string FakePlantPath = "Assets/Data/Morph/FakePlant.asset";
         const string InputActionsPath = "Assets/InputSystem_Actions.inputactions";
+        // G9：S4 叶背上的真实虫子模型（Tripo 生成）
+        const string BugModelPath = "Assets/3D_Objects/bug/tripo_convert_cbdef70f-0cb3-4f3b-8ed2-3e0794432c86.fbx";
 
         // 阶段配置：名字、是否变形、形态、占位文字。加阶段时在这里加一行，再执行菜单
         struct StageSpec
@@ -53,7 +55,8 @@ namespace Ghost.Core.EditorTools
             new StageSpec("S2", true, MorphForm.Circuit, ""),
             // G8：S3 是真实阶段（S3NetworkStage）
             new StageSpec("S3", true, MorphForm.Network, ""),
-            new StageSpec("S4", true, MorphForm.Geometric, "S4：按 N 完成"),
+            // G9：S4 是真实阶段（S4GeometricStage）
+            new StageSpec("S4", true, MorphForm.Geometric, ""),
             new StageSpec("Transition", true, MorphForm.Real, "过渡：按 N 继续"),
             new StageSpec("Pick", true, MorphForm.Real, "采摘：按 N 继续"),
             new StageSpec("Outro", true, MorphForm.Real, "结局剧情（最后一关）"),
@@ -192,6 +195,25 @@ namespace Ghost.Core.EditorTools
                     s3.introSequence = StageAssets.EnsureS3Intro();
                     s3.allFoundSequence = StageAssets.EnsureS3AllFound();
                     stage = s3;
+                }
+                else if (spec.name == "S4")
+                {
+                    var s4 = stageGo.AddComponent<S4GeometricStage>();
+                    s4.ctx = ctx;
+                    s4.rotator = rotator;
+                    s4.introSequence = StageAssets.EnsureS4Intro();
+                    s4.firstRemovedSequence = StageAssets.EnsureS4FirstRemoved();
+                    // 虫子模型：组件挂在 S4 物体上，实例生成在 Plant 下面（跟着旋转）
+                    var bugPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BugModelPath);
+                    if (bugPrefab != null)
+                    {
+                        var bugModels = stageGo.AddComponent<BugModelInstances>();
+                        bugModels.morpher = morpher;
+                        bugModels.bugPrefab = bugPrefab;
+                        s4.bugModels = bugModels;
+                    }
+                    else Debug.LogWarning($"[Flow] 找不到虫子模型 {BugModelPath}，S4 只显示虫子节点");
+                    stage = s4;
                 }
                 else
                 {

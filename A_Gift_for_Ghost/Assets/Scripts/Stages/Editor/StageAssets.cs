@@ -58,6 +58,17 @@ namespace Ghost.Stages.EditorTools
         public static DialogueSequence EnsureS3AllFound() => Ensure(S3AllFoundPath, 0.3f,
             new DialogueLine(Speaker.Agent, "[占位] 已标记全部异常个体。"));
 
+        // G9：S4 除虫
+        public const string S4IntroPath = NarrativeAssets.Folder + "/S4Intro.asset";
+        public const string S4FirstRemovedPath = NarrativeAssets.Folder + "/S4FirstRemoved.asset";
+
+        public static DialogueSequence EnsureS4Intro() => Ensure(S4IntroPath, 0.8f,
+            new DialogueLine(Speaker.EmotionalFemale, "[占位] 这一次，手是你的了。"),
+            new DialogueLine(Speaker.EmotionalFemale, "[占位] 转动盆栽，看看叶子底下藏着什么。找到了就把它摘掉。"));
+
+        public static DialogueSequence EnsureS4FirstRemoved() => Ensure(S4FirstRemovedPath, 0.2f,
+            new DialogueLine(Speaker.EmotionalFemale, "[占位] 看，颜色更清楚了。继续。"));
+
         static DialogueSequence Ensure(string path, float startDelay, params DialogueLine[] lines)
         {
             var seq = AssetDatabase.LoadAssetAtPath<DialogueSequence>(path);
