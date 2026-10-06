@@ -66,8 +66,14 @@ namespace Ghost.Morph
 
         public static Color FormColor(PlantNode node, MorphForm form)
         {
+            return ColorAt(node, Realness(form));
+        }
+
+        // 指定写实度下的颜色：0 = 灰阶，1 = 写实色（模型采样色或部位默认色）
+        public static Color ColorAt(PlantNode node, float realness)
+        {
             Color real = node.realColor.a > 0f ? node.realColor : RealColor(node.organ);
-            return Color.Lerp(AbstractColor(node), real, Realness(form));
+            return Color.Lerp(AbstractColor(node), real, realness);
         }
     }
 }

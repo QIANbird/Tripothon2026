@@ -6,7 +6,8 @@ namespace Ghost.Morph
 {
     // 把全部节点从当前形态插值到目标形态（缓动 + 错峰延迟），用 GPU Instancing 一次画完。
     // 节点不是 GameObject；中途切换形态时从当前插值到一半的位置继续，不会跳变。
-    public class NodeMorpher : MonoBehaviour
+    // 逐节点的闪烁、高亮、隐藏和整体写实度见 NodeMorpherStates.cs。
+    public partial class NodeMorpher : MonoBehaviour
     {
         public PlantNodeSet nodeSet;
         [Tooltip("抽象形态的节点网格（立方体）；叶、果实等在几何植株形态换成 NodeShapes 里的形状")]
@@ -107,6 +108,7 @@ namespace Ghost.Morph
             BuildBatches();
             foreach (var node in nodeSet.nodes) maxDepth = Mathf.Max(maxDepth, node.depth);
             CacheRealHeights();
+            InitNodeStates();
 
             SnapTo(startForm);
         }
@@ -161,6 +163,7 @@ namespace Ghost.Morph
         void Update()
         {
             if (IsMorphing) Animate(Time.deltaTime);
+            UpdateNodeStates(Time.deltaTime);
             Draw();
         }
 
@@ -197,16 +200,17 @@ namespace Ghost.Morph
             for (int i = 0; i < Count; i++)
             {
                 var pose = currentPoses[i];
-                if (RealReveal > 0f) pose.scale *= RevealShrink(realHeights[i]);
+                pose.scale *= DisplayScale(i);
                 if (pose.scale.sqrMagnitude < 1e-12f) continue;
+                Color color = DisplayColor(i);
 
                 // 立方体缩小的同时部位形状长大，两者在中途重叠，避免一下子换形状
                 int shape = shapeOf[i];
                 float w = shape < 0 ? 0f : currentShapes[i];
                 float cubeK = 1f - w * w;
                 float shapeK = 1f - (1f - w) * (1f - w);
-                if (cubeK > 0.001f) Add(cubeBatch, localToWorld, pose, cubeK, currentColors[i]);
-                if (shape >= 0 && shapeK > 0.001f) Add(shapeBatches[shape], localToWorld, pose, shapeK, currentColors[i]);
+                if (cubeK > 0.001f) Add(cubeBatch, localToWorld, pose, cubeK, color);
+                if (shape >= 0 && shapeK > 0.001f) Add(shapeBatches[shape], localToWorld, pose, shapeK, color);
             }
 
             Submit(cubeBatch);
