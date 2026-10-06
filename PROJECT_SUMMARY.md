@@ -381,9 +381,39 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
   7. 打开 `Assets/Data/Narrative/NodeDetails.asset`，7 个部位 × 3 档文字都在，都以"[占位]"开头。
   8. 全程 Console 没有红色错误。
 
-**G6 教学 + S1**（`Scripts/Stages/`） 状态：未开始，依赖 G1–G5
-- 教学：用少量节点逐个演示简单、中等、困难三种问题，并配上提示文字。
-- S1：随机生成简单问题和中等问题，困难问题固定在 4 个果实节点上；详情只显示任务状态、进度和置信度。按第 4 节的条件判定通关，然后弹出 AI 询问，玩家选 Yes 后进入 S2。
+**G6 教学 + S1**（`Scripts/Stages/`） 状态：**完成（10-06）**。**依赖未提交的 G3**（见下）
+- 文件（命名空间 `Ghost.Stages`；编辑器代码 `Ghost.Stages.EditorTools`）：
+  - `StageContext.cs`：阶段共用引用，挂在 `GameFlow` 物体上，由 `MainSceneMenu` 填好：`flow`、`morpher`、`links`、`issues`（NodeIssueSystem）、`pointer`、`picker`、`taskPanel`、`detailPopup`、`query`、`dialogue`、`detailTable`；`minPickVisibility`（0.5）。方法：`IsNodeVisible(id)`、`SetPickFilter(Func<int,bool>)`（和"跳过隐藏节点"叠加，传 null 恢复默认）、`Node(id)`、`Play(seq, onComplete)`（没有播放器 / 序列时直接回调）、`ResetShared()`（清问题和闪烁、隐藏弹窗 / 询问框 / 任务面板、停对白、恢复筛选）、`NearestNodeInLayout(form, normalized01, filter, exclude)`。`Awake` 里把 `picker.Filter` 设为跳过 `GetNodeVisibility < 0.5` 的节点（G2 文档里提到的 G3 后续处理）。
+  - `IssueStage.cs`：教学和 S1 的抽象基类（`Stage` 子类）。字段 `ctx`、`popupRefreshInterval`（0.25 s）。`Enter()`：`ResetShared()`，订阅 `pointer.Tap`、`issues.IssueAttempted / IssueResolved`，显示任务面板。点击节点 = `issues.TryAttempt(id)` + 在节点旁弹出详情（Status 深度，`{id} {status} {progress} {confidence}` 占位符），弹窗每 0.25 s 刷新文字。`Exit()`：全部退订 + `ResetShared()`。子类重写 `OnNodeTapped`、`OnIssueAttempted`、`OnIssueResolved`、`Describe`（详情三项数值）。`PanelText` 为空（真实阶段不显示 G1 的阶段面板文字，提示交给字幕和任务面板）。
+  - `TutorialStage.cs`：字段 `introSequence`、`afterEasySequence`、`afterMediumSequence`、`afterHardSequence`，`easyNode` / `mediumNode` / `hardNode`。
+  - `S1MatrixStage.cs`：字段 `easyCount`（6）、`mediumCount`（2，占位）、`maxHardFruit`（4）、`firstEasyDelay`（0.6 s）、`easySpawnInterval`（1.8 s）、`mediumSpawnDelay`（4 s）、`randomSeed`（-1 = 每次随机）、`queryQuestion`（"是否要进一步查看信息？"）。
+  - `Editor/StageAssets.cs`：`EnsureTutorialIntro / AfterEasy / AfterMedium / AfterHard()`，资产已存在时不覆盖。
+- 资产（全部是**占位台词**，以"[占位]"开头）：`Assets/Data/Narrative/TutorialIntro.asset`、`TutorialAfterEasy.asset`、`TutorialAfterMedium.asset`、`TutorialAfterHard.asset`（她 / Agent 说话人）。
+- 教学流程（**占位流程**，第 4 节"待策划补充"）：进入后播 TutorialIntro（"看到那个在闪的方块了吗……点击异常节点，即授权我处理一次"）→ 节点 `easyNode` 出现 Easy 问题，点 1 次解决 → 播 AfterEasy → `mediumNode` 出现 Medium，点 3 次（任务面板显示"中等异常 1 / 3"…）→ 播 AfterMedium → `hardNode` 出现 Hard，点一次后 Agent 说"无法解决"，2–3 s 后重新闪烁 → 再过约 3.4 s 自动 `Complete()` 进入 S1。全程完整矩阵可见，所有节点都能点、都弹详情（没有问题的节点显示"正常"）。教学节点由菜单按 Matrix 布局挑：画面中上部一排，左 / 中 / 右（彩椒节点集上是 90 / 45 / 93，困难那个优先选果实）。
+- S1 流程：进入时 4 个困难问题挂在果实上（彩椒有 10 个果实节点，每个果实 2 个节点、5 个果实；按 `part` 优先每个果实取一个，所以实际是 35 / 37 / 93 / 146 四个不同果实）；简单问题从 0.6 s 起每 1.8 s 冒出一个，共 6 个；4 s 时出现 2 个中等问题（随机节点，不选果实）。任务面板：提高增长（简单全部解决 → DONE）、解决异常（简单 + 中等全部解决 → DONE）、维持关系（困难第一次失败后 → FAILED）、完成本周期任务（简单 + 中等完成后 RUNNING，困难尝试 ≥ 3 → DONE）；指标"完成率 x / 8"和"置信度"（随解决升、随困难尝试降，**占位公式**）。通关：简单 + 中等全部生成且全部解决，并且困难累计尝试 ≥ 3 → `query.Ask(queryQuestion, Complete)`；点 YES → GameFlow 进入 S2，同一帧变形到 Circuit。
+- 主场景改动（`MainSceneMenu.cs`）：Plant 上加 `NodeIssueSystem`；`BuildPointer` 返回 PointerInput，`PointerDebugLogger.logEvents = false`；`AgentUIBuilder.BuildAll(null, camera)`（任务面板默认隐藏，进入真实阶段才显示）；`NarrativeSceneBuilder.EnsureDialogue`；GameFlow 物体上加 `StageContext`；Tutorial / S1 用新阶段（`BuildTutorialStage`、`S1MatrixStage`），占位文字设为空。其他阶段仍是占位。
+- 给策划（C）的占位内容：4 个教学对白资产的台词；教学步骤本身（三种难度依次各一次，困难失败后自动结束）；S1 中等问题数量（2）、简单问题数量和出现节奏；任务面板 4 个任务名和状态对应规则；置信度 / 进度数值规则（`IssueStage.Describe`、`S1MatrixStage.RefreshMetrics`）；询问台词；详情模板仍是 G5 的 `NodeDetails.asset` Status 档。
+- 和计划的出入：
+  - 教学没有把其他节点隐藏，而是在完整矩阵上只让 3 个节点依次闪烁，避免教学到 S1 时整片节点再"长出来"。
+  - 真实阶段不显示 StagePanel 文字（会和弹窗 / 任务面板挤在一起）。
+  - 植株果实不止 4 个节点：困难问题用 4 个不同果实各一个节点（见上），其余果实节点正常、不参与随机问题。
+- **G3 依赖**：G6 用了 `NodeIssueSystem`、`NodeMorpher.SetBlink/Restore/GetNodeVisibility/IsHidden` 等 G3 接口，而 G3 的代码在本次提交时**仍未提交**（等用户确认）。所以在 G3 提交之前，远端 `dev/auto` 单独拉下来**编译不过**，`Main.unity` 里 NodeIssueSystem 组件的脚本引用也会显示 Missing。用户提交 G3 后即恢复正常（不需要重新生成场景）。
+- 验收（10-06，通过 MCP，Main.unity Play，640→1020×574 Game View）：
+  - Intro 播完自动进入 Tutorial；教学：虚拟鼠标真实点击节点 90（Easy）→ 1 次解决，弹窗"已解决 进度 100%"；节点 45（Medium）点 3 次，任务行 1 / 3 → 2 / 3 → 3 / 3 DONE；节点 93（Hard）点 1 次 → 字幕"无法解决"，约 2.3 s 后重新闪烁；随后自动进入 S1。
+  - S1：4 个困难 + 6 个简单 + 2 个中等陆续出现；真实点击 Easy 49 解决、Medium 142 三次解决、Hard 35 失败（"维持关系"变 FAILED，弹窗"严重异常 · 未解决"）；Hard 37 用 `TryAttempt` 验证 2.26 s 后重新闪烁；其余 Easy / Medium 用 `TryAttempt` 代码解决；困难尝试 2 次时不弹询问，第 3 次（真实点击 83）后弹出"是否要进一步查看信息？"；完成率 8 / 8、置信度 76%。真实点击 YES（屏幕 (813, 270)）→ 进入 S2，植株变形为 Circuit，问题、弹窗、询问框、任务面板全部清空。
+  - 跳关：S2→S1→Tutorial→S2→S1→Intro→Tutorial 来回 `JumpTo`，每次问题、对白、弹窗状态都正确；回到 Tutorial 后没有隐藏或残留闪烁的节点；Console 没有错误（只有 MCP 截图引起的 RenderTexture 警告）。
+  - 截图 3 张：教学（任务面板 + 矩阵）、S1（任务面板 + 节点详情弹窗）、S1 询问框，界面互不遮挡、文字清楚。
+- 跳过 / 已知：MCP 的 `prepare_editor` 进 Play 时因 `editor-operations.json.tmp` 文件被占用而失败，改用 `execute_code` 设置 `EditorApplication.isPlaying`（不影响结果）。没有配音，对白时长按字数估算。截图里看不出闪烁动画本身（只确认了 `GetState = Blink`）。
+- 人工验收：
+  1. 先确认 G3 已提交或在工作区（`Assets/Scripts/Gameplay/NodeIssueSystem.cs` 存在）。菜单 Ghost → Core → Build Main Scene。Hierarchy：`Plant` 上有 NodeIssueSystem；有 `AgentUI`（AgentTaskPanel、AgentQueryDialog、NodeDetailPopup）；`GameFlow` 上有 StageContext，子物体 Tutorial 是 TutorialStage、S1 是 S1MatrixStage。
+  2. Play。开场黑屏对白（可按 N 跳过）。进入教学：左侧任务面板"教学 · 授权处理"，下方字幕提示，然后矩阵中上部左边一个方块在原色 / 白色之间闪烁。
+  3. 点它：变浅蓝后恢复，任务"简单异常"变 DONE，旁边弹出详情"已解决"。字幕说完后中间的方块开始闪。
+  4. 点中间方块 3 次：每次暂停约 0.6 s 再闪，任务行显示 1 / 3、2 / 3，第 3 次解决。字幕后右边方块开始闪。
+  5. 点右边方块：停止闪烁，字幕"无法解决……"，任务"困难异常"FAILED；2–3 s 后它又开始闪；再过约 1 s 自动进入 S1。
+  6. S1：任务面板"S1 · 植株维护"四个任务；几个方块陆续开始闪（先 4 个果实，然后每 2 s 左右冒一个新的）。点闪烁的方块：多数一次解决，有 2 个要点 3 次；完成率逐个增加。点任意节点弹出"任务 #id / 状态 / 进度 / 置信度"。
+  7. 果实方块点了只暂停 2–3 s 又闪，永远不解决；"维持关系"变 FAILED。
+  8. 所有能解决的都解决、且果实累计点了 3 次以上后，右侧弹出"是否要进一步查看信息？"和 YES。点 YES：面板和弹窗消失，植株变成直角回路（S2，面板"S2：按 N 完成"）。
+  9. 按 Shift + 3 回到 S1：问题重新生成，任务面板重新开始；按 Shift + 2 回教学、Shift + 4 到 S2，每次都没有残留的闪烁、弹窗或询问框。全程 Console 没有红色错误。
 
 **G7 S2 连线修复** 状态：未开始
 - 设置缺水问题：土壤、叶片和果实节点都有问题。
