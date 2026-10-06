@@ -49,7 +49,8 @@ namespace Ghost.Core.EditorTools
             // G6：Tutorial 和 S1 是真实阶段（TutorialStage / S1MatrixStage），占位文字不显示
             new StageSpec("Tutorial", true, MorphForm.Matrix, ""),
             new StageSpec("S1", true, MorphForm.Matrix, ""),
-            new StageSpec("S2", true, MorphForm.Circuit, "S2：按 N 完成"),
+            // G7：S2 是真实阶段（S2CircuitStage）
+            new StageSpec("S2", true, MorphForm.Circuit, ""),
             new StageSpec("S3", true, MorphForm.Network, "S3：按 N 完成"),
             new StageSpec("S4", true, MorphForm.Geometric, "S4：按 N 完成"),
             new StageSpec("Transition", true, MorphForm.Real, "过渡：按 N 继续"),
@@ -165,6 +166,15 @@ namespace Ghost.Core.EditorTools
                     var s1 = stageGo.AddComponent<S1MatrixStage>();
                     s1.ctx = ctx;
                     stage = s1;
+                }
+                else if (spec.name == "S2")
+                {
+                    var s2 = stageGo.AddComponent<S2CircuitStage>();
+                    s2.ctx = ctx;
+                    s2.introSequence = StageAssets.EnsureS2Intro();
+                    s2.wrongStartSequence = StageAssets.EnsureS2WrongStart();
+                    s2.waterSolvedSequence = StageAssets.EnsureS2WaterSolved();
+                    stage = s2;
                 }
                 else
                 {
