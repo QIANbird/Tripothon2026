@@ -1,7 +1,12 @@
 using System.Collections.Generic;
+using Ghost.Agent;
+using Ghost.Gameplay;
 using Ghost.Interaction;
 using Ghost.Morph;
 using Ghost.Morph.EditorTools;
+using Ghost.Narrative.EditorTools;
+using Ghost.Stages;
+using Ghost.Stages.EditorTools;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -41,8 +46,9 @@ namespace Ghost.Core.EditorTools
         {
             // Intro 不变形，停在植株的初始形态（Matrix）；以后开场做黑屏时再处理显示
             new StageSpec("Intro", false, MorphForm.Matrix, "开场剧情：按 N 继续"),
-            new StageSpec("Tutorial", true, MorphForm.Matrix, "新手教学：按 N 完成"),
-            new StageSpec("S1", true, MorphForm.Matrix, "S1：按 N 完成"),
+            // G6：Tutorial 和 S1 是真实阶段（TutorialStage / S1MatrixStage），占位文字不显示
+            new StageSpec("Tutorial", true, MorphForm.Matrix, ""),
+            new StageSpec("S1", true, MorphForm.Matrix, ""),
             new StageSpec("S2", true, MorphForm.Circuit, "S2：按 N 完成"),
             new StageSpec("S3", true, MorphForm.Network, "S3：按 N 完成"),
             new StageSpec("S4", true, MorphForm.Geometric, "S4：按 N 完成"),
@@ -101,6 +107,10 @@ namespace Ghost.Core.EditorTools
             var links = plantGo.AddComponent<NodeLinkRenderer>();
             links.material = MorphMenu.EnsureLineMaterial();
 
+            // G3：节点问题系统（闪烁 / 尝试 / 解决），和 NodeMorpher 挂在同一物体上
+            var issues = plantGo.AddComponent<NodeIssueSystem>();
+            issues.morpher = morpher;
+
             var handoff = plantGo.AddComponent<RealModelHandoff>();
             handoff.revealShader = Shader.Find("Ghost/RevealLit");
             // 注意：不加 MorphDebugSwitcher。主场景的形态只由 GameFlow 控制
@@ -108,10 +118,33 @@ namespace Ghost.Core.EditorTools
             Vector3 focus = plantGo.transform.TransformPoint(new LayoutGenerator.Settings().center);
             cameraGo.transform.LookAt(focus);
 
+            // G2：指针输入（节点拾取 + IInteractable 射线）和光标
+            var pointer = BuildPointer(camera, morpher, actions);
+            // G4：Agent 任务面板、节点详情弹窗、AI 询问框
+            var agentUI = AgentUIBuilder.BuildAll(null, camera);
+            // G5：对白播放器和字幕
+            var dialogue = NarrativeSceneBuilder.EnsureDialogue(cameraGo.transform);
+
             // 流程：每个阶段一个子物体
             var flowGo = new GameObject("GameFlow");
             var flow = flowGo.AddComponent<GameFlow>();
             flow.morpher = morpher;
+
+            // G6：阶段共用的引用
+            var ctx = flowGo.AddComponent<StageContext>();
+            ctx.flow = flow;
+            ctx.morpher = morpher;
+            ctx.links = links;
+            ctx.issues = issues;
+            ctx.pointer = pointer;
+            ctx.picker = pointer.picker;
+            ctx.taskPanel = agentUI.taskPanel;
+            ctx.detailPopup = agentUI.detailPopup;
+            ctx.query = agentUI.query;
+            ctx.dialogue = dialogue;
+            ctx.detailTable = NarrativeAssets.EnsureNodeDetails();
+            // 任务面板在进入真实阶段时才显示
+            agentUI.taskPanel.Hide();
             var stageList = new List<Stage>();
             foreach (var spec in Stages)
             {
@@ -121,7 +154,17 @@ namespace Ghost.Core.EditorTools
                 if (spec.name == "Intro")
                 {
                     // G5：开场用 IntroStage（黑屏 + 对白字幕，播完自动进入教学）
-                    stage = Ghost.Narrative.EditorTools.NarrativeSceneBuilder.AddIntroStage(stageGo, cameraGo.transform);
+                    stage = NarrativeSceneBuilder.AddIntroStage(stageGo, cameraGo.transform);
+                }
+                else if (spec.name == "Tutorial")
+                {
+                    stage = BuildTutorialStage(stageGo, ctx, set);
+                }
+                else if (spec.name == "S1")
+                {
+                    var s1 = stageGo.AddComponent<S1MatrixStage>();
+                    s1.ctx = ctx;
+                    stage = s1;
                 }
                 else
                 {
@@ -141,17 +184,58 @@ namespace Ghost.Core.EditorTools
             debug.actions = actions;
 
             BuildStagePanel(flow, cameraGo.transform);
-            // G2：指针输入（节点拾取 + IInteractable 射线）、光标和调试日志
-            BuildPointer(camera, morpher, actions);
 
             EditorSceneManager.SaveScene(scene, MainScenePath);
             Debug.Log($"[Flow] 生成主场景 → {MainScenePath}。Play 后按 N 进入下一关，Shift + 1–9 跳关");
             return scene;
         }
 
+        // G6：教学阶段。三个教学节点按 Matrix 布局挑选：画面中部偏上一排，左 / 中 / 右分开，
+        // 避开左侧任务面板、右侧询问框和下方字幕。【占位】具体节点等策划的教学步骤定
+        static TutorialStage BuildTutorialStage(GameObject stageGo, StageContext ctx, PlantNodeSet set)
+        {
+            var stage = stageGo.AddComponent<TutorialStage>();
+            stage.ctx = ctx;
+            stage.introSequence = StageAssets.EnsureTutorialIntro();
+            stage.afterEasySequence = StageAssets.EnsureTutorialAfterEasy();
+            stage.afterMediumSequence = StageAssets.EnsureTutorialAfterMedium();
+            stage.afterHardSequence = StageAssets.EnsureTutorialAfterHard();
+
+            var used = new HashSet<int>();
+            // 困难问题优先放在果实上，呼应 S1 的"果实出现严重问题"
+            stage.easyNode = NearestInMatrix(set, new Vector2(0.25f, 0.72f), null, used);
+            stage.mediumNode = NearestInMatrix(set, new Vector2(0.5f, 0.72f), null, used);
+            stage.hardNode = NearestInMatrix(set, new Vector2(0.75f, 0.72f), n => n.organ == Organ.Fruit, used);
+            if (stage.hardNode < 0) stage.hardNode = NearestInMatrix(set, new Vector2(0.75f, 0.72f), null, used);
+            return stage;
+        }
+
+        // 和 StageContext.NearestNodeInLayout 相同的规则，但在编辑器里直接读节点集
+        static int NearestInMatrix(PlantNodeSet set, Vector2 normalized, System.Predicate<PlantNode> filter, HashSet<int> used)
+        {
+            Vector2 min = new Vector2(float.MaxValue, float.MaxValue), max = -min;
+            foreach (var n in set.nodes)
+            {
+                Vector3 p = n.GetPose(MorphForm.Matrix).position;
+                min = Vector2.Min(min, p);
+                max = Vector2.Max(max, p);
+            }
+            Vector2 target = new Vector2(Mathf.Lerp(min.x, max.x, normalized.x), Mathf.Lerp(min.y, max.y, normalized.y));
+            int best = -1;
+            float bestDist = float.MaxValue;
+            foreach (var n in set.nodes)
+            {
+                if (used.Contains(n.id) || (filter != null && !filter(n))) continue;
+                float d = ((Vector2)n.GetPose(MorphForm.Matrix).position - target).sqrMagnitude;
+                if (d < bestDist) { bestDist = d; best = n.id; }
+            }
+            if (best >= 0) used.Add(best);
+            return best;
+        }
+
         // G2：Pointer 物体挂 NodePicker、PointerInput、PointerCursor（只用系统光标）和 PointerDebugLogger。
-        // 不想看日志时取消 PointerDebugLogger.logEvents 的勾选（或在这里设为 false）
-        static void BuildPointer(Camera camera, NodeMorpher morpher, InputActionAsset actions)
+        // G6 起日志默认关闭（PointerDebugLogger.logEvents = false），调试时在 Inspector 里勾上
+        static PointerInput BuildPointer(Camera camera, NodeMorpher morpher, InputActionAsset actions)
         {
             var pointerGo = new GameObject("Pointer");
             var picker = pointerGo.AddComponent<NodePicker>();
@@ -170,7 +254,9 @@ namespace Ghost.Core.EditorTools
             var logger = pointerGo.AddComponent<PointerDebugLogger>();
             logger.pointer = pointer;
             logger.picker = picker;
+            logger.logEvents = false;
             pointerGo.SetActive(true);
+            return pointer;
         }
 
         // World Space 面板：放在植株上方、玩家前方约 1.5 m，正对相机
