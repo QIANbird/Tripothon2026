@@ -8,7 +8,7 @@ namespace Ghost.Interaction
         // 点击（按下和松开都在这个物体上，且移动没超过阈值）
         void OnTap();
 
-        // 指针移入 / 移出。只用于高亮，不能作为唯一的信息展示方式（AGENTS.md 第 5 节）
+        // 指针移入 / 移出。只用于高亮，不能作为唯一的信息展示方式（docs/VR_GUIDELINES.md 第 5 节）
         void OnHoverEnter();
         void OnHoverExit();
     }

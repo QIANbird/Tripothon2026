@@ -42,7 +42,7 @@ namespace Ghost.Narrative.EditorTools
         public const int BlackoutSortingOrder = 100;
         public const int DialogueSortingOrder = 200;
 
-        // 【技术债】比赛期间改为 Screen Space Overlay HUD（1920×1080 参考），赛后改回 World Space（AGENTS.md 第 5 节）。
+        // 【技术债】比赛期间改为 Screen Space Overlay HUD（1920×1080 参考），赛后改回 World Space（docs/VR_GUIDELINES.md 第 5 节）。
         // 字幕：屏幕下方居中，一行小字（30 px），宽 1400 px，长句折两行；没有深色底板。
         // Agent 弹窗：屏幕左上角，带浅色底板（黑屏时也清楚），署名 + 正文
         static SubtitlePanel BuildSubtitlePanel(DialoguePlayer player)

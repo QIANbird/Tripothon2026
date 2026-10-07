@@ -51,7 +51,7 @@ namespace Ghost.Agent
         }
 
         // ---- 比赛期间的 HUD（Screen Space Overlay）----
-        // 【技术债】AGENTS.md 第 5 节要求 World Space；比赛期间经用户批准改为 HUD，赛后改回 World Space（见 PROJECT_SUMMARY）
+        // 【技术债】docs/VR_GUIDELINES.md 第 5 节要求 World Space；比赛期间经用户批准改为 HUD，赛后改回 World Space（见 PROJECT_SUMMARY）
         public static readonly Vector2 HudReference = new Vector2(1920f, 1080f);
         // HUD 左侧栏（Agent 信息 / 详情）的宽度和边距（参考分辨率像素），PlantFit 按它给植株让出位置
         public const float HudLeftColumnWidth = 520f;

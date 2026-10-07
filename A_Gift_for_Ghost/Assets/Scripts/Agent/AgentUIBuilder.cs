@@ -7,7 +7,7 @@ namespace Ghost.Agent
 {
     // 用代码生成三个 Agent 界面的完整层级（Canvas、文字、按钮），并填好组件引用。编辑器菜单和运行时都能调用。
     // 【技术债】比赛期间：详情弹窗、询问框、任务面板都是 Screen Space Overlay HUD（1920×1080 参考），
-    // 赛后改回 World Space（AGENTS.md 第 5 节）。任务面板暂不使用（StageContext.showTaskPanel = false）。
+    // 赛后改回 World Space（docs/VR_GUIDELINES.md 第 5 节）。任务面板暂不使用（StageContext.showTaskPanel = false）。
     //
     //   var ui = AgentUIBuilder.BuildAll(null, camera);
     //   ui.taskPanel.SetTasks(...); ui.query.Ask("...", () => ...);

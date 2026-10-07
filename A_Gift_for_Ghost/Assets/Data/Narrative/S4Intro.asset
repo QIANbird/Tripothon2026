@@ -15,12 +15,12 @@ MonoBehaviour:
   startDelay: 0.8
   lines:
   - speaker: 0
-    text: "[\u5360\u4F4D] \u8FD9\u4E00\u6B21\uFF0C\u624B\u662F\u4F60\u7684\u4E86\u3002"
+    text: "\u89E6\u89C9\u7CFB\u7EDF\u5DF2\u89E3\u9501\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - speaker: 0
-    text: "[\u5360\u4F4D] \u8F6C\u52A8\u76C6\u683D\uFF0C\u770B\u770B\u53F6\u5B50\u5E95\u4E0B\u85CF\u7740\u4EC0\u4E48\u3002\u627E\u5230\u4E86\u5C31\u628A\u5B83\u6458\u6389\u3002"
+    text: "\u8BF7\u4EBA\u4EBA\u5DE5\u5B9A\u4F4D\u5F02\u5E38\u76EE\u6807\u5E76\u5B9E\u65BD\u5254\u9664\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

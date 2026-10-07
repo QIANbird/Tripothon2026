@@ -272,7 +272,61 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
 - 光标或准星做成独立组件，以后换 VR 射线时直接替换。
 - 验收：测试场景里点节点，打印出 id 和部位；从节点拖拽时，打印出经过的节点序列。
 
-**G3 节点状态与表现**（`Scripts/Morph/` 扩展、`Scripts/Gameplay/`） 状态：未开始
+**G3 节点状态与表现**（`Scripts/Morph/` 扩展、`Scripts/Gameplay/`） 状态：**代码完成，编译通过，逻辑已在编辑器里自测；Play 画面验收跳过，未提交（见下）（10-06）**
+
+实际文件：
+- `Scripts/Morph/NodeMorpherStates.cs`（新，`NodeMorpher` 的 partial）：逐节点状态 + 整体写实度。
+- `Scripts/Morph/NodeMorpher.cs`：改成 `partial`，绘制时用 `DisplayColor` / `DisplayScale`。
+- `Scripts/Morph/NodeLinkRenderer.cs`：逐条连线染色；两端节点隐藏时连线淡出。
+- `Scripts/Morph/OrganPalette.cs`：新增 `ColorAt(node, realness)`。
+- `Scripts/Gameplay/NodeIssueSystem.cs`（新）、`Scripts/Gameplay/G3TestDriver.cs`（新，只用于测试场景）、`Scripts/Gameplay/Editor/G3TestMenu.cs`（新，菜单 Ghost → Gameplay → Build G3 Test Scene）、`Assets/Scenes/G3Test.unity`（菜单生成）。
+
+`NodeMorpher` 逐节点接口（命名空间 `Ghost.Morph`，id = 节点 id；只改显示，不改数据，不打断变形）：
+- `SetBlink(id, frequency = 0, Color? color = null)`：在原色和白色（默认）之间余弦闪烁，频率 0 时用 `defaultBlinkFrequency`（1.5 次/秒）。
+- `SetHighlight(id, Color? color = null)`：常亮高亮。`SetTint(id, color)`：染成指定色（恢复色、标记色）。
+- `Restore(id)` / `RestoreAll()`：回到按形态正常显示。`GetState(id)` 返回 `NodeVisualState { Normal, Blink, Highlight, Tint }`。状态切换时 0.15 s 淡入，不跳色。
+- `Hide(id, immediate = false)` / `Show(id, …)` / `SetVisible(id, bool, …)`：缩小动画（`hideDuration` 0.35 s）。`IsHidden(id)`。
+- 拾取用（给 G2）：`GetNodeVisibility(id)` 返回 0–1（隐藏动画 × 写实交接缩小），小于 0.5 应跳过；`TryGetNodeWorldSphere(id, out center, out radius, minRadius = 0.01f)` 返回世界空间包围球，不可见时返回 false。`IsReady` 表示数组已初始化（Awake 之后）。
+- 写实度：`Realness { get; set; }`（0–1），设置后覆盖形态自带的写实度并按 `realnessSpeed` 平滑过渡；`ClearRealness()` 恢复按形态；`SetRealnessImmediate(v)` 不过渡；`HasRealnessOverride`。S4 每摘一只虫子调一次 `Realness = ...`。
+- 可调参数：`defaultBlinkFrequency`、`defaultHighlightColor`、`highlightStrength`（目标色占比 0.85）、`hideDuration`、`realnessSpeed`。
+
+`NodeLinkRenderer` 连线接口（每条连线以子节点 id 标识，因为每个节点只有一个父节点）：
+- `SetLinkColor(childId, color)`；`SetLinkColor(a, b, color)` 顺序不限，不直接相连时返回 false。
+- `ClearLinkColor(childId)` / `ClearAllLinkColors()` / `IsLinkColored(childId)`。
+- `HasLink(childId)`（土块默认没有连线）、`FindLink(a, b)` 返回子节点 id 或 -1（S2 拖拽时判断两个节点是否相邻）。
+- 染色带淡入（`colorFadeSpeed`），染色的线至少 `overrideMinAlpha`（0.6）不透明，在连线很淡的形态里也看得见。
+
+`NodeIssueSystem`（命名空间 `Ghost.Gameplay`，挂在 NodeMorpher 同一物体上；只管问题状态和表现，不读输入，点击由 G2 转交 `TryAttempt`）：
+- 数据 `NodeIssue`：`nodeId`、`difficulty`（`IssueDifficulty { Easy, Medium, Hard }`）、`clicksRemaining`（Hard 为 `int.MaxValue`）、`retryDelay`、`resolved`、`attempts`；只读属性 `IsWaiting`（失败后等待重新闪烁中）、`IsActive`（正在闪烁、可点击）。
+- 生成：`AddIssue(nodeId, difficulty)`、`AddIssues(ids, difficulty)`、`GenerateRandom(count, difficulty, Predicate<PlantNode> filter = null, seed = -1)`（只挑还没有问题的节点）。
+- 操作：`TryAttempt(nodeId)` 返回 true 表示这次点击被问题系统处理了（节点上有正在闪烁的问题）；等待中的点击不算尝试。`Resolve(nodeId)` 不经点击直接解决（S2 拖拽经过的节点，Hard 也可以）。`RemoveIssue`、`ClearAll`。
+- 查询：`Issues`、`GetIssue`、`HasIssue`、`AllResolved(difficulty?)`、`CountUnresolved(difficulty?)`、`TotalAttempts(difficulty?)`（S1 判定"困难问题累计尝试 3 次以上"用它）。
+- 事件：`IssueCreated(NodeIssue)`、`IssueAttempted(NodeIssue, bool solved)`、`IssueResolved(NodeIssue)`。
+- 规则：Easy 点一次解决；Medium 点 `mediumClicks`（3）次，每次没点完暂停 `mediumRetryDelay`（0.6 s）再闪；Hard 每次点击只暂停 `hardRetryDelay`（2–3 s 随机），然后重新闪烁。解决后染 `resolvedColor`（浅蓝）`resolvedTintDuration`（0.8 s），再回正常色。
+
+已验证（编辑器里用隐藏的临时物体跑逻辑，pepper_plant 191 个节点）：五种显示状态切换、隐藏后 `GetNodeVisibility` 为 0 且包围球不返回、写实度覆盖和清除；Easy 一次解决、再点不再处理；Medium 第 3 次解决、前两次进入等待；Hard 点击后不解决、进入 2.27 s 等待、等待中点击不算尝试；事件次数正确（5 次尝试、2 次解决、3 次失败）；`Resolve` 能解决 Hard；连线染色、清除、`FindLink` 对不相邻的节点返回 -1、土块没有连线。
+
+跳过的验收（等用户手动补验）：
+- **Play 画面验收**：共享编辑器当时开着 G1 的 `Main.unity`，打开 G3Test 或进 Play 会打断 G1 的验收，所以没做闪烁、高亮、缩小动画、连线染色的视觉检查。
+- **未提交、未推送**：提交被本会话的权限系统拦下（AGENTS.md 要求提交由用户本人明确同意，跨会话消息不算）。改动都在工作区，等用户确认后提交，见下面的命令。
+
+人工验收清单：
+1. 菜单 Ghost → Gameplay → Build G3 Test Scene（会生成并保存 `Assets/Scenes/G3Test.unity`，不打断当前场景），打开 G3Test，进 Play。
+2. 开局应看到：3 个叶片节点、2 个叶或茎节点、全部果实节点在原色和白色之间闪烁。Console 打印"生成问题"。
+3. 点闪烁的节点：Easy 一次变浅蓝再回正常；Medium 点第 1、2 次暂停约 0.6 s 又闪，第 3 次解决；Hard（果实）每次点击暂停 2–3 s 又开始闪，永远不解决。Console 打印每次 `IssueAttempted` / `IssueResolved`。
+4. 点没有问题的节点：它和父节点之间的连线变蓝（再点取消）。按 2 切到回路形态看得最清楚。
+5. 在 Inspector 里 G3TestDriver 右键：Hide random leaf（叶片缩小消失，连线一起淡出）、Show all、Realness +0.25（整株逐档变鲜艳）、Clear Realness。
+6. 按 1–5 切换形态，闪烁、高亮和隐藏状态应保持，不被变形打断。
+
+提交命令（只提交 G3 的文件，不含 manifest）：
+```bash
+git add A_Gift_for_Ghost/Assets/Scripts/Morph/NodeLinkRenderer.cs A_Gift_for_Ghost/Assets/Scripts/Morph/NodeMorpher.cs A_Gift_for_Ghost/Assets/Scripts/Morph/OrganPalette.cs A_Gift_for_Ghost/Assets/Scripts/Morph/NodeMorpherStates.cs A_Gift_for_Ghost/Assets/Scripts/Morph/NodeMorpherStates.cs.meta A_Gift_for_Ghost/Assets/Scripts/Gameplay.meta A_Gift_for_Ghost/Assets/Scripts/Gameplay A_Gift_for_Ghost/Assets/Scenes/G3Test.unity A_Gift_for_Ghost/Assets/Scenes/G3Test.unity.meta
+git commit -m "G3: Node visual states, link tint, NodeIssueSystem and test scene"
+git push origin dev/auto
+```
+PROJECT_SUMMARY.md 里同时有总调度会话写的 G0 状态，要不要一起提交由用户决定。
+
+原计划：
 - 给 `NodeMorpher` 加逐节点的覆盖接口，至少包括：
   - 闪烁：在原色和白色之间切换，频率可调。
   - 常亮高亮。
@@ -497,6 +551,13 @@ G1 完成后，G2–G5 互不依赖，可以分给不同的人并行做。G6 起
 - 进入时变形到 Geometric，用 `TargetRotator` 旋转盆栽。
 - 点击叶背的虫子节点将它摘除：先播放缩小动画，然后隐藏。
 - 每摘除一只，`Realness` 提升一档。所有虫子摘完即通关。
+- **待办：接入虫子模型（10-06 记录，G3 未处理）。** 虫子 FBX 在 `Assets/3D_Objects/bug/tripo_convert_cbdef70f-....fbx`，还没放进彩椒。采样器已经支持模型虫子，不用改代码，建议做法：
+  1. 右键 `Assets/3D_Objects/pepper2/pepper_plant.fbx` → Create → Prefab Variant，命名 `pepper_plant_bugs`。
+  2. 在 Variant 里把虫子 FBX 拖成根物体的子物体，**外层改名 `bug_01`、`bug_02`……**（FBX 本身叫 `tripo_convert_...`，采样器靠名字前缀 `bug` 识别，会往上找父物体名）。摆在叶背，真实尺寸约 1–1.5 cm。
+  3. 选中 Variant → Ghost → Morph → Sample Plant From Selected Model，生成 `Assets/Data/Morph/pepper_plant_bugs.asset`。每只虫子成为一个 `Organ.Bug` 节点，`part` = `bug_01` 等，父节点是最近的叶片；有模型虫子时不再生成假虫子。
+  4. Main 场景的 NodeMorpher 改用这个节点集。
+  - 不建议"运行时把虫子实例挂到 Bug 节点位置"：位置由采样决定、没法手动摆，而且 Variant 方式下节点和模型天然对齐。
+  - **要补一处代码**：S4 里虫子已被摘除（节点 `Hide`），但过渡到 Real 时 `RealModelHandoff` 会显示整个 Variant，虫子模型又会出现。需要在 `RealModelHandoff` 里按名字找到 `bug_*` 子物体，对应 Bug 节点 `IsHidden` 时把它关掉（节点的 `part` 字段就是子物体名）。
 
 **G10 收尾流程** 状态：未开始
 - 过渡：播放独白，然后调用 `MorphTo(Real)` 交给写实模型。

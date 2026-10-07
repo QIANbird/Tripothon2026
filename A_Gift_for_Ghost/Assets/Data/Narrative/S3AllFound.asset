@@ -15,7 +15,7 @@ MonoBehaviour:
   startDelay: 0.3
   lines:
   - speaker: 3
-    text: "[\u5360\u4F4D] \u5DF2\u6807\u8BB0\u5168\u90E8\u5F02\u5E38\u4E2A\u4F53\u3002"
+    text: "\u5DF2\u6807\u8BB0\u5168\u90E8\u5F02\u5E38\u4E2A\u4F53\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

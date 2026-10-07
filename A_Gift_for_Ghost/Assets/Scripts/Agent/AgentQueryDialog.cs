@@ -7,7 +7,7 @@ namespace Ghost.Agent
 {
     // AI 询问框：一句提问 + 一个 Yes 按钮。点 Yes 后先隐藏，再回调 onYes 并发 Answered。
     // 【技术债】比赛期间是 Screen Space HUD，Yes 是 UGUI Button（EventSystem + InputSystemUIInputModule，走 UI 动作表）；
-    // 赛后改回 World Space，VR 版用 XR UI 射线点同一个 Button（AGENTS.md 第 5 节）。
+    // 赛后改回 World Space，VR 版用 XR UI 射线点同一个 Button（docs/VR_GUIDELINES.md 第 5 节）。
     public class AgentQueryDialog : MonoBehaviour
     {
         [Header("引用（AgentUIBuilder 会填好）")]

@@ -90,7 +90,7 @@ namespace Ghost.Core.EditorTools
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = background;
 
-            // 固定相机：眼高 1.6 m，水平正视 +Z（不俯仰，AGENTS.md 第 3 节）。植株的大小和位置由 PlantFit 按形态适配
+            // 固定相机：眼高 1.6 m，水平正视 +Z（不俯仰，docs/VR_GUIDELINES.md 第 3 节）。植株的大小和位置由 PlantFit 按形态适配
             var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
             var camera = cameraGo.AddComponent<Camera>();
             camera.clearFlags = CameraClearFlags.SolidColor;
@@ -125,7 +125,11 @@ namespace Ghost.Core.EditorTools
             var fit = fitGo.AddComponent<PlantFit>();
             fit.morpher = morpher;
             fit.viewCamera = camera;
-            // 编辑器里也先摆到 Matrix 的适配位置（场景里看到的和 Play 一致；Play 时 Start 会按实际屏幕比例再算一次）
+            // 植株居中；立体形态用包围球，S3 旋转后仍全部入画。Play 时 Start 会按实际屏幕比例再算一次
+            fit.hudLeftFraction = 0f;
+            fit.rightMarginFraction = 0f;
+            fit.trimLow = 0f;
+            fit.trimHigh = 1f;
             fit.ClearCache();
             fitGo.transform.localScale = Vector3.one;
 

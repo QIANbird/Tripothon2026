@@ -7,7 +7,7 @@ namespace Ghost.Agent
     // 行为：右键按下 Show → 按住期间一直显示 → 松开 Release 后停留 lingerSeconds → CanvasGroup 淡出后隐藏。
     // 和 Agent 剧情弹窗（AgentMessagePanel）同时出现时，放在它下方，不叠在一起（见 stackBelow）。
     // 不挡指针射线（文字和底板都不接收 UI 射线）。
-    // 【技术债】赛后改回 World Space（AGENTS.md 第 5 节）
+    // 【技术债】赛后改回 World Space（docs/VR_GUIDELINES.md 第 5 节）
     public class NodeDetailPopup : MonoBehaviour
     {
         [Header("引用（AgentUIBuilder 会填好）")]
