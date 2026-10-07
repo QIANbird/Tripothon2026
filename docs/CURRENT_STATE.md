@@ -1,11 +1,11 @@
 # Current State
 
-快照日期：2026-10-07 · 分支 `dev/auto`（尚未合并到 `main`）
+快照日期：2026-10-08 · `dev/auto` 已合并到 `main`
 
 ## Current stage
 
 第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition / Pick / Outro 还是占位阶段（按 N 继续）。
-最新一轮 UX 调整（HUD、右键详情、PlantFit 适配）已提交为 WIP，Play 验收未完成。
+最新一轮 UX 调整（HUD、右键详情、PlantFit 适配、Gizmos 竖线）已通过 Play 验收（10-08）。
 
 ## Features currently working
 
@@ -31,9 +31,6 @@
 
 ## Known bugs
 
-- 已提交但待 Play 验收的修复：
-  - `PlantFit.cs` / `MainSceneMenu.cs`：植株不居中；S2、S3 缩放不足 80%（立体形态改用包围球）。
-  - `GameViewGizmosOff.cs`：画面中央的竖线其实是 Game 视图 Gizmos 画出的世界 Y 轴，进 Play 时自动关闭。
 - 仓库里 `Main.unity` 的状态是否与最新代码一致不确定：改了 `MainSceneMenu` 后必须重新跑菜单。
 - 在 MCP 下执行 Build Main Scene，如果当前场景有未保存修改，会弹出保存对话框，卡住编辑器。
 - 只有 3 个虫子节点（188/189/190）。虫子 FBX 还没放进彩椒模型，见 `docs/PROJECT_SUMMARY.md` G9 待办。重新采样会让节点重新编号，S1/S2 写死的 id 会失效。
