@@ -145,7 +145,7 @@ namespace Ghost.Stages
             return true;
         }
 
-        static string PopupTitle(PlantNode node) => BugStageUtil.PhysicalTitle(node);
+        string PopupTitle(PlantNode node) => BugStageUtil.Title(ctx.detailTable, node, NameKind.Physical);
 
         string PopupBody(PlantNode node)
         {

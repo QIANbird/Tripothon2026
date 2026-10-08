@@ -143,6 +143,11 @@ namespace Ghost.Core.EditorTools
             rotator.localPivot = new LayoutGenerator.Settings().center;
             // G5：对白播放器和字幕 / Agent 剧情弹窗（先建：详情弹窗要排在 Agent 剧情弹窗下方）
             var dialogue = NarrativeSceneBuilder.EnsureDialogue(cameraGo.transform);
+            // 对白推进：点击空白处或空格 / 回车（节点优先）
+            var advance = dialogue.gameObject.AddComponent<DialogueAdvanceInput>();
+            advance.pointer = pointer;
+            advance.subtitles = Object.FindAnyObjectByType<Ghost.Narrative.SubtitlePanel>(FindObjectsInactive.Include);
+            advance.actions = actions;
             // G4：Agent 任务面板、节点详情弹窗、AI 询问框（HUD），以及 EventSystem
             var agentUI = AgentUIBuilder.BuildAll(null, camera);
 

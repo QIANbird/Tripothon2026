@@ -13,11 +13,13 @@
 - 调试：N 下一关，Shift+1–9 跳关（两个方向都能干净进出）。
 - 节点问题：Easy / Medium / Hard 三档；Medium 两次点击之间隔 5 s 再闪；Hard 永远解决不了。
 - 左键点节点：授权 Agent 处理一次，同时触发亮度脉冲反馈。
-- 右键按住：左侧 HUD 弹出详情，松开 2.5 s 后淡出；详情深度随阶段变化（Status → Project → Physical）。
+- 右键按住：左侧 HUD 弹出详情，松开 2.5 s 后淡出；详情深度随阶段变化（Status → Project → Physical）。标题按阶段取名：S2 项目名、S3 外观名、S4 真实部位名（不带编号），来自 `NodeDetails.asset`，可用菜单 Ghost/Narrative/Import Node Text CSV 从 `docs/script/03_node_text.csv` 导入。
 - S2：从根部沿连线拖拽修复，划过的线变蓝，果实不恢复；右键查看果实是通关条件之一。
 - S3：拖空白处旋转网络，左键标记 3 个虫子节点，弹出 AI 询问，选 Yes 进下一关。
 - S4：旋转找叶背虫子并点击摘除（含虫子 FBX 实例），每摘一只写实度提高一档。
 - 对白分流：亲切的声音 = 底部字幕（浅色背景黑字、黑屏时白字）；没有温度的声音 = 左侧弹窗。
+- 台词表：`docs/script/02_dialogue.csv` 在编辑器里自动导入（也可用菜单 Ghost/Narrative/Import Dialogue CSV），生成 `Assets/Data/Narrative/Script/*.asset` 和 `DialogueLibrary.asset`；台词可以单独指定通道（字幕 / Agent 弹窗）。阶段脚本还没改用这些资产，仍引用旧的占位对白。
+- 对白推进：左键点空白处或按空格 / 回车，打字中先补全整句，再点进入下一句；点中节点时只算点节点（全黑屏时除外）。
 - PlantFit：相机固定（眼高 1.6 m、水平正视），按形态缩放、居中植株。
 
 ## Important files

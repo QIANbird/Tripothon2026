@@ -25,22 +25,27 @@ namespace Ghost.Stages
             return bugs;
         }
 
-        // 【占位】物体名，和 NodeDetails.asset 的 Physical 档对应
-        public static string PhysicalTitle(PlantNode node)
+        // 真实部位名，表里没填名字时的默认值
+        public static string RealName(Organ organ)
         {
-            string name;
-            switch (node.organ)
+            switch (organ)
             {
-                case Organ.Soil: name = "土壤"; break;
-                case Organ.Root: name = "根"; break;
-                case Organ.Stem: name = "茎"; break;
-                case Organ.Leaf: name = "叶片"; break;
-                case Organ.Bud: name = "花苞"; break;
-                case Organ.Fruit: name = "果实"; break;
-                case Organ.Bug: name = "小虫"; break;
-                default: name = "未知"; break;
+                case Organ.Soil: return "土壤";
+                case Organ.Root: return "根部";
+                case Organ.Stem: return "茎";
+                case Organ.Leaf: return "叶片";
+                case Organ.Bud: return "花朵";
+                case Organ.Fruit: return "果实";
+                case Organ.Bug: return "虫";
+                default: return "未知";
             }
-            return $"{name} #{node.id}";
+        }
+
+        // 详情标题（不带节点编号）：S3 用 NameKind.Physical，S4 用 NameKind.Real
+        public static string Title(NodeDetailTable table, PlantNode node, NameKind kind)
+        {
+            string fallback = RealName(node.organ);
+            return table != null ? table.GetName(node.organ, kind, fallback) : fallback;
         }
 
         // 物体描述（NodeDetailTable 的 Physical 档），extraLine 非空时另起一行附在后面

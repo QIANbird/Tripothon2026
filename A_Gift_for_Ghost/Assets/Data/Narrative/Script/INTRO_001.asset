@@ -1,0 +1,65 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 426166e6124daec4899b884a5cf53037, type: 3}
+  m_Name: INTRO_001
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Narrative.DialogueSequence
+  startDelay: 0
+  lines:
+  - id: INTRO_001
+    speaker: 0
+    channel: 1
+    text: "\u55E8\uFF0C\u4F60\u9192\u4E86\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: INTRO_002
+    speaker: 3
+    channel: 0
+    text: "\u795E\u7ECF\u8FDE\u63A5\u5DF2\u6062\u590D\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: INTRO_003
+    speaker: 3
+    channel: 0
+    text: "\u68C0\u6D4B\u5230\u7A33\u5B9A\u7684\u610F\u8BC6\u6D3B\u52A8\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: INTRO_004
+    speaker: 3
+    channel: 0
+    text: "\u8BED\u8A00\u548C\u8FD0\u52A8\u901A\u9053\u5C1A\u672A\u6062\u590D\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: INTRO_005
+    speaker: 0
+    channel: 1
+    text: "\u4F60\u7684\u611F\u5B98\u7CFB\u7EDF\u4E0E\u8FD0\u52A8\u795E\u7ECF\u90FD\u6C89\u5BC2\u4E86\u592A\u4E45\u4E86\uFF0C\u6211\u73B0\u5728\u662F\u901A\u8FC7\u8111\u673A\u63A5\u53E3\u4E0E\u4F60\u5BF9\u8BDD\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: INTRO_006
+    speaker: 0
+    channel: 1
+    text: "\u522B\u62C5\u5FC3\uFF0C\u6211\u4EEC\u4F1A\u901A\u8FC7\u4E00\u4E9B\u865A\u62DF\u4E16\u754C\u7684\u7EC3\u4E60\u5E2E\u52A9\u4F60\u6062\u590D\u884C\u4E3A\u80FD\u529B\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: INTRO_007
+    speaker: 0
+    channel: 1
+    text: "\u5148\u4ECE\u7B80\u5355\u7684\u5F00\u59CB\uFF0C\u6CE8\u610F\u89C2\u5BDF\u4F60\u884C\u52A8\u7684\u53CD\u9988\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1

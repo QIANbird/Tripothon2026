@@ -1,0 +1,79 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c060c65a14cf0541af6a02f23112fac, type: 3}
+  m_Name: DialogueLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Narrative.DialogueLibrary
+  entries:
+  - key: INTRO_001
+    section: INTRO
+    trigger: "\u89C6\u9891\u7ED3\u675F"
+    sequence: {fileID: 11400000, guid: c5e6fb9c8ffa9334eb76f53a10925eba, type: 2}
+  - key: TUT_002
+    section: TUT
+    trigger: "\u73A9\u5BB6\u70B9\u51FB\u65B9\u5757"
+    sequence: {fileID: 11400000, guid: 675c49ca3c08e2546aecf4c531744085, type: 2}
+  - key: S1_001
+    section: S1
+    trigger: "\u6BB5\u843D\u5F00\u59CB"
+    sequence: {fileID: 11400000, guid: 8a7951e996dc31a478ac856c8c5a84df, type: 2}
+  - key: S1_P01
+    section: S1
+    trigger: "\u70B9\u51FB\u4EAE\u8D77\u7684\u65B9\u5757"
+    sequence: {fileID: 11400000, guid: 3c5a6960e1592b54abe87ea6a30706c1, type: 2}
+  - key: S1_P02
+    section: S1
+    trigger: "\u70B9\u51FB\u4EAE\u8D77\u7684\u65B9\u5757"
+    sequence: {fileID: 11400000, guid: 0523377e7fd29ef4986475801fc0456d, type: 2}
+  - key: S1_002
+    section: S1
+    trigger: "\u89E6\u53D1\u901A\u5173\u6761\u4EF6"
+    sequence: {fileID: 11400000, guid: 63224a0446883354e8e8a83bfd3d68f5, type: 2}
+  - key: S2_001
+    section: S2
+    trigger: "\u6BB5\u843D\u5F00\u59CB"
+    sequence: {fileID: 11400000, guid: aceab3b0a3a397d4aa377ce8ceb53ece, type: 2}
+  - key: S2_005
+    section: S2
+    trigger: "\u89E6\u53D1\u901A\u5173\u6761\u4EF6"
+    sequence: {fileID: 11400000, guid: 039f1ed96df716949a08240bcfd7986a, type: 2}
+  - key: S3_001
+    section: S3
+    trigger: "\u6BB5\u843D\u5F00\u59CB"
+    sequence: {fileID: 11400000, guid: 0b802a09e5d4a1a4593756419adf4c84, type: 2}
+  - key: S3_004
+    section: S3
+    trigger: "\u6807\u8BB0\u7B2C\u4E00\u4E2A\u866B\u5B50"
+    sequence: {fileID: 11400000, guid: 80ba2ce7dc361b5449a498c7d1b1784c, type: 2}
+  - key: S3_005
+    section: S3
+    trigger: "\u6807\u8BB0\u5168\u90E8\u866B\u5B50"
+    sequence: {fileID: 11400000, guid: c35f6e7b22fc4ea4a92f6724d27c61c6, type: 2}
+  - key: S4_001
+    section: S4
+    trigger: "\u6BB5\u843D\u5F00\u59CB"
+    sequence: {fileID: 11400000, guid: ce5e9fc28cb32ae418a1077a1a3fc0fc, type: 2}
+  - key: S4_003
+    section: S4
+    trigger: "\u6458\u9664\u7B2C\u4E00\u4E2A\u866B\u5B50"
+    sequence: {fileID: 11400000, guid: 0ca23dc2ebd6da2468aaad18edbcfee7, type: 2}
+  - key: S4_004
+    section: S4
+    trigger: "\uFF08\u63A8\u6D4B\uFF09\u6458\u9664\u5168\u90E8\u866B\u5B50"
+    sequence: {fileID: 11400000, guid: ff95c2f4242a8e446a091c8675e127d7, type: 2}
+  - key: PICK_001
+    section: PICK
+    trigger: "\u6BB5\u843D\u5F00\u59CB"
+    sequence: {fileID: 11400000, guid: a2024befbf0a49f449f8ccb8ab67b122, type: 2}
+  - key: PICK_004
+    section: PICK
+    trigger: "\u52A8\u753B\u7ED3\u675F"
+    sequence: {fileID: 11400000, guid: 1c44b27f9deca454dbd5e1a93b66daeb, type: 2}

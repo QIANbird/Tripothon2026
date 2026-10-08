@@ -387,7 +387,9 @@ namespace Ghost.Stages
         string PopupTitle(int id)
         {
             var node = ctx.Node(id);
-            return node != null ? $"{SystemName(node.organ)} #{id}" : $"节点 #{id}";
+            if (node == null) return "未知节点";
+            string fallback = SystemName(node.organ);
+            return ctx.detailTable != null ? ctx.detailTable.GetName(node.organ, NameKind.Project, fallback) : fallback;
         }
 
         // 项目语言的描述（NodeDetailTable 的 Project 档）+ 一行状态。【占位】状态文案等策划定
@@ -404,7 +406,7 @@ namespace Ghost.Stages
             return string.IsNullOrEmpty(body) ? status : body + "\n" + status;
         }
 
-        // 【占位】项目语言的系统名，和 NodeDetails.asset 的 Project 档一致
+        // 项目语言的系统名，NodeDetails.asset 里没填 projectName 时的默认值
         static string SystemName(Organ organ)
         {
             switch (organ)

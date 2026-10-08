@@ -12,11 +12,23 @@ namespace Ghost.Narrative
         Agent,             // Agent（如 AI 询问的旁白）
     }
 
-    // 一句台词。策划在 DialogueSequence 资产的 Inspector 里填
+    // 显示通道。Auto = 按说话人决定（SubtitlePanel.styles）；其他值强制走指定通道，署名仍按说话人
+    public enum LineChannel
+    {
+        Auto,
+        Subtitle,
+        AgentPopup,
+    }
+
+    // 一句台词。策划在 DialogueSequence 资产的 Inspector 里填，或从台词表 CSV 导入
     [Serializable]
     public class DialogueLine
     {
+        [Tooltip("台词表里的 ID（例如 S3_004）；手填的台词可以留空")]
+        public string id = "";
         public Speaker speaker = Speaker.EmotionalFemale;
+        [Tooltip("Auto = 按说话人决定显示在字幕还是 Agent 弹窗")]
+        public LineChannel channel = LineChannel.Auto;
         [TextArea(2, 5)]
         public string text = "";
         [Tooltip("配音。没有时按字数估算时长")]

@@ -7,7 +7,8 @@ namespace Ghost.Narrative
     //   字幕（屏幕下方一行小字，可折两行）：EmotionalFemale（署名"亲切的声音"）、Protagonist（暂按字幕、无署名，待策划确认）。
     //     浅色背景用黑字；黑屏（blackout 不透明）时用白字。不加深色底板。
     //   Agent 弹窗（屏幕左侧，带底板）：MechanicalFemale 和 Agent 都归这一类，署名"没有温度的声音"。
-    // 订阅 DialoguePlayer，不读输入。
+    //   台词的 channel 不是 Auto 时，按台词指定的通道显示（署名仍按说话人），例如亲切的声音出现在 Agent 弹窗里。
+    // 订阅 DialoguePlayer，不读输入；推进由输入端调 Advance()。
     public class SubtitlePanel : MonoBehaviour
     {
         public enum Channel { Subtitle, AgentPopup }
@@ -102,7 +103,10 @@ namespace Ghost.Narrative
         {
             Hide();
             var style = StyleOf(line.speaker);
-            bool popup = style.channel == Channel.AgentPopup && agentRoot != null && agentTextLabel != null;
+            var channel = line.channel == LineChannel.Subtitle ? Channel.Subtitle
+                : line.channel == LineChannel.AgentPopup ? Channel.AgentPopup
+                : style.channel;
+            bool popup = channel == Channel.AgentPopup && agentRoot != null && agentTextLabel != null;
             var nameLabel = popup ? agentSpeakerLabel : speakerLabel;
             activeLabel = popup ? agentTextLabel : textLabel;
             if (nameLabel != null)
@@ -116,6 +120,27 @@ namespace Ghost.Narrative
             activeLabel.text = revealing ? "" : fullText;
             (popup ? agentRoot : root).SetActive(true);
             if (popup) ResizeAgentPopup();
+        }
+
+        // 正在显示一句台词（字幕或 Agent 弹窗）
+        public bool IsShowingLine => root.activeSelf || (agentRoot != null && agentRoot.activeSelf);
+        // 打字机还没打完
+        public bool IsRevealing => revealing;
+
+        // 立刻显示整句
+        public void CompleteReveal()
+        {
+            if (!revealing) return;
+            revealing = false;
+            if (activeLabel != null) activeLabel.text = fullText;
+        }
+
+        // 玩家要求推进：打字中先补全整句，已经打完就跳到下一句
+        public void Advance()
+        {
+            if (!IsShowingLine || player == null || !player.IsPlaying) return;
+            if (revealing) CompleteReveal();
+            else player.Skip();
         }
 
         public void Hide()

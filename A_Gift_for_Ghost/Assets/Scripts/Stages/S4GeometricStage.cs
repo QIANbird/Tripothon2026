@@ -233,7 +233,7 @@ namespace Ghost.Stages
             if (ctx.morpher != null && ctx.morpher.IsMorphing) return false;
             var node = ctx.Node(ResolveBugTap(id));
             if (node == null) return false;
-            title = BugStageUtil.PhysicalTitle(node);
+            title = BugStageUtil.Title(ctx.detailTable, node, NameKind.Real);
             body = BugStageUtil.PhysicalBody(ctx.detailTable, node);
             return true;
         }

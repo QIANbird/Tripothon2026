@@ -8,7 +8,7 @@
 | Stages | `Scripts/Stages` | 每关的玩法和通关判定；`StageContext` 提供共用引用 |
 | Morph | `Scripts/Morph` | 同一组节点在 5 种形态之间插值渲染（GPU instancing）；逐节点的显示状态；连线；PlantFit 构图；写实模型交接 |
 | Gameplay | `Scripts/Gameplay` | `NodeIssueSystem`：问题的难度、重试和解决状态 |
-| Interaction | `Scripts/Interaction` | `PointerInput`（交互发起方）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
+| Interaction | `Scripts/Interaction` | `PointerInput`（交互发起方）、`DialogueAdvanceInput`（PC 端对白推进）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
 | Agent UI | `Scripts/Agent` | 任务面板、详情弹窗、Yes 询问框（HUD） |
 | Narrative | `Scripts/Narrative` | 对白播放、字幕和 Agent 弹窗、黑屏、节点详情文本表 |
 
@@ -19,7 +19,7 @@
 - 问题状态（剩余点击次数、尝试次数、是否解决）：`NodeIssueSystem`。
 - 关卡内的玩法状态（已找到的虫子、S2 的路径、是否已查看果实）：各 Stage 自己，Exit 时清掉。
 - 植株的世界缩放和位置：`PlantFit`。旋转：`TargetRotator`，在 PlantFit 的父空间里转。
-- 静态数据：`PlantNodeSet`（节点和布局）、`DialogueSequence`、`NodeDetailTable`，都是 ScriptableObject，运行时只读。
+- 静态数据：`PlantNodeSet`（节点和布局）、`DialogueSequence`、`DialogueLibrary`（台词表索引）、`NodeDetailTable`，都是 ScriptableObject，运行时只读。
 
 ## Communication between systems
 
@@ -41,7 +41,7 @@
 | `IssueStage : Stage`（抽象） | — | 钩子：`OnNodeTapped(id)`、`OnIssueAttempted(issue, solved)`、`OnIssueResolved(issue)`、`PopupTitle/PopupBody(id)`、`Describe(id, …)` |
 | `GameFlow` | `StageEntered(Stage)`、`StageExited(Stage)` | `Next()`、`JumpTo(index)`、`CurrentIndex`、`FormAt(index)` |
 | `StageContext` | `Inspected(id)` | 共用引用（morpher、links、issues、pointer、picker、rotator、taskPanel、detailPopup、query、dialogue、detailTable）；`SetInspectProvider`、`RefreshInspect`、`SetPickFilter`、`DefaultFilter`、`IsNodeVisible`、`Node(id)`、`Play(sequence, onComplete)`、`ShowTaskPanel`、`ResetShared()`、`NearestNodeInLayout` |
-| `PointerInput` | `Tap(id)`、`DragStart(id)`、`DragOver(id)`、`DragEnd`、`DragEmpty(Vector2)`、`DragEmptyEnd`、`HoverChanged(id)`、`InteractableTapped(IInteractable)`、`InspectStart(id)`、`InspectEnd` | — |
+| `PointerInput` | `Tap(id)`、`DragStart(id)`、`DragOver(id)`、`DragEnd`、`DragEmpty(Vector2)`、`DragEmptyEnd`、`HoverChanged(id)`、`InteractableTapped(IInteractable)`、`TapEmpty`、`InspectStart(id)`、`InspectEnd` | — |
 | `IInteractable` | — | `OnTap()`、`OnHoverEnter()`、`OnHoverExit()` |
 | `NodePicker` | — | `Pick(ray[, filter], out distance)`（-1 = 未命中）、`Filter`、`OrganOf(id)`、`TryGetNodeWorldPosition` |
 | `TargetRotator` | — | `Enable/Disable`、`AddRotation(yaw, pitch)`、`ResetRotation(smooth)`、`CaptureRestPose` |
@@ -49,12 +49,13 @@
 | `PlantFit` | `Fitted` | `TransitionTo(form, seconds)`、`SnapTo(form)`、`GetFormBounds`、`ClearCache` |
 | `NodeIssueSystem` | `IssueCreated`、`IssueAttempted(issue, solved)`、`IssueResolved` | `AddIssue(s)`、`GenerateRandom`、`TryAttempt(id)`、`Resolve`、`RemoveIssue`、`ClearAll`、`GetIssue/HasIssue`、`AllResolved`、`CountUnresolved`、`TotalAttempts` |
 | `DialoguePlayer` | `LineStarted`、`LineFinished`、`SequenceFinished`、`Stopped` | `Play/Enqueue(sequence, onComplete)`、`Skip`、`Stop`、`CurrentLine` |
-| `SubtitlePanel` | — | `Show(line)`、`Hide()`；按 `Speaker` 分到 `Channel.Subtitle` / `AgentPopup` |
+| `SubtitlePanel` | — | `Show(line)`、`Hide()`、`Advance()`（打字中补全，否则 `DialoguePlayer.Skip`）；按 `Speaker` 分到 `Channel.Subtitle` / `AgentPopup` |
 | `ScreenBlackout` | — | `SetImmediate(black)`、`FadeTo(black, fade)` |
 | `AgentQueryDialog` | `Answered(string)` | `Ask(question, onYes)`、`Hide`、`ConfirmYes` |
 | `AgentTaskPanel` | `TaskChanged(index, TaskState)` | `SetTasks/AddTask/UpdateTask`、`SetMetric`、`Show/Hide`（当前 `showTaskPanel = false`，不显示） |
 | `NodeDetailPopup` | — | `Show(id, title, body)`、`SetText`、`Release`、`Hide` |
-| `NodeDetailTable`（SO） | — | `Get(id, organ, depth)`、`Format`、`DepthForStage(stageName)` |
+| `DialogueLibrary`（SO） | — | `Get(id)`（段 key 或段内任意台词 ID）、`GetSection(section)`；由 `DialogueCsvImporter` 从 `docs/script/02_dialogue.csv` 生成 |
+| `NodeDetailTable`（SO） | — | `Get(id, organ, depth)`、`GetName(organ, NameKind, fallback)`、`Format`、`DepthForStage(stageName)` |
 
 关键枚举：`MorphForm { Matrix, Circuit, Network, Geometric, Real }`、`Organ { Soil, Root, Stem, Leaf, Bud, Fruit, Bug }`、`IssueDifficulty { Easy, Medium, Hard }`、`NodeVisualState { Normal, Blink, Highlight, Tint }`、`DetailDepth`、`Speaker`。
 
@@ -63,6 +64,7 @@
 - **左键点节点**：Input Action `Select` → `PointerInput` 用 `NodePicker.Pick`（经 `StageContext` 的筛选）→ `Tap(id)` → `StageContext` 调 `NodeMorpher.Pulse(id)` 做反馈 → 当前 Stage 处理（`IssueStage` 里调 `NodeIssueSystem.TryAttempt(id)` → `IssueAttempted` / `IssueResolved` → Stage 调 `NodeMorpher.Restore/SetTint` 并检查通关）。
 - **右键查看**：`InspectStart(id)` → `StageContext` 调当前 Stage 设置的 `InspectProvider` 取标题/正文（通常来自 `NodeDetailTable`，深度由 `DepthForStage` 决定）→ `NodeDetailPopup.Show` → 触发 `Inspected(id)`；`InspectEnd` → `Release`，2.5 s 后淡出。
 - **空白处拖动**：`DragEmpty(delta)` → `TargetRotator.AddRotation`（S3/S4 才 `Enable`）。
+- **推进对白**：`PointerInput.TapEmpty`（点空白处；点中节点不触发）或 Input Action `Advance`（空格 / 回车）→ `DialogueAdvanceInput` → `SubtitlePanel.Advance()`。
 - **换关**：`Stage.Completed`（需要时先 `AgentQueryDialog.Ask`，Yes 后再 `Complete`）→ `GameFlow.Next` → `Exit` 旧关 → `NodeMorpher.MorphTo(form)` → `MorphStarted` → `PlantFit.TransitionTo` → `Enter` 新关 → `StageContext.Play(开场对白)` → `DialoguePlayer.LineStarted` → `SubtitlePanel.Show`。
 - **S4 写实化**：每摘一只虫子 → Stage 设 `NodeMorpher.Realness` 提高一档；进入 `Real` 时 `RealModelHandoff` 写 `RealReveal`，节点缩没、写实模型显现。
 

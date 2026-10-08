@@ -14,6 +14,7 @@ namespace Ghost.Interaction
     //   从节点上按下并移动超过阈值 → DragStart(nodeId)，之后每进入一个新节点 → DragOver(nodeId)，松开 → DragEnd()
     //   从空白处按下并移动超过阈值 → 每帧 DragEmpty(像素增量)，松开 → DragEmptyEnd()
     //   按下和松开都在同一个 IInteractable 上 → 调它的 OnTap()，并发 InteractableTapped
+    //   按下和松开都在空白处（没有节点、物体和 HUD） → TapEmpty()（推进对白用；节点优先）
     //   Inspect（右键）按下时指针下有节点 → InspectStart(nodeId)；松开 → InspectEnd()（查看详情用，和左键手势互不影响）
     public class PointerInput : MonoBehaviour
     {
@@ -50,6 +51,8 @@ namespace Ghost.Interaction
         // 指针下的节点变化（-1 = 没有节点）。只用于高亮
         public event Action<int> HoverChanged;
         public event Action<IInteractable> InteractableTapped;
+        // 在空白处点击（按下和松开都没有命中节点 / 物体，也不在 HUD 上）
+        public event Action TapEmpty;
         // 右键（Inspect 动作）在节点上按下 / 松开。InspectEnd 只在之前发过 InspectStart 时发出
         public event Action<int> InspectStart;
         public event Action InspectEnd;
@@ -252,6 +255,8 @@ namespace Ghost.Interaction
                         pressInteractable.OnTap();
                         InteractableTapped?.Invoke(pressInteractable);
                     }
+                    else if (pressNode < 0 && pressInteractable == null && node < 0 && target == null)
+                        TapEmpty?.Invoke();
                     break;
                 case Gesture.NodeDrag:
                     DragEnd?.Invoke();

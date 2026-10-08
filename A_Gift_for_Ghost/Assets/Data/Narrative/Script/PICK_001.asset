@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 426166e6124daec4899b884a5cf53037, type: 3}
+  m_Name: PICK_001
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Narrative.DialogueSequence
+  startDelay: 0
+  lines:
+  - id: PICK_001
+    speaker: 3
+    channel: 2
+    text: "\u76F4\u63A5\u52A8\u4F5C\u901A\u9053\u5DF2\u5F00\u653E\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: PICK_002
+    speaker: 3
+    channel: 2
+    text: "\u6293\u4F4F\u679C\u5B9E\uFF0C\u8F7B\u8F7B\u65CB\u8F6C\u5E76\u6458\u4E0B\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1

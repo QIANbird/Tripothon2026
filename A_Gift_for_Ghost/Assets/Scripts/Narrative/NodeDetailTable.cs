@@ -13,6 +13,14 @@ namespace Ghost.Narrative
         Physical = 2, // S3（及以后）：物体本身的颜色、形状、纹理、质感
     }
 
+    // 详情标题用哪一套名字：S2 项目名，S3 外观名，S4 及以后真实部位名
+    public enum NameKind
+    {
+        Project,
+        Physical,
+        Real,
+    }
+
     // 节点详情表：部位 × 深度 → 一段文字，另可按节点 id 单独覆盖。策划直接在 Inspector 里改。
     // 文字里可以写占位符，由阶段脚本传值替换：{status} {progress} {confidence} {part} {id}，
     // 以及任意自定义的 {key}。
@@ -23,6 +31,9 @@ namespace Ghost.Narrative
         public class Entry
         {
             public Organ organ;
+            [Tooltip("S2 标题：项目语言的系统名")] public string projectName;
+            [Tooltip("S3 标题：物体的外观名")] public string physicalName;
+            [Tooltip("S4 及以后的标题：真实部位名")] public string realName;
             [TextArea(2, 6)] public string status;
             [TextArea(2, 6)] public string project;
             [TextArea(2, 6)] public string physical;
@@ -63,6 +74,19 @@ namespace Ghost.Narrative
                     return string.IsNullOrEmpty(text) ? fallback : text;
                 }
             return fallback;
+        }
+
+        // 按部位取详情标题。fallbackName 用于表里没填的情况
+        public string GetName(Organ organ, NameKind kind, string fallbackName)
+        {
+            foreach (var e in entries)
+                if (e.organ == organ)
+                {
+                    string name = kind == NameKind.Project ? e.projectName
+                        : kind == NameKind.Physical ? e.physicalName : e.realName;
+                    return string.IsNullOrEmpty(name) ? fallbackName : name;
+                }
+            return fallbackName;
         }
 
         // 先查节点覆盖，再按部位查

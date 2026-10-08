@@ -1,14 +1,22 @@
 {
   "dependencies": {
     "com.gamebooom.unity.mcp": {
-      "version": "https://github.com/FunplayAI/funplay-unity-mcp.git",
+      "version": "https://github.com/FunplayAI/funplay-unity-mcp.git#v0.7.0",
       "depth": 0,
       "source": "git",
       "dependencies": {
         "com.unity.nuget.newtonsoft-json": "3.2.1",
         "com.unity.inputsystem": "1.7.0"
       },
-      "hash": "6fbbc213329c8216ed2610c3076c04292196edec"
+      "hash": "a18dfab3d830fdb0985c88d80e925a2ef5a68c3d"
+    },
+    "com.tripo3d.unitybridge": {
+      "version": "file:C:/Users/qianc/Downloads/Tripo3d_Unity_Bridge-latest (1)/Tripo3d_Unity_Bridge",
+      "depth": 0,
+      "source": "local",
+      "dependencies": {
+        "com.unity.modules.jsonserialize": "1.0.0"
+      }
     },
     "com.unity.ai.navigation": {
       "version": "2.0.14",
