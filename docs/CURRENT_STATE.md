@@ -4,7 +4,7 @@
 
 ## Current stage
 
-第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition / Outro 还是占位阶段（按 N 继续）。Pick 阶段完成第 1–3 步（装包、第一人称移动、固定植株），摘果实和吃还没做（`docs/tasks/pick-stage.md` 第 4–5 步），按 N 继续。
+第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition / Outro 还是占位阶段（按 N 继续）。Pick 阶段完成第 1–4 步和 5a（移动、固定植株、XRI 摘果实、举到嘴边、咬一口缩小）；虚幻化和消散（5b/5c）还没做，吃完按 N 继续。
 最新一轮 UX 调整（HUD、右键详情、PlantFit 适配、Gizmos 竖线）已通过 Play 验收（10-08）。
 
 ## Features currently working
@@ -23,6 +23,7 @@
 - 对白推进：左键点空白处或按空格 / 回车，打字中先补全整句，再点进入下一句；点中节点时只算点节点（全黑屏时除外）。
 - PlantFit：相机固定（眼高 1.6 m、水平正视），按形态缩放、居中植株。
 - Pick：进关时 PlayerRig 接管主相机（画面不跳），光标锁定，屏幕中心准星；WASD 约 2 m/s，鼠标转头（俯仰 -75°…70°），C / 左 Ctrl 切换蹲下（眼高 1.6 → 1.0 m）。植株按真实尺寸（约 0.7 m 高）固定在前方 2.5 m 的矮台上，不能转；有地面、四面不可见边界和植株挡板。离开时相机回固定机位、光标解锁、PlantFit 恢复适配。
+- Pick 摘和吃：头上的 `XRRayInteractor`（屏幕中心，左键 = `Player/Grab`）对准 `pepper_red_picked`（运行时加 SphereCollider + `XRSimpleInteractable`），眼睛到果实 ≤ 0.7 m 才可摘，悬停时果实提亮、准星变色；左键后手臂（Two Bone IK）伸过去，果实挂到掌心收回。E 举到嘴边，之后每次 E 咬一口缩小一档，发 `EatSequence.BiteTaken`。离关时果实回到植株上。
 - 已装 XRI 3.3.2（含 `Assets/XRI/Settings`）和 Animation Rigging 1.4.1，还没在场景里使用；不连头显进 Play 无 XR 报错。
 
 ## Important files
