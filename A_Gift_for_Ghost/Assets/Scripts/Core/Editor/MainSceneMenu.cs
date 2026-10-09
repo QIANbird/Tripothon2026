@@ -116,6 +116,8 @@ namespace Ghost.Core.EditorTools
 
             // G3：节点问题系统（闪烁 / 尝试 / 解决），和 NodeMorpher 挂在同一物体上
             var issues = plantGo.AddComponent<NodeIssueSystem>();
+            var halos = plantGo.AddComponent<NodeHaloRenderer>();
+            halos.material = links.material;
             issues.morpher = morpher;
 
             var handoff = plantGo.AddComponent<RealModelHandoff>();
@@ -164,6 +166,7 @@ namespace Ghost.Core.EditorTools
             ctx.issues = issues;
             ctx.pointer = pointer;
             ctx.picker = pointer.picker;
+            ctx.halos = halos;
             ctx.taskPanel = agentUI.taskPanel;
             ctx.detailPopup = agentUI.detailPopup;
             ctx.query = agentUI.query;

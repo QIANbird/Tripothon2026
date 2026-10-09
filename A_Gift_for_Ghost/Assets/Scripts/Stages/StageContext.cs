@@ -20,6 +20,8 @@ namespace Ghost.Stages
         [Header("植株")]
         public NodeMorpher morpher;
         public NodeLinkRenderer links;
+        [Tooltip("节点外发光圈（S2 脉冲）。留空时 S2 运行时在 morpher 物体上补一个")]
+        public NodeHaloRenderer halos;
         public NodeIssueSystem issues;
 
         [Header("输入")]

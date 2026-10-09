@@ -20,6 +20,19 @@ namespace Ghost.Morph
         public float colorFadeSpeed = 6f;
         [Tooltip("染色的连线至少这么不透明，在连线很淡的形态里也看得见")]
         [Range(0f, 1f)] public float overrideMinAlpha = 0.6f;
+        [Tooltip("直角折线程度的倍数：1 = 按形态（回路是直角），0 = 一律两点直连。阶段用 SetElbowScale 改（S2 随进度从直连过渡到直角）")]
+        [Range(0f, 1f)] public float elbowScale = 1f;
+        [Tooltip("SetElbowScale 非立即生效时的过渡速度（每秒变化量）")]
+        public float elbowSpeed = 1.2f;
+
+        float elbowTarget = 1f;
+
+        // 设置直角程度倍数。immediate = false 时按 elbowSpeed 平滑过渡
+        public void SetElbowScale(float value, bool immediate = false)
+        {
+            elbowTarget = Mathf.Clamp01(value);
+            if (immediate) elbowScale = elbowTarget;
+        }
 
         NodeMorpher morpher;
         Mesh mesh;
@@ -36,6 +49,7 @@ namespace Ghost.Morph
         void Start()
         {
             morpher = GetComponent<NodeMorpher>();
+            elbowTarget = elbowScale;
             if (material == null || morpher.nodeSet == null)
             {
                 Debug.LogError("[Morph] NodeLinkRenderer 缺少 material 或 NodeMorpher 没有 nodeSet", this);
@@ -79,6 +93,7 @@ namespace Ghost.Morph
             var links = morpher.CurrentLinkParams;
             if (poses == null) return;
 
+            elbowScale = Mathf.MoveTowards(elbowScale, elbowTarget, Time.deltaTime * elbowSpeed);
             float fade = Time.deltaTime * colorFadeSpeed;
             float maxAlpha = 0f;
             for (int i = 0; i < linkChildren.Count; i++)
@@ -92,7 +107,7 @@ namespace Ghost.Morph
                 // 两端节点各自插值，取较小的不透明度，避免一端还没到位就先连上
                 Vector2 pa = links[parent];
                 Vector2 pb = links[child];
-                float elbow = Mathf.Min(pa.x, pb.x);
+                float elbow = Mathf.Min(pa.x, pb.x) * elbowScale;
                 float alpha = Mathf.Min(pa.y, pb.y);
                 if (overrideWeight[i] > 0f) alpha = Mathf.Lerp(alpha, Mathf.Max(alpha, overrideMinAlpha), overrideWeight[i]);
                 // 两端节点被隐藏或缩没时连线一起淡出
