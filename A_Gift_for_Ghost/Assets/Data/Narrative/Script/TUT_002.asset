@@ -15,16 +15,16 @@ MonoBehaviour:
   startDelay: 0
   lines:
   - id: TUT_002
-    speaker: 3
-    channel: 2
-    text: "\u5DF2\u6388\u6743\uFF0C\u5F00\u59CB\u5904\u7406"
+    speaker: 0
+    channel: 1
+    text: "\u770B\u5230\u90A3\u4E2A\u5728\u95EA\u7684\u65B9\u5757\u4E86\u5417\uFF1F\u5B83\u4EE3\u8868\u4E00\u5904\u9700\u8981\u5904\u7406\u7684\u5F02\u5E38\u4E8B\u52A1\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: TUT_003
-    speaker: 0
-    channel: 1
-    text: "\u8FD9\u662F\u4F60\u7684agent\uFF0C\u4F60\u521A\u521A\u6279\u51C6\u4E86\u5B83\u5E2E\u4F60\u5904\u7406\u4E00\u9879\u4E8B\u7269\u3002"
+    speaker: 3
+    channel: 2
+    text: "\u70B9\u51FB\u5F02\u5E38\u8282\u70B9\uFF0C\u5373\u5BF9\u5176\u8FDB\u884C\u4E00\u6B21\u5904\u7406\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

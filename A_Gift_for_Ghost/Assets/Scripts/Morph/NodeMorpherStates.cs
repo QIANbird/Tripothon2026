@@ -133,6 +133,12 @@ namespace Ghost.Morph
             for (int i = 0; i < Count; i++) Restore(i);
         }
 
+        public void ShowAll(bool immediate = false)
+        {
+            if (!IsReady) return;
+            for (int i = 0; i < Count; i++) SetVisible(i, true, immediate);
+        }
+
         // 隐藏（缩小动画）。隐藏中的节点不应再被拾取，见 GetNodeVisibility
         public void Hide(int id, bool immediate = false)
         {

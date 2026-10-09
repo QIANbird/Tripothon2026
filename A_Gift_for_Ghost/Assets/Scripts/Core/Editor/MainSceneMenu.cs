@@ -270,23 +270,21 @@ namespace Ghost.Core.EditorTools
             return scene;
         }
 
-        // G6：教学阶段。三个教学节点按 Matrix 布局挑选：画面中部偏上一排，左 / 中 / 右分开，
-        // 避开左侧任务面板、右侧询问框和下方字幕。【占位】具体节点等策划的教学步骤定
+        // 教学阶段（docs/tasks/tutorial-single-cube.md）：一个演示方块，取矩阵中部的普通节点（不用果实，
+        // S1 的困难问题在果实上）。对白来自台词表 TUT 段导入的 Script/TUT_*.asset
         static TutorialStage BuildTutorialStage(GameObject stageGo, StageContext ctx, PlantNodeSet set)
         {
             var stage = stageGo.AddComponent<TutorialStage>();
             stage.ctx = ctx;
-            stage.introSequence = StageAssets.EnsureTutorialIntro();
-            stage.afterEasySequence = StageAssets.EnsureTutorialAfterEasy();
-            stage.afterMediumSequence = StageAssets.EnsureTutorialAfterMedium();
-            stage.afterHardSequence = StageAssets.EnsureTutorialAfterHard();
+            stage.introSequence = StageAssets.LoadScript(StageAssets.TutorialIntroKey);
+            stage.afterEasySequence = StageAssets.LoadScript(StageAssets.TutorialAfterEasyKey);
+            stage.afterHardSequence = StageAssets.LoadScript(StageAssets.TutorialAfterHardKey);
+            stage.inspectSequence = StageAssets.LoadScript(StageAssets.TutorialInspectKey);
+            stage.afterInspectSequence = StageAssets.LoadScript(StageAssets.TutorialAfterInspectKey);
 
             var used = new HashSet<int>();
-            // 困难问题优先放在果实上，呼应 S1 的"果实出现严重问题"
-            stage.easyNode = NearestInMatrix(set, new Vector2(0.25f, 0.72f), null, used);
-            stage.mediumNode = NearestInMatrix(set, new Vector2(0.5f, 0.72f), null, used);
-            stage.hardNode = NearestInMatrix(set, new Vector2(0.75f, 0.72f), n => n.organ == Organ.Fruit, used);
-            if (stage.hardNode < 0) stage.hardNode = NearestInMatrix(set, new Vector2(0.75f, 0.72f), null, used);
+            stage.demoNode = NearestInMatrix(set, new Vector2(0.5f, 0.55f), n => n.organ != Organ.Fruit && n.organ != Organ.Bug, used);
+            if (stage.demoNode < 0) stage.demoNode = NearestInMatrix(set, new Vector2(0.5f, 0.55f), null, used);
             return stage;
         }
 

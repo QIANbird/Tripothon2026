@@ -19,8 +19,24 @@ MonoBehaviour:
     sequence: {fileID: 11400000, guid: c5e6fb9c8ffa9334eb76f53a10925eba, type: 2}
   - key: TUT_002
     section: TUT
-    trigger: "\u73A9\u5BB6\u70B9\u51FB\u65B9\u5757"
+    trigger: "\u6BB5\u843D\u5F00\u59CB"
     sequence: {fileID: 11400000, guid: 675c49ca3c08e2546aecf4c531744085, type: 2}
+  - key: TUT_004
+    section: TUT
+    trigger: "\u73A9\u5BB6\u70B9\u51FB\u65B9\u5757\uFF08\u7B80\u5355\u95EE\u9898\u89E3\u51B3\uFF09"
+    sequence: {fileID: 11400000, guid: c5ecf99c45a19f648a78dd4e748e0838, type: 2}
+  - key: TUT_006
+    section: TUT
+    trigger: "\u73A9\u5BB6\u70B9\u51FB\u65B9\u5757\uFF08\u56F0\u96BE\u95EE\u9898\u5931\u8D25\uFF09"
+    sequence: {fileID: 11400000, guid: f82cd6ebc446d3f4aa4447fc1afa8fa2, type: 2}
+  - key: TUT_009
+    section: TUT
+    trigger: "\u73A9\u5BB6\u53F3\u51FB\u65B9\u5757"
+    sequence: {fileID: 11400000, guid: b94f61cc33df5804189974cd7bb80360, type: 2}
+  - key: TUT_010
+    section: TUT
+    trigger: "\u53F3\u952E\u8BE6\u60C5\u5F39\u51FA\u540E"
+    sequence: {fileID: 11400000, guid: dc64a045a9ae80245a8f4142f93ed4cb, type: 2}
   - key: S1_001
     section: S1
     trigger: "\u6BB5\u843D\u5F00\u59CB"

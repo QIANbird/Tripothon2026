@@ -66,6 +66,10 @@ namespace Ghost.Morph
         float[] currentShapes;
         float[] delays;
         float[] realHeights;
+        // 单节点姿态覆盖：教学把一个方块拉到镜头前，再插值回矩阵槽位。
+        // 权重 0 = 用形态插值结果，1 = 完全用 overridePoses。
+        NodePose[] overridePoses;
+        float[] overrideWeights;
 
         // 每种网格一批：立方体一批，每种部位形状各一批
         class Batch
@@ -107,6 +111,8 @@ namespace Ghost.Morph
             fromShapes = new float[Count];
             currentShapes = new float[Count];
             delays = new float[Count];
+            overridePoses = new NodePose[Count];
+            overrideWeights = new float[Count];
             BuildBatches();
             foreach (var node in nodeSet.nodes) maxDepth = Mathf.Max(maxDepth, node.depth);
             CacheRealHeights();
@@ -126,9 +132,28 @@ namespace Ghost.Morph
                 currentLinks[i] = OrganPalette.LinkParams(form);
                 currentShapes[i] = NodeShapes.ShapeWeight(form);
             }
+            ApplyPoseOverrides();
             CurrentForm = form;
             inspectorTarget = form;
             IsMorphing = false;
+        }
+
+        // 把节点拉到指定本地姿态。weight 1 = 完全用这个姿态，0 = 回到形态插值结果。
+        // 变形中由 Animate 每帧叠加；静止时 currentPoses 不再更新，这里直接从形态姿态重新算
+        public void SetPoseOverride(int id, NodePose pose, float weight = 1f)
+        {
+            if (overrideWeights == null || id < 0 || id >= overrideWeights.Length) return;
+            overridePoses[id] = pose;
+            overrideWeights[id] = Mathf.Clamp01(weight);
+            if (!IsMorphing)
+                currentPoses[id] = NodePose.Lerp(nodeSet.nodes[id].GetPose(CurrentForm), pose, overrideWeights[id]);
+        }
+
+        public void ClearPoseOverride(int id)
+        {
+            if (overrideWeights == null || id < 0 || id >= overrideWeights.Length) return;
+            overrideWeights[id] = 0f;
+            if (!IsMorphing) currentPoses[id] = nodeSet.nodes[id].GetPose(CurrentForm);
         }
 
         public void MorphTo(MorphForm form)
@@ -182,6 +207,7 @@ namespace Ghost.Morph
                 currentLinks[i] = Vector2.Lerp(fromLinks[i], OrganPalette.LinkParams(CurrentForm), eased);
                 currentShapes[i] = Mathf.Lerp(fromShapes[i], NodeShapes.ShapeWeight(CurrentForm), eased);
             }
+            ApplyPoseOverrides();
 
             if (elapsed >= totalDuration)
             {
@@ -301,6 +327,20 @@ namespace Ghost.Morph
             float band = Mathf.Max(revealBand, 1e-4f);
             float x = Mathf.Clamp01((RealReveal * (1f + band) - height01) / band);
             return 1f - x * x * (3f - 2f * x);
+        }
+
+        // currentPoses 刚按形态算完（Animate / SnapTo）之后调用
+        void ApplyPoseOverrides()
+        {
+            if (overrideWeights == null || currentPoses == null) return;
+            for (int i = 0; i < overrideWeights.Length; i++)
+            {
+                float w = overrideWeights[i];
+                if (w <= 0f) continue;
+                currentPoses[i] = w >= 1f
+                    ? overridePoses[i]
+                    : NodePose.Lerp(currentPoses[i], overridePoses[i], w);
+            }
         }
 
         static float EaseInOutCubic(float t)

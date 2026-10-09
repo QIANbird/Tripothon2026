@@ -10,17 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 426166e6124daec4899b884a5cf53037, type: 3}
-  m_Name: TutorialAfterMedium
+  m_Name: TUT_010
   m_EditorClassIdentifier: Assembly-CSharp::Ghost.Narrative.DialogueSequence
-  startDelay: 0.3
+  startDelay: 0
   lines:
-  - speaker: 3
-    text: "\u5DF2\u5904\u7406\u3002\u5171\u6388\u6743\u4E09\u6B21\u3002"
-    clip: {fileID: 0}
-    durationOverride: 0
-    pauseAfter: -1
-  - speaker: 0
-    text: "\u6700\u540E\u4E00\u4E2A\u2026\u2026\u8BD5\u8BD5\u770B\u3002"
+  - id: TUT_010
+    speaker: 0
+    channel: 1
+    text: "\u76F4\u89C2\u3001\u6E05\u6670\u3001\u5B89\u5FC3\u2026\u2026\u4E5F\u6709\u4E9B\u4EE4\u4EBA\u611F\u5230\u60AC\u6D6E\u3002\u522B\u7740\u6025\uFF0C\u63A5\u4E0B\u6765\u7684\u7EC3\u4E60\u5C06\u5E2E\u52A9\u4F60\u6162\u6162\u56DE\u60F3\u8D77\u5177\u8C61\u4E16\u754C\u7684\u6837\u5B50\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

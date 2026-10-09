@@ -47,7 +47,7 @@
 | `IInteractable` | — | `OnTap()`、`OnHoverEnter()`、`OnHoverExit()` |
 | `NodePicker` | — | `Pick(ray[, filter], out distance)`（-1 = 未命中）、`Filter`、`OrganOf(id)`、`TryGetNodeWorldPosition` |
 | `TargetRotator` | — | `Enable/Disable`、`AddRotation(yaw, pitch)`、`ResetRotation(smooth)`、`CaptureRestPose` |
-| `NodeMorpher`（partial，含 `NodeMorpherStates`） | `MorphStarted(MorphForm)`、`MorphCompleted(MorphForm)` | 形态：`MorphTo`、`SnapTo`、`CurrentForm`、`IsMorphing`。逐节点显示：`SetBlink`、`SetHighlight`、`SetTint`、`Pulse`、`Restore`、`RestoreAll`、`GetState`、`Hide/Show/SetVisible`、`IsHidden`、`GetNodeVisibility`、`TryGetNodeWorldSphere`。写实度：`Realness`、`ClearRealness`、`SetRealnessImmediate`、`RealReveal`（由 `RealModelHandoff` 写） |
+| `NodeMorpher`（partial，含 `NodeMorpherStates`） | `MorphStarted(MorphForm)`、`MorphCompleted(MorphForm)` | 形态：`MorphTo`、`SnapTo`、`CurrentForm`、`IsMorphing`。单节点姿态覆盖：`SetPoseOverride(id, pose, weight)`、`ClearPoseOverride`（教学用来放大演示方块再插值回槽位）。逐节点显示：`SetBlink`、`SetHighlight`、`SetTint`、`Pulse`、`Restore`、`RestoreAll`、`GetState`、`Hide/Show/SetVisible`、`ShowAll`、`IsHidden`、`GetNodeVisibility`、`TryGetNodeWorldSphere`。写实度：`Realness`、`ClearRealness`、`SetRealnessImmediate`、`RealReveal`（由 `RealModelHandoff` 写） |
 | `PlantFit` | `Fitted` | `TransitionTo(form, seconds)`、`SnapTo(form)`、`Hold(localPos, scale, seconds)`、`Release(seconds)`、`IsHeld`、`GetFormBounds`、`ClearCache` |
 | `PlayerRig` | — | `Activate()`（对齐当前相机姿态、接管相机、打开玩家）、`Deactivate()`、`IsActive` |
 | `FirstPersonMotor` | — | `PlaceAt(eyePos, viewRot, crouched)`、`IsCrouching`、`EyeHeight`、`Pitch` |
