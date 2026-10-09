@@ -5,6 +5,8 @@ using Ghost.Interaction;
 using Ghost.Morph;
 using Ghost.Morph.EditorTools;
 using Ghost.Narrative.EditorTools;
+using Ghost.Player;
+using Ghost.Player.PC;
 using Ghost.Stages;
 using Ghost.Stages.EditorTools;
 using UnityEditor;
@@ -58,7 +60,8 @@ namespace Ghost.Core.EditorTools
             // G9：S4 是真实阶段（S4GeometricStage）
             new StageSpec("S4", true, MorphForm.Geometric, ""),
             new StageSpec("Transition", true, MorphForm.Real, "过渡：按 N 继续"),
-            new StageSpec("Pick", true, MorphForm.Real, "采摘：按 N 继续"),
+            // Pick：第一人称走到写实植株前（PickStage，docs/tasks/pick-stage.md）
+            new StageSpec("Pick", true, MorphForm.Real, ""),
             new StageSpec("Outro", true, MorphForm.Real, "结局剧情（最后一关）"),
         };
 
@@ -113,11 +116,11 @@ namespace Ghost.Core.EditorTools
 
             var links = plantGo.AddComponent<NodeLinkRenderer>();
             links.material = MorphMenu.EnsureLineMaterial();
+            var halos = plantGo.AddComponent<NodeHaloRenderer>();
+            halos.material = links.material;
 
             // G3：节点问题系统（闪烁 / 尝试 / 解决），和 NodeMorpher 挂在同一物体上
             var issues = plantGo.AddComponent<NodeIssueSystem>();
-            var halos = plantGo.AddComponent<NodeHaloRenderer>();
-            halos.material = links.material;
             issues.morpher = morpher;
 
             var handoff = plantGo.AddComponent<RealModelHandoff>();
@@ -163,10 +166,10 @@ namespace Ghost.Core.EditorTools
             ctx.flow = flow;
             ctx.morpher = morpher;
             ctx.links = links;
+            ctx.halos = halos;
             ctx.issues = issues;
             ctx.pointer = pointer;
             ctx.picker = pointer.picker;
-            ctx.halos = halos;
             ctx.taskPanel = agentUI.taskPanel;
             ctx.detailPopup = agentUI.detailPopup;
             ctx.query = agentUI.query;
@@ -178,6 +181,7 @@ namespace Ghost.Core.EditorTools
             // 旧对白资产里"点击查看"的占位台词改成右键（不覆盖策划改过的句子）
             StageAssets.MigrateRightClickInspect();
             var stageList = new List<Stage>();
+            PickStage pickStage = null;
             foreach (var spec in Stages)
             {
                 var stageGo = new GameObject(spec.name);
@@ -235,6 +239,11 @@ namespace Ghost.Core.EditorTools
                     else Debug.LogWarning($"[Flow] 找不到虫子模型 {BugModelPath}，S4 只显示虫子节点");
                     stage = s4;
                 }
+                else if (spec.name == "Pick")
+                {
+                    pickStage = BuildPickStage(stageGo, ctx, fit, rotator, camera, actions);
+                    stage = pickStage;
+                }
                 else
                 {
                     var placeholder = stageGo.AddComponent<PlaceholderStage>();
@@ -253,6 +262,8 @@ namespace Ghost.Core.EditorTools
             debug.actions = actions;
 
             BuildStagePanel(flow, cameraGo.transform);
+            // 场景保存时玩家根物体是停用的，Pick 阶段 Enter 时才打开
+            if (pickStage != null) pickStage.player.gameObject.SetActive(false);
 
             EditorSceneManager.SaveScene(scene, MainScenePath);
             Debug.Log($"[Flow] 生成主场景 → {MainScenePath}。Play 后按 N 进入下一关，Shift + 1–9 跳关");
@@ -326,6 +337,151 @@ namespace Ghost.Core.EditorTools
             logger.logEvents = false;
             pointerGo.SetActive(true);
             return pointer;
+        }
+
+        // ---- Pick 阶段 ----
+        // 场地：固定相机在 (0, 1.6, -1.9) 面朝 +Z，植株放在前方约 2.5 m 的矮台上
+        // （台面 0.45 m，植株约 0.7 m 高，果实在蹲下伸手的高度）
+        const string PickArtFolder = "Assets/Art/Pick";
+        static readonly Vector3 PickPlantAnchor = new Vector3(0f, 0.45f, 0.6f);
+        static readonly Vector3 PickStandSize = new Vector3(0.5f, 0.45f, 0.5f);
+        // 可走范围（x / z 的最小、最大值），包含固定机位
+        static readonly Vector2 PickAreaX = new Vector2(-3f, 3f);
+        static readonly Vector2 PickAreaZ = new Vector2(-4f, 3f);
+        const float PickWallHeight = 3f;
+        const float PickWallThickness = 0.2f;
+        // 植株挡板半径（米）：玩家胶囊不能进到这个圆柱里
+        const float PickPlantBlockerRadius = 0.3f;
+
+        static PickStage BuildPickStage(GameObject stageGo, StageContext ctx, PlantFit fit, TargetRotator rotator,
+            Camera camera, InputActionAsset actions)
+        {
+            var stage = stageGo.AddComponent<PickStage>();
+            stage.ctx = ctx;
+            stage.plantFit = fit;
+            stage.rotator = rotator;
+            stage.area = BuildPickArea(out stage.plantAnchor);
+            stage.player = BuildPlayer(camera, actions);
+            return stage;
+        }
+
+        // 地面、四面边界（不可见）、矮台和植株挡板。默认停用，PickStage 打开
+        static GameObject BuildPickArea(out Transform plantAnchor)
+        {
+            var area = new GameObject("PickArea");
+            var floorMat = EnsureLitMaterial(PickArtFolder + "/PickFloor.mat", new Color(0.72f, 0.72f, 0.70f));
+            var standMat = EnsureLitMaterial(PickArtFolder + "/PickStand.mat", new Color(0.45f, 0.38f, 0.32f));
+
+            float cx = (PickAreaX.x + PickAreaX.y) * 0.5f, cz = (PickAreaZ.x + PickAreaZ.y) * 0.5f;
+            float sx = PickAreaX.y - PickAreaX.x, sz = PickAreaZ.y - PickAreaZ.x;
+            // 地面：比可走范围大一圈，顶面 y = 0
+            var floor = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            floor.name = "Floor";
+            floor.transform.SetParent(area.transform, false);
+            floor.transform.localPosition = new Vector3(cx, -0.05f, cz);
+            floor.transform.localScale = new Vector3(sx + 4f, 0.1f, sz + 4f);
+            floor.GetComponent<Renderer>().sharedMaterial = floorMat;
+
+            var walls = new GameObject("Bounds").transform;
+            walls.SetParent(area.transform, false);
+            float h = PickWallHeight, t = PickWallThickness;
+            AddWall(walls, "Left", new Vector3(PickAreaX.x - t * 0.5f, h * 0.5f, cz), new Vector3(t, h, sz + 2f * t));
+            AddWall(walls, "Right", new Vector3(PickAreaX.y + t * 0.5f, h * 0.5f, cz), new Vector3(t, h, sz + 2f * t));
+            AddWall(walls, "Back", new Vector3(cx, h * 0.5f, PickAreaZ.x - t * 0.5f), new Vector3(sx, h, t));
+            AddWall(walls, "Front", new Vector3(cx, h * 0.5f, PickAreaZ.y + t * 0.5f), new Vector3(sx, h, t));
+
+            // 矮台：顶面就是植株锚点
+            var stand = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            stand.name = "Stand";
+            stand.transform.SetParent(area.transform, false);
+            stand.transform.localPosition = new Vector3(PickPlantAnchor.x, PickPlantAnchor.y - PickStandSize.y * 0.5f, PickPlantAnchor.z);
+            stand.transform.localScale = PickStandSize;
+            stand.GetComponent<Renderer>().sharedMaterial = standMat;
+
+            // 植株挡板：不可见的竖直胶囊，玩家走不进植株（植株节点本身没有 Collider）
+            var blocker = new GameObject("PlantBlocker");
+            blocker.transform.SetParent(area.transform, false);
+            blocker.transform.localPosition = new Vector3(PickPlantAnchor.x, 1f, PickPlantAnchor.z);
+            var capsule = blocker.AddComponent<CapsuleCollider>();
+            capsule.radius = PickPlantBlockerRadius;
+            capsule.height = 2f;
+
+            var anchor = new GameObject("PlantAnchor").transform;
+            anchor.SetParent(area.transform, false);
+            anchor.localPosition = PickPlantAnchor;
+            plantAnchor = anchor;
+
+            area.SetActive(false);
+            return area;
+        }
+
+        static void AddWall(Transform parent, string name, Vector3 position, Vector3 size)
+        {
+            var go = new GameObject(name);
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = position;
+            go.AddComponent<BoxCollider>().size = size;
+        }
+
+        // 玩家：PlayerRoot（CharacterController + 移动）→ CameraPivot（头，主相机在 Pick 阶段挂到这里）；
+        // PC 专用的光标锁定和准星挂在根物体下的 PC 子物体上，跟着玩家开关
+        static PlayerRig BuildPlayer(Camera camera, InputActionAsset actions)
+        {
+            var root = new GameObject("PlayerRoot");
+            var controller = root.AddComponent<CharacterController>();
+            controller.radius = 0.25f;
+            controller.height = 1.72f;
+            controller.center = Vector3.up * 0.86f;
+            controller.stepOffset = 0.25f;
+            controller.skinWidth = 0.02f;
+
+            var pivot = new GameObject("CameraPivot").transform;
+            pivot.SetParent(root.transform, false);
+            pivot.localPosition = Vector3.up * 1.6f;
+
+            var motor = root.AddComponent<FirstPersonMotor>();
+            motor.cameraPivot = pivot;
+            motor.actions = actions;
+
+            var rig = root.AddComponent<PlayerRig>();
+            rig.motor = motor;
+            rig.viewCamera = camera.transform;
+
+            var pc = new GameObject("PC");
+            pc.transform.SetParent(root.transform, false);
+            pc.AddComponent<PcCursorLock>();
+            BuildCrosshair(pc.transform);
+            return rig;
+        }
+
+        // 屏幕中心准星（PC 专用，HUD）
+        static PcCrosshair BuildCrosshair(Transform parent)
+        {
+            var canvas = Ghost.Agent.AgentUIStyle.CreateHudCanvas("Crosshair", parent, 160);
+            Object.DestroyImmediate(canvas.GetComponent<GraphicRaycaster>());
+            var dotRect = Ghost.Agent.AgentUIStyle.CreateAnchored("Dot", canvas.transform, new Vector2(0.5f, 0.5f),
+                Vector2.zero, new Vector2(10f, 10f));
+            var dot = Ghost.Agent.AgentUIStyle.AddImage(dotRect, Color.white);
+            dot.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Knob.psd");
+            // 浅色描边：深色背景（叶子）上也看得清
+            var outline = dot.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(1f, 1f, 1f, 0.7f);
+            outline.effectDistance = new Vector2(1.5f, -1.5f);
+            var crosshair = canvas.gameObject.AddComponent<PcCrosshair>();
+            crosshair.dot = dot;
+            return crosshair;
+        }
+
+        static Material EnsureLitMaterial(string path, Color color)
+        {
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(path);
+            if (mat != null) return mat;
+            if (!AssetDatabase.IsValidFolder(PickArtFolder)) AssetDatabase.CreateFolder("Assets/Art", "Pick");
+            mat = new Material(Shader.Find("Universal Render Pipeline/Lit"));
+            mat.SetColor("_BaseColor", color);
+            mat.SetFloat("_Smoothness", 0.1f);
+            AssetDatabase.CreateAsset(mat, path);
+            return mat;
         }
 
         // 阶段面板（占位阶段的提示文字）。【技术债】比赛期间和其他界面一样是 Screen Space HUD，屏幕顶部居中

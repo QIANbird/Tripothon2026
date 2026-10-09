@@ -10,6 +10,7 @@
 | Gameplay | `Scripts/Gameplay` | `NodeIssueSystem`：问题的难度、重试和解决状态 |
 | Interaction | `Scripts/Interaction` | `PointerInput`（交互发起方）、`DialogueAdvanceInput`（PC 端对白推进）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
 | Agent UI | `Scripts/Agent` | 任务面板、详情弹窗、Yes 询问框（HUD） |
+| Player | `Scripts/Player` | Pick 阶段的第一人称玩家：`FirstPersonMotor`（CharacterController 移动、转头、蹲下）、`PlayerRig`（开关玩家、接管 / 归还主相机）；`Player/PC/` 下是 PC 专用的 `PcCursorLock`、`PcCrosshair` |
 | Narrative | `Scripts/Narrative` | 对白播放、字幕和 Agent 弹窗、黑屏、节点详情文本表 |
 
 ## Ownership of state
@@ -18,7 +19,8 @@
 - 当前形态和逐节点的显示（闪烁、高亮、着色、脉冲、隐藏、写实度）：`NodeMorpher`。其他系统只调它的接口，不缓存颜色。
 - 问题状态（剩余点击次数、尝试次数、是否解决）：`NodeIssueSystem`。
 - 关卡内的玩法状态（已找到的虫子、S2 的路径、是否已查看果实）：各 Stage 自己，Exit 时清掉。
-- 植株的世界缩放和位置：`PlantFit`。旋转：`TargetRotator`，在 PlantFit 的父空间里转。
+- 主相机的父物体：平时在场景根（固定机位）；Pick 阶段由 `PlayerRig` 挂到 `PlayerRoot/CameraPivot` 下，离开时还原。
+- 植株的世界缩放和位置：`PlantFit`（Pick 阶段 `Hold` 住真实尺寸，自动适配暂停）。旋转：`TargetRotator`，在 PlantFit 的父空间里转。
 - 静态数据：`PlantNodeSet`（节点和布局）、`DialogueSequence`、`DialogueLibrary`（台词表索引）、`NodeDetailTable`，都是 ScriptableObject，运行时只读。
 
 ## Communication between systems
@@ -46,7 +48,9 @@
 | `NodePicker` | — | `Pick(ray[, filter], out distance)`（-1 = 未命中）、`Filter`、`OrganOf(id)`、`TryGetNodeWorldPosition` |
 | `TargetRotator` | — | `Enable/Disable`、`AddRotation(yaw, pitch)`、`ResetRotation(smooth)`、`CaptureRestPose` |
 | `NodeMorpher`（partial，含 `NodeMorpherStates`） | `MorphStarted(MorphForm)`、`MorphCompleted(MorphForm)` | 形态：`MorphTo`、`SnapTo`、`CurrentForm`、`IsMorphing`。逐节点显示：`SetBlink`、`SetHighlight`、`SetTint`、`Pulse`、`Restore`、`RestoreAll`、`GetState`、`Hide/Show/SetVisible`、`IsHidden`、`GetNodeVisibility`、`TryGetNodeWorldSphere`。写实度：`Realness`、`ClearRealness`、`SetRealnessImmediate`、`RealReveal`（由 `RealModelHandoff` 写） |
-| `PlantFit` | `Fitted` | `TransitionTo(form, seconds)`、`SnapTo(form)`、`GetFormBounds`、`ClearCache` |
+| `PlantFit` | `Fitted` | `TransitionTo(form, seconds)`、`SnapTo(form)`、`Hold(localPos, scale, seconds)`、`Release(seconds)`、`IsHeld`、`GetFormBounds`、`ClearCache` |
+| `PlayerRig` | — | `Activate()`（对齐当前相机姿态、接管相机、打开玩家）、`Deactivate()`、`IsActive` |
+| `FirstPersonMotor` | — | `PlaceAt(eyePos, viewRot, crouched)`、`IsCrouching`、`EyeHeight`、`Pitch` |
 | `NodeIssueSystem` | `IssueCreated`、`IssueAttempted(issue, solved)`、`IssueResolved` | `AddIssue(s)`、`GenerateRandom`、`TryAttempt(id)`、`Resolve`、`RemoveIssue`、`ClearAll`、`GetIssue/HasIssue`、`AllResolved`、`CountUnresolved`、`TotalAttempts` |
 | `DialoguePlayer` | `LineStarted`、`LineFinished`、`SequenceFinished`、`Stopped` | `Play/Enqueue(sequence, onComplete)`、`Skip`、`Stop`、`CurrentLine` |
 | `SubtitlePanel` | — | `Show(line)`、`Hide()`、`Advance()`（打字中补全，否则 `DialoguePlayer.Skip`）；按 `Speaker` 分到 `Channel.Subtitle` / `AgentPopup` |
@@ -95,6 +99,7 @@
 - `InputSystem_Actions.inputactions`：
   - `Gameplay` 表：Point、Select（左键）、Inspect（右键）。
   - `Debug` 表：NextStage、JumpStage1–9。
+  - `Player` 表（Pick 阶段）：Move（WASD）、Look（鼠标 delta）、Crouch（C / 左 Ctrl）、Grab（左键）、Eat（E）。Grab / Eat 还没有使用方。
 - `PointerInput` 是 PC 端唯一的交互发起方，把输入翻译成手势事件：
   - `Tap`
   - `DragStart`、`DragOver`、`DragEnd`

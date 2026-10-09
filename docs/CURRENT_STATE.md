@@ -4,12 +4,12 @@
 
 ## Current stage
 
-第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition / Pick / Outro 还是占位阶段（按 N 继续）。
+第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition / Outro 还是占位阶段（按 N 继续）。Pick 阶段完成第 1–3 步（装包、第一人称移动、固定植株），摘果实和吃还没做（`docs/tasks/pick-stage.md` 第 4–5 步），按 N 继续。
 最新一轮 UX 调整（HUD、右键详情、PlantFit 适配、Gizmos 竖线）已通过 Play 验收（10-08）。
 
 ## Features currently working
 
-- 流程：Intro（黑屏 + 字幕）→ Tutorial → S1 Matrix → S2 Circuit → S3 Network → S4 Geometric → 占位阶段。进关和变形同时发生。
+- 流程：Intro（黑屏 + 字幕）→ Tutorial → S1 Matrix → S2 Circuit → S3 Network → S4 Geometric → Transition（占位）→ Pick → Outro（占位）。进关和变形同时发生。
 - 调试：N 下一关，Shift+1–9 跳关（两个方向都能干净进出）。
 - 节点问题：Easy / Medium / Hard 三档；Medium 两次点击之间隔 5 s 再闪；Hard 永远解决不了。
 - 左键点节点：授权 Agent 处理一次，同时触发亮度脉冲反馈。
@@ -21,6 +21,8 @@
 - 台词表：`docs/script/02_dialogue.csv` 在编辑器里自动导入（也可用菜单 Ghost/Narrative/Import Dialogue CSV），生成 `Assets/Data/Narrative/Script/*.asset` 和 `DialogueLibrary.asset`；台词可以单独指定通道（字幕 / Agent 弹窗）。阶段脚本还没改用这些资产，仍引用旧的占位对白。
 - 对白推进：左键点空白处或按空格 / 回车，打字中先补全整句，再点进入下一句；点中节点时只算点节点（全黑屏时除外）。
 - PlantFit：相机固定（眼高 1.6 m、水平正视），按形态缩放、居中植株。
+- Pick：进关时 PlayerRig 接管主相机（画面不跳），光标锁定，屏幕中心准星；WASD 约 2 m/s，鼠标转头（俯仰 -75°…70°），C / 左 Ctrl 切换蹲下（眼高 1.6 → 1.0 m）。植株按真实尺寸（约 0.7 m 高）固定在前方 2.5 m 的矮台上，不能转；有地面、四面不可见边界和植株挡板。离开时相机回固定机位、光标解锁、PlantFit 恢复适配。
+- 已装 XRI 3.3.2（含 `Assets/XRI/Settings`）和 Animation Rigging 1.4.1，还没在场景里使用；不连头显进 Play 无 XR 报错。
 
 ## Important files
 
@@ -41,8 +43,8 @@
 
 ## Architectural invariants
 
-- 相机永远不动。构图靠 PlantFit 缩放和平移植株（`docs/VR_GUIDELINES.md` 第 3 节）。
-- 输入只读 Input Action（`Gameplay` / `Debug` 表），不读设备。
+- 相机永远不动，Pick 阶段除外（由 `PlayerRig` 接管，离开时还原）。其他阶段构图靠 PlantFit 缩放和平移植株（`docs/VR_GUIDELINES.md` 第 3 节）；Pick 阶段用 `PlantFit.Hold` 固定真实尺寸，`Release` 恢复。
+- 输入只读 Input Action（`Gameplay` / `Debug` / `Player` 表），不读设备。PC 专用代码（光标锁定、准星）只放在 `Scripts/Player/PC/`。
 - 节点不是 GameObject：拾取走 `NodePicker`，显示走 `NodeMorpher` 的状态接口，不要给节点加 Collider。
 - 场景由代码生成，不要手动改 `Main.unity`；改场景就改 `MainSceneMenu` 再跑菜单。
 - 阶段 Enter 时订阅、Exit 时退订，并调用 `ctx.ResetShared()`，保证跳关可逆。

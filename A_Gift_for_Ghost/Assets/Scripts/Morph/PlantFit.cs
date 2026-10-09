@@ -46,6 +46,8 @@ namespace Ghost.Morph
         public event System.Action Fitted;
 
         public bool IsTransitioning { get; private set; }
+        // Pick 阶段：植株按真实尺寸固定在世界里，不再按形态 / 屏幕比例适配（Hold / Release）
+        public bool IsHeld { get; private set; }
 
         struct FormBounds
         {
@@ -83,8 +85,30 @@ namespace Ghost.Morph
 
         void HandleMorphStarted(MorphForm form)
         {
+            if (IsHeld) return;
             float d = morpher.MorphDuration > 0f ? morpher.MorphDuration : fallbackDuration;
             TransitionTo(form, d);
+        }
+
+        // 停止自动适配，用 seconds 秒缓动到给定的本地位置和缩放并保持住（Pick 阶段：真实尺寸，scale = 1）
+        public void Hold(Vector3 localPosition, float scale, float seconds)
+        {
+            IsHeld = true;
+            fromScale = transform.localScale.x;
+            fromPos = transform.localPosition;
+            toScale = scale;
+            toPos = localPosition;
+            t0 = Time.time;
+            duration = Mathf.Max(0.01f, seconds);
+            IsTransitioning = true;
+        }
+
+        // 恢复自动适配：用 seconds 秒缓动回当前形态的适配。之后同一帧里如果开始变形，MorphStarted 会接着改目标
+        public void Release(float seconds)
+        {
+            if (!IsHeld) return;
+            IsHeld = false;
+            if (morpher != null && viewCamera != null) TransitionTo(morpher.CurrentForm, seconds);
         }
 
         // 立即适配到某个形态
@@ -112,7 +136,7 @@ namespace Ghost.Morph
         {
             if (morpher == null || viewCamera == null) return;
             // 窗口大小变化（Game View 调整）时按当前形态重新适配
-            if (Screen.width != lastScreenW || Screen.height != lastScreenH)
+            if (!IsHeld && (Screen.width != lastScreenW || Screen.height != lastScreenH))
             {
                 lastScreenW = Screen.width;
                 lastScreenH = Screen.height;
