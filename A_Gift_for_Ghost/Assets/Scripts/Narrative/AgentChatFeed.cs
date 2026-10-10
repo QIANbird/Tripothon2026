@@ -24,7 +24,9 @@ namespace Ghost.Narrative
         public Sprite iconSprite;
 
         [Header("尺寸")]
-        public float width = AgentUIStyle.HudLeftColumnWidth;
+        public float width = AgentUIStyle.HudFeedWidth;
+        [Tooltip("栏的最大高度；超出时最上面的消息提前淡出")]
+        public float maxHeight = AgentUIStyle.HudFeedMaxHeight;
         public float avatarSize = 56f;
         public float avatarGap = 12f;
         public float itemGap = 12f;
@@ -191,17 +193,25 @@ namespace Ghost.Narrative
             if (Time.time - top.finishedAt >= expireAfterFinished) top.fading = true;
         }
 
+        // 超过条数或高度上限时，从最上面开始提前淡出（固定消息和最新一条不动）
         void TrimOverflow()
         {
             int living = 0;
+            float height = 0f;
             for (int i = 0; i < items.Count; i++)
-                if (!items[i].fading) living++;
-            if (living <= maxVisible) return;
-            for (int i = 0; i < items.Count && living > maxVisible; i++)
             {
-                if (items[i].fading || items[i].pinned) continue;
-                items[i].fading = true;
+                if (items[i].fading) continue;
+                height += items[i].height + (living > 0 ? itemGap : 0f);
+                living++;
+            }
+            for (int i = 0; i < items.Count - 1; i++)
+            {
+                if (living <= maxVisible && (maxHeight <= 0f || height <= maxHeight)) break;
+                var item = items[i];
+                if (item.fading || item.pinned) continue;
+                item.fading = true;
                 living--;
+                height -= item.height + itemGap;
             }
         }
 

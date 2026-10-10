@@ -36,6 +36,15 @@ namespace Ghost.Narrative
         public ScreenBlackout blackout;
         public Color lightBackgroundText = new Color(0.08f, 0.09f, 0.11f);
         public Color darkBackgroundText = new Color(0.95f, 0.95f, 0.95f);
+        [Tooltip("描边和外发光的整体透明度（乘在两个颜色的 alpha 上）")]
+        [Range(0f, 1f)] public float outlineOpacity = 1f;
+        [Tooltip("字幕白色描边（浅色背景时显示，黑屏时淡掉）")]
+        public Color outlineColor = new Color(1f, 1f, 1f, 0.95f);
+        public Vector2 outlineDistance = new Vector2(1.5f, -1.5f);
+        [Tooltip("外发光：更大、更淡的一圈白色描边")]
+        public Color glowColor = new Color(1f, 1f, 1f, 0.45f);
+        [Tooltip("外发光的距离决定描边最外圈有多宽；想让描边变细主要调这个")]
+        public Vector2 glowDistance = new Vector2(2f, -2f);
 
         [Header("Agent 聊天栏（屏幕左侧）")]
         public AgentChatFeed agentFeed;
@@ -57,6 +66,7 @@ namespace Ghost.Narrative
         float revealStart;
         bool revealing;
         bool agentLineActive; // 当前这句显示在 Agent 聊天栏
+        Outline textOutline, textGlow, speakerOutline;
 
         void OnEnable()
         {
@@ -70,6 +80,7 @@ namespace Ghost.Narrative
             player.LineFinished += HideLine;
             player.Stopped += HandleStopped;
             if (agentFeed != null) agentFeed.typewriterCharsPerSecond = typewriterCharsPerSecond;
+            EnsureOutlines();
             HideSubtitle();
         }
 
@@ -90,6 +101,24 @@ namespace Ghost.Narrative
                 Color c = Color.Lerp(lightBackgroundText, darkBackgroundText, dark);
                 textLabel.color = c;
                 if (speakerLabel != null) speakerLabel.color = new Color(c.r, c.g, c.b, 0.7f);
+                // 黑屏时字已经是白的，描边 / 发光跟着淡掉
+                float k = (1f - dark) * outlineOpacity;
+                // 每帧同步，Play 中改 Inspector 立刻生效
+                if (textOutline != null)
+                {
+                    textOutline.effectColor = Fade(outlineColor, k);
+                    textOutline.effectDistance = outlineDistance;
+                }
+                if (textGlow != null)
+                {
+                    textGlow.effectColor = Fade(glowColor, k);
+                    textGlow.effectDistance = glowDistance;
+                }
+                if (speakerOutline != null)
+                {
+                    speakerOutline.effectColor = Fade(outlineColor, k * 0.8f);
+                    speakerOutline.effectDistance = outlineDistance;
+                }
             }
 
             // 字幕的打字机；Agent 聊天栏自己打字
@@ -215,6 +244,25 @@ namespace Ghost.Narrative
         {
             Hide();
         }
+
+        // 白色描边 + 外发光（两层 Outline：里层实、外层淡）。场景里没有时运行时补上，不用重建场景
+        void EnsureOutlines()
+        {
+            if (textOutline != null) return;
+            var existing = textLabel.GetComponents<Outline>();
+            textOutline = existing.Length > 0 ? existing[0] : textLabel.gameObject.AddComponent<Outline>();
+            textGlow = existing.Length > 1 ? existing[1] : textLabel.gameObject.AddComponent<Outline>();
+            textOutline.effectDistance = outlineDistance;
+            textGlow.effectDistance = glowDistance;
+            if (speakerLabel != null)
+            {
+                speakerOutline = speakerLabel.GetComponent<Outline>();
+                if (speakerOutline == null) speakerOutline = speakerLabel.gameObject.AddComponent<Outline>();
+                speakerOutline.effectDistance = outlineDistance;
+            }
+        }
+
+        static Color Fade(Color c, float k) => new Color(c.r, c.g, c.b, c.a * k);
 
         SpeakerStyle StyleOf(Speaker speaker)
         {

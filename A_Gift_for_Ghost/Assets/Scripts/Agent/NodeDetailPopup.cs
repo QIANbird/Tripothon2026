@@ -3,9 +3,9 @@ using UnityEngine.UI;
 
 namespace Ghost.Agent
 {
-    // 节点详情弹窗（比赛期间为 HUD，固定在屏幕左侧 Agent 栏）。
+    // 节点详情弹窗（比赛期间为 HUD，固定在屏幕左侧 Agent 栏），样式同 Agent弹窗_02：头像 + 半透明灰气泡，标题加粗。
     // 行为：右键按下 Show → 按住期间一直显示 → 松开 Release 后停留 lingerSeconds → CanvasGroup 淡出后隐藏。
-    // 和 Agent 剧情弹窗（AgentMessagePanel）同时出现时，放在它下方，不叠在一起（见 stackBelow）。
+    // 和 Agent 聊天栏同时出现时，放在栏里所有消息的下方，不叠在一起（见 stackBelow）。
     // 不挡指针射线（文字和底板都不接收 UI 射线）。
     // 【技术债】赛后改回 World Space（docs/VR_GUIDELINES.md 第 5 节）
     public class NodeDetailPopup : MonoBehaviour
@@ -20,14 +20,16 @@ namespace Ghost.Agent
         public RectTransform stackBelow;
 
         [Header("摆放（参考分辨率像素，左上角锚定）")]
-        public Vector2 topLeft = new Vector2(AgentUIStyle.HudMargin, -AgentUIStyle.HudMargin);
+        public Vector2 topLeft = AgentUIStyle.HudFeedTopLeft;
         public float stackGap = 16f;
 
         [Header("尺寸（像素）")]
-        public float width = AgentUIStyle.HudLeftColumnWidth;
-        public float padding = 20f;
-        public float titleHeight = 40f;
-        public float titleBodyGap = 6f;
+        public float width = AgentUIStyle.HudFeedWidth;
+        [Tooltip("气泡左边让出的宽度（头像 + 间距）；box 是气泡")]
+        public float bubbleOffset = 68f;
+        public float padding = 16f;
+        public float titleHeight = 32f;
+        public float titleBodyGap = 4f;
 
         [Header("行为")]
         [Tooltip("松开右键后停留多久再淡出（秒），2–3 s")]
@@ -115,7 +117,8 @@ namespace Ghost.Agent
         // 高度随正文行数变化
         void Resize()
         {
-            float inner = width - padding * 2f;
+            float boxWidth = width - bubbleOffset;
+            float inner = boxWidth - padding * 2f;
             var titleRect = titleLabel.rectTransform;
             titleRect.anchoredPosition = new Vector2(padding, -padding);
             titleRect.sizeDelta = new Vector2(inner, titleHeight);
@@ -127,7 +130,9 @@ namespace Ghost.Agent
             bodyRect.sizeDelta = new Vector2(inner, bodyHeight);
 
             float height = padding * 2f + titleHeight + (bodyHeight > 0f ? titleBodyGap + bodyHeight : 0f);
-            box.sizeDelta = new Vector2(width, height);
+            height = Mathf.Max(height, bubbleOffset - 12f); // 不矮于头像
+            box.anchoredPosition = new Vector2(bubbleOffset, 0f);
+            box.sizeDelta = new Vector2(boxWidth, height);
             panel.sizeDelta = new Vector2(width, height);
         }
     }

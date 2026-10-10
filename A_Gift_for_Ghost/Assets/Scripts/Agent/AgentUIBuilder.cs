@@ -109,21 +109,31 @@ namespace Ghost.Agent
             group.blocksRaycasts = false;
             group.interactable = false;
 
-            var box = AgentUIStyle.CreateRect("Box", panel, Vector2.zero, new Vector2(p.width, 160f));
-            AgentUIStyle.AddFramedBackground(box, AgentUIStyle.PanelFill, AgentUIStyle.PanelBorder, 2f);
-            // 左侧蓝灰色竖条
-            var bar = AgentUIStyle.CreateRect("Accent", box, Vector2.zero, new Vector2(6f, 0f));
-            bar.anchorMin = new Vector2(0f, 0f);
-            bar.anchorMax = new Vector2(0f, 1f);
-            bar.offsetMin = new Vector2(2f, 2f);
-            bar.offsetMax = new Vector2(8f, -2f);
-            AgentUIStyle.AddImage(bar, AgentUIStyle.BlueGray);
+            // Agent弹窗_02 样式：头像 + 半透明灰气泡（和聊天栏一致）
+            var round = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatRoundSprite);
+            var circle = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatCircleSprite);
+            var tailSprite = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatTailSprite);
+            var iconSprite = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatIconSprite);
+            const float avatarSize = 56f;
+            var avatar = AgentUIStyle.CreateRect("Avatar", panel, Vector2.zero, new Vector2(avatarSize, avatarSize));
+            AgentUIStyle.AddSprite(avatar, circle, AgentUIStyle.ChatAvatar);
+            var icon = AgentUIStyle.CreateStretch("Icon", avatar, avatarSize * 0.22f);
+            AgentUIStyle.AddSprite(icon, iconSprite, AgentUIStyle.ChatIcon);
+            if (tailSprite != null)
+            {
+                var tail = AgentUIStyle.CreateRect("Tail", panel, new Vector2(p.bubbleOffset - 10f, -18f), new Vector2(18f, 16f));
+                AgentUIStyle.AddSprite(tail, tailSprite, AgentUIStyle.ChatBubble);
+            }
 
-            var titleRect = AgentUIStyle.CreateRect("Title", box, Vector2.zero, new Vector2(100f, 40f));
-            var title = AgentUIStyle.AddText(titleRect, "", 28, AgentUIStyle.Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var box = AgentUIStyle.CreateRect("Box", panel, new Vector2(p.bubbleOffset, 0f),
+                new Vector2(p.width - p.bubbleOffset, 160f));
+            AgentUIStyle.AddSprite(box, round, AgentUIStyle.ChatBubble, sliced: true);
+
+            var titleRect = AgentUIStyle.CreateRect("Title", box, Vector2.zero, new Vector2(100f, 32f));
+            var title = AgentUIStyle.AddText(titleRect, "", 24, AgentUIStyle.ChatText, TextAnchor.MiddleLeft, FontStyle.Bold);
             var bodyRect = AgentUIStyle.CreateRect("Body", box, Vector2.zero, new Vector2(100f, 100f));
-            var body = AgentUIStyle.AddText(bodyRect, "", 24, AgentUIStyle.Gray, TextAnchor.UpperLeft);
-            body.lineSpacing = 1.15f;
+            var body = AgentUIStyle.AddText(bodyRect, "", 22, AgentUIStyle.ChatText, TextAnchor.UpperLeft);
+            body.lineSpacing = 1.1f;
 
             p.panel = panel;
             p.box = box;

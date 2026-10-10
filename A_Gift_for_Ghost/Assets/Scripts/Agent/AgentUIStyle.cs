@@ -18,7 +18,7 @@ namespace Ghost.Agent
         // ---- Agent 聊天气泡（docs/tasks/agent-chat-bubbles.md，配色来自 10-10 参考图）----
         public static readonly Color ChatAvatar = Hex(0xE5FF71);                       // 头像圆底
         public static readonly Color ChatIcon = new Color(0.04f, 0.04f, 0.05f);         // 头像图标
-        public static readonly Color ChatBubble = WithAlpha(Hex(0xD9D9D9), 0.88f);     // 聊天气泡（半透明灰）
+        public static readonly Color ChatBubble = WithAlpha(Hex(0xD9D9D9), 0.6f);      // 聊天气泡（半透明灰）
         public static readonly Color ChatText = new Color(0.10f, 0.11f, 0.12f);
         public static readonly Color CautionHeader = Hex(0xC9DB85);                    // Caution 卡顶部条
         public static readonly Color CautionBody = Hex(0xE9FF88);                      // Caution 卡底色
@@ -105,6 +105,10 @@ namespace Ghost.Agent
         // HUD 左侧栏（Agent 信息 / 详情）的宽度和边距（参考分辨率像素），PlantFit 按它给植株让出位置
         public const float HudLeftColumnWidth = 520f;
         public const float HudMargin = 40f;
+        // Agent 聊天栏和右键详情所在的一栏（左上锚定，10-10 按策划框选的区域）：左边距 50，顶部下移到 170，宽 470，最多高 780
+        public static readonly Vector2 HudFeedTopLeft = new Vector2(50f, -170f);
+        public const float HudFeedWidth = 470f;
+        public const float HudFeedMaxHeight = 780f;
 
         // 新建一个 Screen Space Overlay Canvas，CanvasScaler 按 1920×1080 缩放（宽高按 0.5 混合）
         public static Canvas CreateHudCanvas(string name, Transform parent, int sortingOrder)
