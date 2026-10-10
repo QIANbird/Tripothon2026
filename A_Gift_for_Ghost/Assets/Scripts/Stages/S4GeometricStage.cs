@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Ghost.Agent;
 using Ghost.Core;
 using Ghost.Interaction;
@@ -10,7 +10,10 @@ namespace Ghost.Stages
 {
     // S4（第 4 节，形态 Geometric，逐步变写实）：玩家转动盆栽，找到藏在叶背的虫子，点击摘除。
     // 每摘除一只，整株写实度（G3 Realness）上升一档：浅色几何体 → 鲜艳的几何体，但始终不是写实模型。
-    // 点其他节点弹出物体描述（Physical 档，和 S3 一致）。通关：所有虫子都摘除 → 稍等后 Complete()，进入过渡（G10）。
+    // 点其他节点弹出物体描述（Physical 档，和 S3 一致）。
+    // 对白来自台词表 S4 段：进关 S4_001–004；每摘一只，Agent 弹窗固定显示 S4_005（{current}/{total} 填进度），
+    // 一直留在原位直到全部摘完；全部摘除后收起弹窗，播 S4_006–007。
+    // 通关：S4_006–007 播完、且最后一档写实度过渡完（至少 completeDelay）后 Complete()，进入过渡阶段（RealTransitionStage 播 S4_008 并变成写实模型）。
     //
     // 跳关清理：
     //   - Enter 先把所有虫子节点重新显示、恢复颜色，计数归零；
@@ -25,11 +28,13 @@ namespace Ghost.Stages
         [Tooltip("可选：在虫子节点上摆真实虫子模型")]
         public BugModelInstances bugModels;
 
-        [Header("对白（占位）")]
+        [Header("对白（台词表 S4 段）")]
         [Tooltip("进入时的提示：手是你的了，转动盆栽找虫子")]
         public DialogueSequence introSequence;
-        [Tooltip("摘除第一只虫子后播放")]
-        public DialogueSequence firstRemovedSequence;
+        [Tooltip("摘除进度消息：取第一句的说话人和文本，{current}/{total} 换成已摘 / 总数，固定在 Agent 弹窗里")]
+        public DialogueSequence progressSequence;
+        [Tooltip("摘除全部虫子后播放，播完才离开本关")]
+        public DialogueSequence allRemovedSequence;
 
         [Header("写实度")]
         [Tooltip("进入时的写实度（Geometric 形态本身是 0.4）。越低越接近灰阶")]
@@ -69,6 +74,7 @@ namespace Ghost.Stages
         readonly HashSet<int> keptHidden = new HashSet<int>();
         bool holdsRealness;
         bool finishing;
+        bool finalLinesDone;
         float completeTimer;
         float realnessFrom, realnessTo, realnessNow, realnessT = 1f;
         bool savedAllowEmptyDrag = true;
@@ -203,7 +209,7 @@ namespace Ghost.Stages
             if (finishing)
             {
                 completeTimer -= Time.deltaTime;
-                if (completeTimer <= 0f)
+                if (completeTimer <= 0f && finalLinesDone)
                 {
                     finishing = false;
                     Complete();
@@ -283,12 +289,26 @@ namespace Ghost.Stages
             realnessT = 0f;
             RefreshPanel();
 
-            if (removed.Count == 1 && removed.Count < bugNodes.Count) ctx.Play(firstRemovedSequence);
-            if (removed.Count >= bugNodes.Count)
+            if (removed.Count < bugNodes.Count) PinProgress();
+            else
             {
+                if (ctx.subtitles != null) ctx.subtitles.Unpin();
                 finishing = true;
+                finalLinesDone = false;
                 completeTimer = Mathf.Max(completeDelay, stepDuration);
+                ctx.Play(allRemovedSequence, () => finalLinesDone = true);
             }
+        }
+
+        // 进度消息固定在 Agent 弹窗里；第二只起只改数字，弹窗不动
+        void PinProgress()
+        {
+            if (ctx.subtitles == null || progressSequence == null || progressSequence.lines.Count == 0) return;
+            var line = progressSequence.lines[0];
+            string text = (line.text ?? "")
+                .Replace("{current}", removed.Count.ToString())
+                .Replace("{total}", bugNodes.Count.ToString());
+            ctx.subtitles.Pin(line.speaker, text);
         }
 
         // 摘除 n 只后的写实度：从 startRealness 到 endRealness 平均分档

@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Ghost.Agent;
 using Ghost.Gameplay;
 using Ghost.Interaction;
@@ -56,7 +56,7 @@ namespace Ghost.Core.EditorTools
         static readonly StageSpec[] Stages =
         {
             // Intro 不变形，停在植株的初始形态（Matrix）；以后开场做黑屏时再处理显示
-            new StageSpec("Intro", false, MorphForm.Matrix, "开场剧情：按 N 继续"),
+            new StageSpec("Intro", false, MorphForm.Matrix, ""),
             // G6：Tutorial 和 S1 是真实阶段（TutorialStage / S1MatrixStage），占位文字不显示
             new StageSpec("Tutorial", true, MorphForm.Matrix, ""),
             new StageSpec("S1", true, MorphForm.Matrix, ""),
@@ -66,10 +66,12 @@ namespace Ghost.Core.EditorTools
             new StageSpec("S3", true, MorphForm.Network, ""),
             // G9：S4 是真实阶段（S4GeometricStage）
             new StageSpec("S4", true, MorphForm.Geometric, ""),
-            new StageSpec("Transition", true, MorphForm.Real, "过渡：按 N 继续"),
+            // 过渡：播 S4_008，同时变成写实模型，播完自动进入 Pick（RealTransitionStage）
+            new StageSpec("Transition", true, MorphForm.Real, ""),
             // Pick：第一人称走到写实植株前（PickStage，docs/tasks/pick-stage.md）
             new StageSpec("Pick", true, MorphForm.Real, ""),
-            new StageSpec("Outro", true, MorphForm.Real, "结局剧情（最后一关）"),
+            // Outro 还是占位阶段（视频未接入），不显示文字
+            new StageSpec("Outro", true, MorphForm.Real, ""),
         };
 
         [MenuItem("Ghost/Core/Build Main Scene")]
@@ -181,6 +183,7 @@ namespace Ghost.Core.EditorTools
             ctx.detailPopup = agentUI.detailPopup;
             ctx.query = agentUI.query;
             ctx.dialogue = dialogue;
+            ctx.subtitles = Object.FindAnyObjectByType<Ghost.Narrative.SubtitlePanel>();
             ctx.detailTable = NarrativeAssets.EnsureNodeDetails();
             ctx.rotator = rotator;
             // 任务面板在进入真实阶段时才显示
@@ -207,15 +210,20 @@ namespace Ghost.Core.EditorTools
                 {
                     var s1 = stageGo.AddComponent<S1MatrixStage>();
                     s1.ctx = ctx;
+                    s1.introSequence = StageAssets.LoadScript(StageAssets.S1IntroKey);
+                    s1.clickPool = StageAssets.LoadScriptsWithPrefix(StageAssets.S1ClickPoolPrefix);
+                    s1.completeSequence = StageAssets.LoadScript(StageAssets.S1CompleteKey);
+                    s1.querySequence = StageAssets.LoadScript(StageAssets.S1QueryKey);
                     stage = s1;
                 }
                 else if (spec.name == "S2")
                 {
                     var s2 = stageGo.AddComponent<S2CircuitStage>();
                     s2.ctx = ctx;
-                    s2.introSequence = StageAssets.EnsureS2Intro();
-                    s2.wrongStartSequence = StageAssets.EnsureS2WrongStart();
-                    s2.waterSolvedSequence = StageAssets.EnsureS2WaterSolved();
+                    s2.introSequence = StageAssets.LoadScript(StageAssets.S2IntroKey);
+                    s2.wrongStartSequence = StageAssets.LoadScript(StageAssets.S2WrongStartKey);
+                    s2.waterSolvedSequence = StageAssets.LoadScript(StageAssets.S2SolvedKey);
+                    s2.finishSequence = StageAssets.LoadScript(StageAssets.S2FinishKey);
                     stage = s2;
                 }
                 else if (spec.name == "S3")
@@ -223,8 +231,10 @@ namespace Ghost.Core.EditorTools
                     var s3 = stageGo.AddComponent<S3NetworkStage>();
                     s3.ctx = ctx;
                     s3.rotator = rotator;
-                    s3.introSequence = StageAssets.EnsureS3Intro();
-                    s3.allFoundSequence = StageAssets.EnsureS3AllFound();
+                    s3.introSequence = StageAssets.LoadScript(StageAssets.S3IntroKey);
+                    s3.firstMarkedSequence = StageAssets.LoadScript(StageAssets.S3FirstMarkedKey);
+                    s3.allFoundSequence = StageAssets.LoadScript(StageAssets.S3AllFoundKey);
+                    s3.querySequence = StageAssets.LoadScript(StageAssets.S3QueryKey);
                     stage = s3;
                 }
                 else if (spec.name == "S4")
@@ -232,8 +242,9 @@ namespace Ghost.Core.EditorTools
                     var s4 = stageGo.AddComponent<S4GeometricStage>();
                     s4.ctx = ctx;
                     s4.rotator = rotator;
-                    s4.introSequence = StageAssets.EnsureS4Intro();
-                    s4.firstRemovedSequence = StageAssets.EnsureS4FirstRemoved();
+                    s4.introSequence = StageAssets.LoadScript(StageAssets.S4IntroKey);
+                    s4.progressSequence = StageAssets.LoadScript(StageAssets.S4ProgressKey);
+                    s4.allRemovedSequence = StageAssets.LoadScript(StageAssets.S4AllRemovedKey);
                     // 虫子模型：组件挂在 S4 物体上，实例生成在 Plant 下面（跟着旋转）
                     var bugPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(BugModelPath);
                     if (bugPrefab != null)
@@ -245,6 +256,14 @@ namespace Ghost.Core.EditorTools
                     }
                     else Debug.LogWarning($"[Flow] 找不到虫子模型 {BugModelPath}，S4 只显示虫子节点");
                     stage = s4;
+                }
+                else if (spec.name == "Transition")
+                {
+                    var tr = stageGo.AddComponent<RealTransitionStage>();
+                    tr.ctx = ctx;
+                    tr.sequence = StageAssets.LoadScript(StageAssets.TransitionKey);
+                    tr.handoff = handoff;
+                    stage = tr;
                 }
                 else if (spec.name == "Pick")
                 {
@@ -269,10 +288,13 @@ namespace Ghost.Core.EditorTools
             debug.actions = actions;
 
             BuildStagePanel(flow, cameraGo.transform);
+            // 开始 / 结束界面（docs/tasks/start-restart-screens.md）
+            BuildFlowScreens(flow);
             // 场景保存时玩家根物体是停用的，Pick 阶段 Enter 时才打开
             if (pickStage != null) pickStage.player.gameObject.SetActive(false);
 
             EditorSceneManager.SaveScene(scene, MainScenePath);
+            EnsureMainSceneInBuild();
             Debug.Log($"[Flow] 生成主场景 → {MainScenePath}。Play 后按 N 进入下一关，Shift + 1–9 跳关");
             return scene;
         }
@@ -378,6 +400,12 @@ namespace Ghost.Core.EditorTools
             var hover = pc.gameObject.AddComponent<PcCrosshairRayHover>();
             hover.ray = ray;
             hover.crosshair = pc.GetComponentInChildren<PcCrosshair>(true);
+            BuildControlsHint(pc, stage);
+
+            stage.introSequence = StageAssets.LoadScript(StageAssets.PickIntroKey);
+            stage.controlsHintSequence = StageAssets.LoadScript(StageAssets.PickControlsHintKey);
+            stage.hintAfterLineId = StageAssets.PickHintAfterLineId;
+            stage.firstBiteSequence = StageAssets.LoadScript(StageAssets.PickFirstBiteKey);
 
             stage.hand = BuildArm(head);
             var eat = stage.hand.gameObject.AddComponent<EatSequence>();
@@ -753,6 +781,29 @@ namespace Ghost.Core.EditorTools
             return rig;
         }
 
+        // 左上角操作提示（PC 专用，HUD）：浅色文字，没有底框，深色描边保证浅色背景上也看得清。
+        // 和 Agent 弹窗同一个左上角位置：提示在 PICK_002（最后一句 Agent 台词）播完、弹窗收起后才出现
+        static PcControlsHint BuildControlsHint(Transform parent, PickStage stage)
+        {
+            var canvas = Ghost.Agent.AgentUIStyle.CreateHudCanvas("ControlsHint", parent, 165);
+            Object.DestroyImmediate(canvas.GetComponent<GraphicRaycaster>());
+            var group = canvas.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+            var rect = Ghost.Agent.AgentUIStyle.CreateAnchored("Text", canvas.transform, new Vector2(0f, 1f),
+                new Vector2(Ghost.Agent.AgentUIStyle.HudMargin, -Ghost.Agent.AgentUIStyle.HudMargin), new Vector2(1200f, 40f));
+            var label = Ghost.Agent.AgentUIStyle.AddText(rect, "", 24, new Color(0.97f, 0.97f, 0.95f, 0.95f), TextAnchor.UpperLeft);
+            var outline = label.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.1f, 0.1f, 0.12f, 0.55f);
+            outline.effectDistance = new Vector2(1.2f, -1.2f);
+            var hint = canvas.gameObject.AddComponent<PcControlsHint>();
+            hint.stage = stage;
+            hint.group = group;
+            hint.label = label;
+            return hint;
+        }
+
         // 屏幕中心准星（PC 专用，HUD）
         static PcCrosshair BuildCrosshair(Transform parent)
         {
@@ -781,6 +832,70 @@ namespace Ghost.Core.EditorTools
             mat.SetFloat("_Smoothness", 0.1f);
             AssetDatabase.CreateAsset(mat, path);
             return mat;
+        }
+
+        // 开始 / 结束界面的层级：盖住黑屏、字幕和 Agent 界面
+        const int FlowScreenSortingOrder = 300;
+
+        // 开始界面（标题 + 开始）和结束界面（感谢游玩 + 重新开始）：全屏黑底，内容居中。
+        // 【技术债】Screen Space HUD，赛后改 World Space；布局只用锚点居中，不依赖屏幕像素
+        static void BuildFlowScreens(GameFlow flow)
+        {
+            var start = BuildFlowScreen<StartScreen>("StartScreen", flow, "A Gift for Ghost", "开始");
+            start.group.alpha = 1f;
+            var end = BuildFlowScreen<EndScreen>("EndScreen", flow, "感谢游玩", "重新开始");
+            end.group.alpha = 0f;
+            end.group.interactable = false;
+            end.group.blocksRaycasts = false;
+        }
+
+        static T BuildFlowScreen<T>(string name, GameFlow flow, string title, string buttonText) where T : FlowScreen
+        {
+            var canvas = AgentUIStyle.CreateHudCanvas(name, null, FlowScreenSortingOrder);
+            var root = (RectTransform)canvas.transform;
+            var group = canvas.gameObject.AddComponent<CanvasGroup>();
+
+            // 黑底挡住植株，也挡住对节点的点击（PointerInput 在 HUD 上不派发）
+            var background = AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Background", root), Color.black);
+            background.raycastTarget = true;
+
+            var center = new Vector2(0.5f, 0.5f);
+            var titleRect = AgentUIStyle.CreateAnchored("Title", root, center, new Vector2(0f, 0f), new Vector2(1200f, 120f));
+            titleRect.pivot = new Vector2(0.5f, 0f);
+            titleRect.anchoredPosition = new Vector2(0f, 40f);
+            AgentUIStyle.AddText(titleRect, title, 72, new Color(0.92f, 0.92f, 0.93f), TextAnchor.MiddleCenter);
+
+            var buttonRect = AgentUIStyle.CreateAnchored("Button", root, center, Vector2.zero, new Vector2(280f, 80f));
+            buttonRect.pivot = new Vector2(0.5f, 1f);
+            buttonRect.anchoredPosition = new Vector2(0f, -40f);
+            var buttonImage = AgentUIStyle.AddImage(buttonRect, new Color(0.92f, 0.92f, 0.93f));
+            buttonImage.raycastTarget = true;
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = buttonImage;
+            var colors = button.colors;
+            colors.highlightedColor = new Color(0.8f, 0.82f, 0.86f);
+            colors.pressedColor = new Color(0.65f, 0.68f, 0.72f);
+            button.colors = colors;
+            AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", buttonRect), buttonText, 34, AgentUIStyle.Ink,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+
+            // 先停用再加组件，保证 Awake 时引用已填好
+            canvas.gameObject.SetActive(false);
+            var screen = canvas.gameObject.AddComponent<T>();
+            screen.flow = flow;
+            screen.group = group;
+            screen.button = button;
+            canvas.gameObject.SetActive(true);
+            return screen;
+        }
+
+        // 重新开始要靠 SceneManager.LoadScene，Main.unity 必须在 Build Settings 里，放在第 0 个
+        static void EnsureMainSceneInBuild()
+        {
+            var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
+            scenes.RemoveAll(s => s.path == MainScenePath);
+            scenes.Insert(0, new EditorBuildSettingsScene(MainScenePath, true));
+            EditorBuildSettings.scenes = scenes.ToArray();
         }
 
         // 阶段面板（占位阶段的提示文字）。【技术债】比赛期间和其他界面一样是 Screen Space HUD，屏幕顶部居中

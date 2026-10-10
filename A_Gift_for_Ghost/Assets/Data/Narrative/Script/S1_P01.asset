@@ -17,7 +17,7 @@ MonoBehaviour:
   - id: S1_P01
     speaker: 3
     channel: 2
-    text: "\u7EF4\u62A4\u5355\u514307\uFF1A\u7A33\u5B9A\u5EA6\u4E0B\u964D\n\u5EFA\u8BAE\u64CD\u4F5C\uFF1A\u8865\u5145\u8D44\u6E90\n\u9884\u8BA1\u6539\u5584\uFF1A+12%"
+    text: "\u7EF4\u62A4\u5355\u5143{01-99}\uFF1A\u7A33\u5B9A\u5EA6\u4E0B\u964D\n\u5EFA\u8BAE\u64CD\u4F5C\uFF1A\u8865\u5145\u8D44\u6E90\n\u9884\u8BA1\u6539\u5584\uFF1A+{5-20}%"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

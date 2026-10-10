@@ -1,8 +1,10 @@
-using Ghost.Core;
+﻿using Ghost.Core;
 using Ghost.Interaction;
 using Ghost.Morph;
+using Ghost.Narrative;
 using Ghost.Pick;
 using Ghost.Player;
+using System;
 using UnityEngine;
 using UnityEngine.XR.Interaction.Toolkit;
 
@@ -11,6 +13,9 @@ namespace Ghost.Stages
     // Pick 阶段（形态 Real）：写实植株按真实尺寸固定在玩家前方，不能转；玩家第一人称走过去、蹲下、对准果实摘下，按 E 举到嘴边一口一口吃。
     // 这是唯一移动相机的阶段：PlayerRig 接管主相机，离开时还回固定机位（docs/CURRENT_STATE.md 不变量"相机永远不动"的例外）。
     // 当前完成第 1–5a 步（移动、固定植株、XRI 摘、举到嘴边、咬一口缩小）。5b/5c 的虚幻化和消散订阅 EatSequence.BiteTaken。
+    //
+    // 对白来自台词表 PICK 段：进关播 PICK_001–005，hintAfterLineId 这句播完时发 ControlsHintShown（操作提示由 PC 端显示，
+    // 见 Player/PC/PcControlsHint）；吃第一口播 PICK_006。进关不锁操作，对白和移动同时进行。
     //
     // 跳关可逆：
     //   Enter：ResetShared，关指针输入和旋转，PlantFit 停止适配、缓动到真实尺寸摆放，打开场地碰撞和玩家，给果实加 Interactable；
@@ -44,13 +49,27 @@ namespace Ghost.Stages
         [Tooltip("伸手可及的距离（米，从眼睛到果实中心）。范围外果实的 Interactable 关闭，不高亮也摘不了")]
         public float reachDistance = 0.7f;
 
-        [TextArea] public string panelText = "采摘：对准果实按左键摘下，按 E 举到嘴边再咬。WASD 移动，C / Ctrl 蹲下";
-        public override string PanelText => panelText;
+        [Header("对白（台词表 PICK 段）")]
+        public DialogueSequence introSequence;
+        [Tooltip("操作提示文字（台词表 操作提示 行）")]
+        public DialogueSequence controlsHintSequence;
+        [Tooltip("这句台词播完时显示操作提示；为空或找不到时，introSequence 播完再显示")]
+        public string hintAfterLineId = "PICK_002";
+        [Tooltip("吃第一口时播放")]
+        public DialogueSequence firstBiteSequence;
+
+        // 操作提示：显示（文字）/ 隐藏。只发事件，显示由平台端组件负责
+        public event Action<string> ControlsHintShown;
+        public event Action ControlsHintHidden;
+
+        // 键位只在左上角的操作提示里显示（PcControlsHint），顶部阶段面板不显示文字
+        public override string PanelText => "";
 
         bool savedPointerEnabled = true;
         PickableFruit fruit;
         RealModelHandoff handoff;
         bool fruitReady;
+        bool hintShown;
 
         public override void Enter()
         {
@@ -84,10 +103,17 @@ namespace Ghost.Stages
             }
             player.Activate();
             fruitReady = false;
+
+            hintShown = false;
+            if (ctx.dialogue != null) ctx.dialogue.LineFinished += OnLineFinished;
+            ctx.Play(introSequence, ShowControlsHint);
         }
 
         public override void Exit()
         {
+            if (ctx != null && ctx.dialogue != null) ctx.dialogue.LineFinished -= OnLineFinished;
+            if (hintShown) ControlsHintHidden?.Invoke();
+            hintShown = false;
             if (eat != null) eat.BiteTaken -= OnBiteTaken;
             RestoreFruit();
             if (hand != null) hand.ResetPose();
@@ -169,6 +195,21 @@ namespace Ghost.Stages
         void OnBiteTaken(int index, int total)
         {
             // 5a：只缩小。5b/5c 订阅 BiteTaken 做虚幻化和碎片
+            if (index == 1 && IsActive) ctx.Play(firstBiteSequence);
+        }
+
+        void OnLineFinished(DialogueLine line)
+        {
+            if (IsActive && line != null && !string.IsNullOrEmpty(hintAfterLineId) && line.id == hintAfterLineId) ShowControlsHint();
+        }
+
+        void ShowControlsHint()
+        {
+            if (!IsActive || hintShown) return;
+            string text = ScriptText.FirstLine(controlsHintSequence);
+            if (string.IsNullOrEmpty(text)) return;
+            hintShown = true;
+            ControlsHintShown?.Invoke(text);
         }
 
         void RestoreFruit()

@@ -10,18 +10,23 @@ namespace Ghost.Stages
 {
     // S3（第 4 节，形态 Network）：节点开始显示真实颜色，玩家拖拽空白处旋转结构，靠颜色认出所有虫子节点。
     // 点任意节点弹出物体描述（NodeDetailTable 的 Physical 档）；点到虫子 = 识别，节点保持高亮。
-    // 通关：① 所有虫子节点都点过；② 弹出询问"除虫是精细操作……"，选 Yes → 进入 S4（同一帧变形到 Geometric）。
+    // 对白来自台词表 S3 段：进关 S3_001–005，第一次标记 S3_006，全部标记 S3_007–010。
+    // 通关：① 所有虫子节点都点过；② 弹出询问（S3_011 的全文），选 Yes → 进入 S4（同一帧变形到 Geometric）。
     public class S3NetworkStage : Stage
     {
         public StageContext ctx;
         [Tooltip("旋转植株的组件（S4 复用同一个）")]
         public TargetRotator rotator;
 
-        [Header("对白（占位）")]
+        [Header("对白（台词表 S3 段）")]
         [Tooltip("进入时的提示：颜色恢复、拖动空白处旋转")]
         public DialogueSequence introSequence;
+        [Tooltip("标记第一个虫子时播放（全部标记时不播）")]
+        public DialogueSequence firstMarkedSequence;
         [Tooltip("全部虫子识别后播放，播完弹出询问")]
         public DialogueSequence allFoundSequence;
+        [Tooltip("询问的问题文字（台词表 Agent询问 行）；为空时用 queryQuestion")]
+        public DialogueSequence querySequence;
 
         [Header("颜色")]
         [Tooltip("S3 期间整体写实度（Network 形态本身是 0 = 灰阶）。1 = 完全用部位真实颜色")]
@@ -32,7 +37,7 @@ namespace Ghost.Stages
         public Color foundColor = new Color(1f, 0.92f, 0.45f);
 
         [Header("询问")]
-        [Tooltip("全部虫子识别后弹出的提问（策划流程图原文）")]
+        [Tooltip("querySequence 为空时用的提问")]
         public string queryQuestion = "除虫是精细操作，机械臂摘除有伤害植物的风险，是否要进一步手动介入？";
 
         public override string PanelText => "";
@@ -129,6 +134,7 @@ namespace Ghost.Stages
             {
                 ctx.morpher.SetHighlight(id, foundColor);
                 RefreshPanel();
+                if (found.Count == 1 && found.Count < bugNodes.Count) ctx.Play(firstMarkedSequence);
             }
             ctx.RefreshInspect();
             TryFinish();
@@ -182,9 +188,10 @@ namespace Ghost.Stages
         {
             if (queryShown || bugNodes.Count == 0 || found.Count < bugNodes.Count) return;
             queryShown = true;
+            string question = ScriptText.FirstLine(querySequence, queryQuestion);
             ctx.Play(allFoundSequence, () =>
             {
-                if (IsActive && ctx.query != null) ctx.query.Ask(queryQuestion, Complete);
+                if (IsActive && ctx.query != null) ctx.query.Ask(question, Complete);
             });
         }
     }

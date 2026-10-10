@@ -7,7 +7,7 @@ namespace Ghost.Core
     public class PlaceholderStage : Stage
     {
         [Tooltip("阶段面板上显示的占位文字")]
-        public string message = "Press N to continue";
+        public string message = "";
 
         public override string PanelText => message;
 

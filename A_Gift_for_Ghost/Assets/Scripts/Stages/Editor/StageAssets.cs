@@ -1,21 +1,49 @@
-using Ghost.Narrative;
+﻿using Ghost.Narrative;
 using Ghost.Narrative.EditorTools;
 using UnityEditor;
 using UnityEngine;
 
 namespace Ghost.Stages.EditorTools
 {
-    // S2–S4 的对白资产（全部是【占位台词】，以 [占位] 开头，等策划替换）。
-    // 资产已存在时直接返回，不覆盖策划的修改；想恢复默认就删掉资产再生成主场景。
-    // 教学的对白已改用台词表 TUT 段（DialogueCsvImporter 生成的 Script/<段key>.asset），见 LoadScript。
+    // 各阶段对白的来源：台词表 docs/script/02_dialogue.csv 导入的 Script/<段key>.asset，见 LoadScript 和下面的 key。
+    // 文件后半段的 Ensure* 是旧的 S2–S4 占位对白，已不再使用。
     public static class StageAssets
     {
-        // 台词表 TUT 段各段的 key（= 这一段第一句的 ID），和 docs/script/02_dialogue.csv 对应
+        // 台词表各段的 key（= 这一段第一句的 ID），和 docs/script/02_dialogue.csv 对应。
+        // "Agent询问" / "操作提示"行单独成段，阶段脚本只取它的文本（见 DialogueCsvImporter）
+        public const string IntroKey = "INTRO_001";
+        public const string IntroAfterClickKey = "INTRO_009";
+
         public const string TutorialIntroKey = "TUT_002";
         public const string TutorialAfterEasyKey = "TUT_004";
-        public const string TutorialAfterHardKey = "TUT_006";
-        public const string TutorialInspectKey = "TUT_009";
-        public const string TutorialAfterInspectKey = "TUT_010";
+        public const string TutorialAfterHardKey = "TUT_008";
+        public const string TutorialInspectKey = "TUT_014";
+        public const string TutorialAfterInspectKey = "TUT_015";
+
+        public const string S1IntroKey = "S1_001";
+        public const string S1ClickPoolPrefix = "S1_P";
+        public const string S1CompleteKey = "S1_002";
+        public const string S1QueryKey = "S1_005";
+
+        public const string S2IntroKey = "S2_001";
+        public const string S2WrongStartKey = "S2_W01";
+        public const string S2SolvedKey = "S2_006";
+        public const string S2FinishKey = "S2_008";
+
+        public const string S3IntroKey = "S3_001";
+        public const string S3FirstMarkedKey = "S3_006";
+        public const string S3AllFoundKey = "S3_007";
+        public const string S3QueryKey = "S3_011";
+
+        public const string S4IntroKey = "S4_001";
+        public const string S4ProgressKey = "S4_005";
+        public const string S4AllRemovedKey = "S4_006";
+        public const string TransitionKey = "S4_008";
+
+        public const string PickIntroKey = "PICK_001";
+        public const string PickControlsHintKey = "PICK_003";
+        public const string PickHintAfterLineId = "PICK_002"; // 这句播完后显示操作提示
+        public const string PickFirstBiteKey = "PICK_006";
 
         // 读台词表导入的一段对白；找不到时报警告，阶段里这段会直接跳过
         public static DialogueSequence LoadScript(string key)
@@ -27,6 +55,26 @@ namespace Ghost.Stages.EditorTools
             return seq;
         }
 
+        // key 以 prefix 开头的所有段（例如 S1 点方块的随机池 S1_P01、S1_P02……），按 key 排序
+        public static DialogueSequence[] LoadScriptsWithPrefix(string prefix)
+        {
+            var list = new System.Collections.Generic.List<DialogueSequence>();
+            if (AssetDatabase.IsValidFolder(DialogueCsvImporter.OutFolder))
+            {
+                foreach (var guid in AssetDatabase.FindAssets("t:DialogueSequence", new[] { DialogueCsvImporter.OutFolder }))
+                {
+                    string path = AssetDatabase.GUIDToAssetPath(guid);
+                    if (!System.IO.Path.GetFileNameWithoutExtension(path).StartsWith(prefix)) continue;
+                    var seq = AssetDatabase.LoadAssetAtPath<DialogueSequence>(path);
+                    if (seq != null) list.Add(seq);
+                }
+            }
+            list.Sort((a, b) => string.CompareOrdinal(a.name, b.name));
+            if (list.Count == 0) Debug.LogWarning($"[Stages] 台词表里没有 {prefix}* 开头的段");
+            return list.ToArray();
+        }
+
+        // 以下 S2–S4 的旧占位对白已不再挂到场景（改用台词表），方法暂时保留
         // G7：S2 连线修复
         public const string S2IntroPath = NarrativeAssets.Folder + "/S2Intro.asset";
         public const string S2WrongStartPath = NarrativeAssets.Folder + "/S2WrongStart.asset";

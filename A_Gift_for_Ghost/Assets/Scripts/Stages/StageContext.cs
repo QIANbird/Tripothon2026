@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Ghost.Agent;
 using Ghost.Core;
@@ -39,6 +39,8 @@ namespace Ghost.Stages
 
         [Header("对白与详情（G5）")]
         public DialoguePlayer dialogue;
+        [Tooltip("字幕 / Agent 弹窗；阶段用它固定一条常驻的 Agent 消息（S4 除虫进度）")]
+        public SubtitlePanel subtitles;
         public NodeDetailTable detailTable;
 
         [Header("点击反馈")]
@@ -155,6 +157,7 @@ namespace Ghost.Stages
             if (detailPopup != null) detailPopup.Hide();
             if (query != null) query.Hide();
             if (dialogue != null) dialogue.Stop();
+            if (subtitles != null) subtitles.Unpin();
             if (taskPanel != null)
             {
                 taskPanel.ClearTasks();

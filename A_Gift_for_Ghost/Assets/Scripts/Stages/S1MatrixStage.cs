@@ -1,15 +1,17 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using Ghost.Agent;
 using Ghost.Gameplay;
 using Ghost.Morph;
+using Ghost.Narrative;
 using UnityEngine;
 
 namespace Ghost.Stages
 {
     // S1（第 4 节，形态 Matrix）：画面中随机冒出简单问题，再加若干中等问题；
     // 困难问题固定在果实节点上（最多 4 个）。详情只显示任务状态 / 进度 / 置信度。
-    // 通关：① 简单 + 中等都解决；② 困难累计尝试 ≥ 3 次；③ 弹出询问"是否要进一步查看信息？"，选 Yes。
+    // 通关：① 简单 + 中等都解决；② 困难累计尝试 ≥ 3 次；③ 播 S1_002–004，弹出询问（S1_005），选 Yes。
+    // 对白来自台词表：进关 S1_001；左键点亮起的方块时从 S1_P* 随机池挑一句（对白空闲时才播）。
     public class S1MatrixStage : IssueStage
     {
         [Header("问题数量")]
@@ -34,8 +36,17 @@ namespace Ghost.Stages
         [Tooltip("< 0 每次随机；≥ 0 固定种子，方便验收复现")]
         public int randomSeed = -1;
 
+        [Header("对白（台词表 S1 段）")]
+        public DialogueSequence introSequence;
+        [Tooltip("左键点亮起的方块时随机挑一段播放；文本里的 {a-b} 换成随机数")]
+        public DialogueSequence[] clickPool = new DialogueSequence[0];
+        [Tooltip("通关条件满足后播放，播完弹出询问")]
+        public DialogueSequence completeSequence;
+        [Tooltip("询问的问题文字（台词表 Agent询问 行）；为空时用 queryQuestion")]
+        public DialogueSequence querySequence;
+
         [Header("询问")]
-        [Tooltip("通关条件满足后弹出的提问。【占位】台词等策划替换")]
+        [Tooltip("querySequence 为空时用的提问")]
         public string queryQuestion = "是否要进一步查看信息？";
 
         // 任务面板下标：0 提高增长 / 1 解决异常 / 2 维持关系 / 3 完成本周期任务
@@ -46,6 +57,7 @@ namespace Ghost.Stages
 
         Coroutine spawnRoutine;
         bool queryShown;
+        DialogueSequence poolRuntime; // 随机池播放用的运行时副本（文本填好随机数）
         readonly HashSet<int> fruitIds = new HashSet<int>();
 
         public override void Enter()
@@ -56,6 +68,7 @@ namespace Ghost.Stages
             fruitIds.Clear();
             CollectFruitIds();
             SetupTaskPanel();
+            ctx.Play(introSequence);
             spawnRoutine = StartCoroutine(SpawnIssuesOverTime());
         }
 
@@ -169,7 +182,8 @@ namespace Ghost.Stages
         protected override void OnIssueAttempted(NodeIssue issue, bool solved)
         {
             RefreshAll();
-            TryOfferQuery();
+            TryOfferQuery(); // 先判断通关：通关的这一下直接播 S1_002，不先冒一句随机池
+            PlayPoolLine();
         }
 
         protected override void OnIssueResolved(NodeIssue issue)
@@ -231,7 +245,41 @@ namespace Ghost.Stages
             if (queryShown || ctx.query == null || ctx.issues == null) return;
             if (!SolvableDone() || ctx.issues.TotalAttempts(IssueDifficulty.Hard) < 3) return;
             queryShown = true;
-            ctx.query.Ask(queryQuestion, Complete);
+            string question = ScriptText.FirstLine(querySequence, queryQuestion);
+            ctx.Play(completeSequence, () =>
+            {
+                if (IsActive && ctx.query != null) ctx.query.Ask(question, Complete);
+            });
+        }
+
+        // 点亮起的方块：Agent 弹窗随机报一条任务状态。已有对白在播（进关台词、上一条）时不打断
+        void PlayPoolLine()
+        {
+            if (queryShown || clickPool == null || clickPool.Length == 0 || ctx.dialogue == null || ctx.dialogue.IsPlaying) return;
+            var src = clickPool[Random.Range(0, clickPool.Length)];
+            if (src == null || src.lines.Count == 0) return;
+            if (poolRuntime == null)
+            {
+                poolRuntime = ScriptableObject.CreateInstance<DialogueSequence>();
+                poolRuntime.hideFlags = HideFlags.DontSave;
+            }
+            var line = src.lines[0];
+            poolRuntime.name = src.name;
+            poolRuntime.lines.Clear();
+            poolRuntime.lines.Add(new DialogueLine(line.speaker, ScriptText.FillRandom(line.text))
+            {
+                id = line.id,
+                channel = line.channel,
+                clip = line.clip,
+                durationOverride = line.durationOverride,
+                pauseAfter = line.pauseAfter,
+            });
+            ctx.Play(poolRuntime);
+        }
+
+        void OnDestroy()
+        {
+            if (poolRuntime != null) Destroy(poolRuntime);
         }
     }
 }

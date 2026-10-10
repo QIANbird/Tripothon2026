@@ -17,14 +17,28 @@ MonoBehaviour:
   - id: S4_001
     speaker: 3
     channel: 2
-    text: "\u89E6\u89C9\u7CFB\u7EDF\u5DF2\u89E3\u9501\u3002"
+    text: "\u6B63\u5728\u91CD\u5EFA\u63A7\u5236\u5668\u2026\u2026"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: S4_002
     speaker: 3
     channel: 2
-    text: "\u68C0\u67E5\u53F6\u7247\u80CC\u9762\uFF0C\u786E\u4FDD\u6807\u8BB0\u7684bugs\u5747\u79FB\u51FA\u3002"
+    text: "\u76F4\u63A5\u5E72\u9884\u901A\u9053\u90E8\u5206\u5F00\u653E\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: S4_003
+    speaker: 3
+    channel: 2
+    text: "\u89E6\u89C9\u7CFB\u7EDF\u5DF2\u6062\u590D\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: S4_004
+    speaker: 3
+    channel: 2
+    text: "\u68C0\u67E5\u53F6\u7247\u80CC\u9762\uFF0C\u627E\u5230\u4E0A\u4E00\u6B65\u4E2D\u53D1\u73B0\u7684bugs\u5E76\u70B9\u51FB\u79FB\u9664\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

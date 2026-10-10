@@ -12,6 +12,8 @@ namespace Ghost.Narrative.EditorTools
     // 分段规则：触发条件是"上一句结束"或"<上一句ID> 之后 / 结束"的台词，接在上一句后面成为同一段；
     // 其他触发条件开始新的一段，段的 key 就是这一段第一句的 ID。文本为空的行（视频、演出）跳过，不打断分段。
     // 通道：字幕 / Agent弹窗 → 强制该通道；其他（待确认、空）→ Auto，按说话人决定。
+    // 通道为"Agent询问"（带 Yes 的弹窗）或"操作提示"（左上角提示文字）的行不由 DialoguePlayer 播放：
+    // 每行单独成一段（key = 自己的 ID），阶段脚本读它的文本自己显示；这一行不打断前后台词的分段。
     //
     // 生成到 Assets/Data/Narrative/Script/，每段一个资产（文件名 = key）。重新导入时原地更新（GUID 不变），
     // 同一 ID 的台词保留已挂的配音和时长设置；表里删掉的段，对应资产一起删除。不改其他目录里手做的对白资产。
@@ -91,6 +93,16 @@ namespace Ghost.Narrative.EditorTools
                 if (string.IsNullOrEmpty(id) || string.IsNullOrEmpty(text)) continue; // 空行、视频、演出
 
                 string trigger = CsvUtil.Cell(row, iTrigger);
+                string channelCell = CsvUtil.Cell(row, iChannel);
+                if (IsCue(channelCell))
+                {
+                    var cue = new Group { key = id, section = CsvUtil.Cell(row, iSection), trigger = trigger };
+                    TryParseSpeaker(CsvUtil.Cell(row, iSpeaker), out Speaker cueSpeaker); // "—" 等无法识别时按默认处理，不报警告
+                    cue.lines.Add(new DialogueLine(cueSpeaker, text) { id = id, channel = LineChannel.AgentPopup });
+                    groups.Add(cue);
+                    lineCount++;
+                    continue; // 不更新 current / prevId：下一句"上一句结束"仍接在前一段后面
+                }
                 if (current == null || !Chains(trigger, prevId))
                 {
                     current = new Group { key = id, section = CsvUtil.Cell(row, iSection), trigger = trigger };
@@ -101,7 +113,7 @@ namespace Ghost.Narrative.EditorTools
                 current.lines.Add(new DialogueLine(speaker, text)
                 {
                     id = id,
-                    channel = ParseChannel(CsvUtil.Cell(row, iChannel)),
+                    channel = ParseChannel(channelCell),
                 });
                 prevId = id;
                 lineCount++;
@@ -184,6 +196,10 @@ namespace Ghost.Narrative.EditorTools
                 default: speaker = Speaker.EmotionalFemale; return false;
             }
         }
+
+        // 不进对白段、由阶段脚本单独显示的行
+        static bool IsCue(string channelCell) =>
+            channelCell == "Agent询问" || channelCell == "Agent 询问" || channelCell == "操作提示";
 
         static LineChannel ParseChannel(string cell)
         {

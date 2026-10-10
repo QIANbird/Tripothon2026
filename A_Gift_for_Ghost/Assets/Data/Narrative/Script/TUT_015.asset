@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 426166e6124daec4899b884a5cf53037, type: 3}
+  m_Name: TUT_015
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Narrative.DialogueSequence
+  startDelay: 0
+  lines:
+  - id: TUT_015
+    speaker: 0
+    channel: 1
+    text: "\u76F4\u89C2\u3001\u6E05\u6670\u3001\u5B89\u5FC3\u2026\u2026\u4E5F\u6709\u4E9B\u4EE4\u4EBA\u611F\u5230\u832B\u7136\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: TUT_016
+    speaker: 0
+    channel: 1
+    text: "\u4E0D\u8FC7\u522B\u7740\u6025\uFF0C\u6211\u4ECA\u5929\u6B63\u662F\u4E3A\u6B64\u800C\u6765\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1

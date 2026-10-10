@@ -4,13 +4,13 @@
 
 | 系统 | 目录 | 职责 |
 |---|---|---|
-| Flow | `Scripts/Core` | `GameFlow` 按顺序运行 `Stage`；进关时触发变形 |
+| Flow | `Scripts/Core` | `GameFlow` 按顺序运行 `Stage`；进关时触发变形；`StartScreen` / `EndScreen`（继承 `FlowScreen`）是开始和结束界面 |
 | Stages | `Scripts/Stages` | 每关的玩法和通关判定；`StageContext` 提供共用引用 |
 | Morph | `Scripts/Morph` | 同一组节点在 5 种形态之间插值渲染（GPU instancing）；逐节点的显示状态；连线；节点外发光圈（`NodeHaloRenderer`）；PlantFit 构图；写实模型交接 |
 | Gameplay | `Scripts/Gameplay` | `NodeIssueSystem`：问题的难度、重试和解决状态 |
 | Interaction | `Scripts/Interaction` | `PointerInput`（交互发起方）、`DialogueAdvanceInput`（PC 端对白推进）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
 | Agent UI | `Scripts/Agent` | 任务面板、详情弹窗、Yes 询问框（HUD） |
-| Player | `Scripts/Player` | Pick 阶段的第一人称玩家：`FirstPersonMotor`（CharacterController 移动、转头、蹲下）、`PlayerRig`（开关玩家、接管 / 归还主相机）；`Player/PC/` 下是 PC 专用的 `PcCursorLock`、`PcCrosshair` |
+| Player | `Scripts/Player` | Pick 阶段的第一人称玩家：`FirstPersonMotor`（CharacterController 移动、转头、蹲下）、`PlayerRig`（开关玩家、接管 / 归还主相机）；`Player/PC/` 下是 PC 专用的 `PcCursorLock`、`PcCrosshair`、`PcControlsHint`（订阅 `PickStage.ControlsHintShown/Hidden` 显示键位提示） |
 | Narrative | `Scripts/Narrative` | 对白播放、字幕和 Agent 弹窗、黑屏、节点详情文本表 |
 
 ## Ownership of state
@@ -41,7 +41,7 @@
 |---|---|---|
 | `Stage`（抽象） | `Completed(Stage)` | `Enter()`、`Exit()`（子类重写要调 base）、`protected Complete()`、`form`、`changesForm`、`PanelText` |
 | `IssueStage : Stage`（抽象） | — | 钩子：`OnNodeTapped(id)`、`OnIssueAttempted(issue, solved)`、`OnIssueResolved(issue)`、`PopupTitle/PopupBody(id)`、`Describe(id, …)` |
-| `GameFlow` | `StageEntered(Stage)`、`StageExited(Stage)` | `Next()`、`JumpTo(index)`、`CurrentIndex`、`FormAt(index)` |
+| `GameFlow` | `StageEntered(Stage)`、`StageExited(Stage)`、`FlowFinished` | `Begin()`、`Next()`（未开始时等于 `Begin`，最后一关时结束流程）、`JumpTo(index)`（结束后无效）、`CurrentIndex`、`HasStarted`、`IsFinished`、`autoStart`、`FormAt(index)` |
 | `StageContext` | `Inspected(id)` | 共用引用（morpher、links、issues、pointer、picker、rotator、taskPanel、detailPopup、query、dialogue、detailTable）；`SetInspectProvider`、`RefreshInspect`、`SetPickFilter`、`DefaultFilter`、`IsNodeVisible`、`Node(id)`、`Play(sequence, onComplete)`、`ShowTaskPanel`、`ResetShared()`、`NearestNodeInLayout` |
 | `PointerInput` | `Tap(id)`、`DragStart(id)`、`DragOver(id)`、`DragEnd`、`DragEmpty(Vector2)`、`DragEmptyEnd`、`HoverChanged(id)`、`InteractableTapped(IInteractable)`、`TapEmpty`、`InspectStart(id)`、`InspectEnd` | — |
 | `IInteractable` | — | `OnTap()`、`OnHoverEnter()`、`OnHoverExit()` |
@@ -53,12 +53,12 @@
 | `FirstPersonMotor` | — | `PlaceAt(eyePos, viewRot, crouched)`、`IsCrouching`、`EyeHeight`、`Pitch` |
 | `NodeIssueSystem` | `IssueCreated`、`IssueAttempted(issue, solved)`、`IssueResolved` | `AddIssue(s)`、`GenerateRandom`、`TryAttempt(id)`、`Resolve`、`RemoveIssue`、`ClearAll`、`GetIssue/HasIssue`、`AllResolved`、`CountUnresolved`、`TotalAttempts` |
 | `DialoguePlayer` | `LineStarted`、`LineFinished`、`SequenceFinished`、`Stopped` | `Play/Enqueue(sequence, onComplete)`、`Skip`、`Stop`、`CurrentLine` |
-| `SubtitlePanel` | — | `Show(line)`、`Hide()`、`Advance()`（打字中补全，否则 `DialoguePlayer.Skip`）；按 `Speaker` 分到 `Channel.Subtitle` / `AgentPopup` |
+| `SubtitlePanel` | `AdvancedWhileIdle`（没有对白在播时被推进，开场"点击继续"用） | `Show(line)`、`Hide()`、`Pin(speaker, text)` / `Unpin()`（Agent 弹窗常驻消息，台词播完后回来；`ResetShared` 会 Unpin）、`Advance()`（打字中补全，否则 `DialoguePlayer.Skip`）；按 `Speaker` 分到 `Channel.Subtitle` / `AgentPopup` |
 | `ScreenBlackout` | — | `SetImmediate(black)`、`FadeTo(black, fade)` |
 | `AgentQueryDialog` | `Answered(string)` | `Ask(question, onYes)`、`Hide`、`ConfirmYes` |
 | `AgentTaskPanel` | `TaskChanged(index, TaskState)` | `SetTasks/AddTask/UpdateTask`、`SetMetric`、`Show/Hide`（当前 `showTaskPanel = false`，不显示） |
 | `NodeDetailPopup` | — | `Show(id, title, body)`、`SetText`、`Release`、`Hide` |
-| `DialogueLibrary`（SO） | — | `Get(id)`（段 key 或段内任意台词 ID）、`GetSection(section)`；由 `DialogueCsvImporter` 从 `docs/script/02_dialogue.csv` 生成 |
+| `DialogueLibrary`（SO） | — | `Get(id)`（段 key 或段内任意台词 ID）、`GetSection(section)`；由 `DialogueCsvImporter` 从 `docs/script/02_dialogue.csv` 生成。阶段对白在 `MainSceneMenu` 里按 `StageAssets` 的段 key 挂上；`ScriptText.FirstLine` 取单行段文本，`ScriptText.FillRandom` 处理 `{a-b}` |
 | `NodeDetailTable`（SO） | — | `Get(id, organ, depth)`、`GetName(organ, NameKind, fallback)`、`Format`、`DepthForStage(stageName)` |
 
 关键枚举：`MorphForm { Matrix, Circuit, Network, Geometric, Real }`、`Organ { Soil, Root, Stem, Leaf, Bud, Fruit, Bug }`、`IssueDifficulty { Easy, Medium, Hard }`、`NodeVisualState { Normal, Blink, Highlight, Tint }`、`DetailDepth`、`Speaker`。
@@ -118,7 +118,7 @@
    - HUD
    - Dialogue
    - GameFlow（挂所有 Stage 和 StageContext）
-2. Play 时 `GameFlow.Start` 进入第 0 关。
+2. Play 时显示开始界面；点"开始"后 `GameFlow.Begin()` 进入第 0 关（`autoStart` 勾上时 `Start` 直接进）。最后一关结束发 `FlowFinished` → 结束界面；"重新开始"用 `SceneManager.LoadScene` 重载场景（`MainSceneMenu` 会把 `Main.unity` 放到 Build Settings 第 0 个）。
 3. 进关：`Exit(旧关)` → `MorphTo(form)` + `Enter(新关)`，两者在同一帧。
 4. Stage.Enter：调 `ctx.ResetShared()`，订阅事件，生成问题，播放开场对白。
 5. Stage 判定通关后调 `Complete()`，有需要时先弹 AI 询问，等玩家选 Yes。

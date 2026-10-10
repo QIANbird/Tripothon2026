@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Ghost.Agent;
 using Ghost.Core;
 using Ghost.Gameplay;
@@ -18,18 +18,20 @@ namespace Ghost.Stages
     // 中途松开不回退，从已连通的节点重新计算下一段。下一段总是指向离已连通部分最近的缺水节点，玩家不用选方向。
     // 自动挑选果实时跳过供给线路经过的节点，保证线路上没有"无法解决"的节点。
     // 右键节点弹出项目语言的详情（NodeDetailTable 的 Project 档）；右键看过果实记为"已查看果实"。
-    // 通关：① 所有缺水问题都解决；② 查看过果实；③ 弹出询问，选 Yes。
+    // 通关：① 所有缺水问题都解决（播 S2_006–007）；② 右键查看过果实；两者都满足、且 S2_006–007 播完后播 S2_008，播完直接进入 S3。
     public class S2CircuitStage : Stage
     {
         public StageContext ctx;
 
-        [Header("对白（占位）")]
+        [Header("对白（台词表 S2 段）")]
         [Tooltip("进入时的提示")]
         public DialogueSequence introSequence;
         [Tooltip("从不是脉冲源的节点开始拖拽、或点击非脉冲源节点时的提示")]
         public DialogueSequence wrongStartSequence;
         [Tooltip("缺水问题全部解决后的提示（引导去看果实）")]
         public DialogueSequence waterSolvedSequence;
+        [Tooltip("缺水解决、且看过果实后播放，播完进入下一关")]
+        public DialogueSequence finishSequence;
 
         [Header("问题节点（留空时按规则自动挑选，见 SpawnIssues）")]
         [Tooltip("缺水的叶片节点。留空 = 所有 part 含 \"dying\" 的叶片（彩椒上是 10 片枯叶，排成 3 条链）")]
@@ -84,10 +86,6 @@ namespace Ghost.Stages
         [Tooltip("拖拽线往相机方向抬起的距离（植株本地空间，米），避免被方块挡住")]
         public float dragLineLift = 0.006f;
 
-        [Header("询问")]
-        [Tooltip("通关条件满足后弹出的提问。【占位】台词等策划替换")]
-        public string queryQuestion = "[占位] 供给已恢复，但核心产出仍然异常。是否要进一步查看信息？";
-
         public override string PanelText => "";
 
         // 任务面板下标
@@ -105,7 +103,8 @@ namespace Ghost.Stages
         bool tracing;
         bool viewedFruit;
         bool waterSolved;
-        bool queryShown;
+        bool finishing;
+        bool waterLinesDone; // 缺水解决后的那段对白已播完
         float savedRadiusFactor = -1f;
         bool savedAllowNodeDrag = true;
         float hintUntil;
@@ -127,7 +126,7 @@ namespace Ghost.Stages
             ctx.ResetShared();
             if (ctx.links != null) ctx.links.ClearAllLinkColors();
             tracing = false;
-            viewedFruit = waterSolved = queryShown = false;
+            viewedFruit = waterSolved = finishing = waterLinesDone = false;
             passedFruit.Clear();
             connected.Clear();
             segment.Clear();
@@ -599,7 +598,7 @@ namespace Ghost.Stages
             {
                 viewedFruit = true;
                 RefreshPanel();
-                TryOfferQuery();
+                TryFinish();
             }
         }
 
@@ -651,10 +650,14 @@ namespace Ghost.Stages
             if (!waterSolved && WaterResolved() >= waterTotal)
             {
                 waterSolved = true;
-                ctx.Play(waterSolvedSequence);
+                ctx.Play(waterSolvedSequence, () =>
+                {
+                    waterLinesDone = true;
+                    TryFinish();
+                });
             }
             RefreshPanel();
-            TryOfferQuery();
+            TryFinish();
         }
 
         int WaterResolved()
@@ -696,11 +699,11 @@ namespace Ghost.Stages
             ctx.taskPanel.SetMetric("置信度", Mathf.Clamp01(confidence));
         }
 
-        void TryOfferQuery()
+        void TryFinish()
         {
-            if (queryShown || ctx.query == null || !waterSolved || !viewedFruit) return;
-            queryShown = true;
-            ctx.query.Ask(queryQuestion, Complete);
+            if (!IsActive || finishing || !waterSolved || !waterLinesDone || !viewedFruit) return;
+            finishing = true;
+            ctx.Play(finishSequence, Complete);
         }
     }
 }

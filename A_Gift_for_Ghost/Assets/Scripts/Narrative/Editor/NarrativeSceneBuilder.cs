@@ -1,4 +1,4 @@
-using Ghost.Agent;
+﻿using Ghost.Agent;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -13,10 +13,21 @@ namespace Ghost.Narrative.EditorTools
             var player = EnsureDialogue(cameraTransform);
             var stage = stageGo.AddComponent<IntroStage>();
             stage.player = player;
-            stage.sequence = NarrativeAssets.EnsureIntroSequence();
+            // 对白来自台词表 INTRO 段（DialogueCsvImporter 生成的 Script/INTRO_*.asset）；找不到时退回旧的开场资产
+            stage.sequence = LoadScript("INTRO_001");
+            if (stage.sequence == null) stage.sequence = NarrativeAssets.EnsureIntroSequence();
+            stage.afterClickSequence = LoadScript("INTRO_009");
             stage.blackout = BuildBlackout(cameraTransform);
+            stage.subtitles = Object.FindAnyObjectByType<SubtitlePanel>();
             NarrativeAssets.EnsureNodeDetails();
             return stage;
+        }
+
+        static DialogueSequence LoadScript(string key)
+        {
+            var seq = UnityEditor.AssetDatabase.LoadAssetAtPath<DialogueSequence>($"{DialogueCsvImporter.OutFolder}/{key}.asset");
+            if (seq == null) Debug.LogWarning($"[Dialogue] 找不到台词表对白 {key}，先用菜单 Ghost/Narrative/Import Dialogue CSV 导入");
+            return seq;
         }
 
         // 整个场景只建一套 DialoguePlayer + SubtitlePanel。
@@ -113,6 +124,8 @@ namespace Ghost.Narrative.EditorTools
         {
             var canvas = AgentUIStyle.CreateHudCanvas("Blackout", null, BlackoutSortingOrder);
             Object.DestroyImmediate(canvas.GetComponent<GraphicRaycaster>());
+            // Screen Space Camera：在相机里画、排在后处理之前，黑屏上也能看到画面压暗边（Overlay 会盖住后处理）
+            UseCameraSpace(canvas, cam);
             var canvasGo = canvas.gameObject;
 
             var group = canvasGo.AddComponent<CanvasGroup>();
@@ -133,6 +146,20 @@ namespace Ghost.Narrative.EditorTools
             var subtitle = Object.FindAnyObjectByType<SubtitlePanel>();
             if (subtitle != null) subtitle.blackout = blackout;
             return blackout;
+        }
+
+        // 平面贴近近裁剪面（相机 near = 0.05 m），黑屏时场景物体不会穿到前面
+        public static void UseCameraSpace(Canvas canvas, Transform cam)
+        {
+            var camera = cam != null ? cam.GetComponent<Camera>() : null;
+            if (camera == null)
+            {
+                Debug.LogWarning("[Narrative] 黑屏没找到相机，保留 Screen Space Overlay（黑屏上看不到压暗边）");
+                return;
+            }
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camera;
+            canvas.planeDistance = camera.nearClipPlane + 0.02f;
         }
 
         static Text MakeText(Transform parent, string name, int size, FontStyle style)

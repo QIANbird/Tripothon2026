@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 namespace Ghost.Narrative
@@ -8,6 +8,8 @@ namespace Ghost.Narrative
     //     浅色背景用黑字；黑屏（blackout 不透明）时用白字。不加深色底板。
     //   Agent 弹窗（屏幕左侧，带底板）：MechanicalFemale 和 Agent 都归这一类，署名"没有温度的声音"。
     //   台词的 channel 不是 Auto 时，按台词指定的通道显示（署名仍按说话人），例如亲切的声音出现在 Agent 弹窗里。
+    //   固定消息（Pin）：Agent 弹窗里常驻的一条（例如 S4 的除虫进度），不随台词结束消失；有别的 Agent 台词时暂时让位，
+    //   台词结束后回来。Unpin 才收起。离开阶段时 StageContext.ResetShared 会 Unpin。
     // 订阅 DialoguePlayer，不读输入；推进由输入端调 Advance()。
     public class SubtitlePanel : MonoBehaviour
     {
@@ -52,6 +54,9 @@ namespace Ghost.Narrative
         };
 
         string fullText = "";
+        string pinnedText;
+        string pinnedName;
+        bool showingPinned;
         float revealStart;
         bool revealing;
         Text activeLabel;
@@ -66,7 +71,7 @@ namespace Ghost.Narrative
             }
             player.LineStarted += Show;
             player.LineFinished += HideLine;
-            player.Stopped += Hide;
+            player.Stopped += HideAndRestorePinned;
             Hide();
         }
 
@@ -75,7 +80,7 @@ namespace Ghost.Narrative
             if (player == null) return;
             player.LineStarted -= Show;
             player.LineFinished -= HideLine;
-            player.Stopped -= Hide;
+            player.Stopped -= HideAndRestorePinned;
         }
 
         void Update()
@@ -119,11 +124,48 @@ namespace Ghost.Narrative
             revealStart = Time.time;
             activeLabel.text = revealing ? "" : fullText;
             (popup ? agentRoot : root).SetActive(true);
-            if (popup) ResizeAgentPopup();
+            if (popup) ResizeAgentPopup(fullText);
+            else RestorePinned(); // 字幕台词不占 Agent 弹窗，固定消息留着
+        }
+
+        // 固定一条 Agent 弹窗消息（再次调用 = 更新文字）。正在播 Agent 台词时，等它结束再显示
+        public void Pin(Speaker speaker, string text)
+        {
+            pinnedText = text ?? "";
+            pinnedName = StyleOf(speaker).displayName ?? "";
+            bool agentLineShowing = agentRoot != null && agentRoot.activeSelf && !showingPinned;
+            if (!agentLineShowing) RestorePinned();
+        }
+
+        public void Unpin()
+        {
+            pinnedText = null;
+            if (showingPinned && agentRoot != null)
+            {
+                agentRoot.SetActive(false);
+                if (agentTextLabel != null) agentTextLabel.text = "";
+            }
+            showingPinned = false;
+        }
+
+        public bool HasPinned => pinnedText != null;
+
+        void RestorePinned()
+        {
+            if (pinnedText == null || agentRoot == null || agentTextLabel == null) return;
+            if (agentSpeakerLabel != null)
+            {
+                agentSpeakerLabel.text = pinnedName;
+                agentSpeakerLabel.gameObject.SetActive(!string.IsNullOrEmpty(pinnedName));
+            }
+            agentTextLabel.text = pinnedText;
+            agentRoot.SetActive(true);
+            showingPinned = true;
+            ResizeAgentPopup(pinnedText);
         }
 
         // 正在显示一句台词（字幕或 Agent 弹窗）
-        public bool IsShowingLine => root.activeSelf || (agentRoot != null && agentRoot.activeSelf);
+        public bool IsShowingLine => root.activeSelf || (agentRoot != null && agentRoot.activeSelf && !showingPinned);
         // 打字机还没打完
         public bool IsRevealing => revealing;
 
@@ -135,10 +177,19 @@ namespace Ghost.Narrative
             if (activeLabel != null) activeLabel.text = fullText;
         }
 
-        // 玩家要求推进：打字中先补全整句，已经打完就跳到下一句
+        // 没有对白在播时玩家要求推进（例如开场"点击屏幕任意处"继续）
+        public event System.Action AdvancedWhileIdle;
+
+        // 玩家要求推进：打字中先补全整句，已经打完就跳到下一句；没有对白在播时发 AdvancedWhileIdle
         public void Advance()
         {
-            if (!IsShowingLine || player == null || !player.IsPlaying) return;
+            if (player == null) return;
+            if (!player.IsPlaying)
+            {
+                AdvancedWhileIdle?.Invoke();
+                return;
+            }
+            if (!IsShowingLine) return;
             if (revealing) CompleteReveal();
             else player.Skip();
         }
@@ -146,22 +197,29 @@ namespace Ghost.Narrative
         public void Hide()
         {
             revealing = false;
+            showingPinned = false;
             textLabel.text = "";
             root.SetActive(false);
             if (agentTextLabel != null) agentTextLabel.text = "";
             if (agentRoot != null) agentRoot.SetActive(false);
         }
 
-        void HideLine(DialogueLine line) => Hide();
+        void HideLine(DialogueLine line) => HideAndRestorePinned();
+
+        void HideAndRestorePinned()
+        {
+            Hide();
+            RestorePinned();
+        }
 
         // Agent 弹窗高度按整句（不是打字机进度）算，避免打字时弹窗一直变高、把下方详情弹窗挤来挤去
-        void ResizeAgentPopup()
+        void ResizeAgentPopup(string measureText)
         {
             var rect = agentRoot.transform as RectTransform;
             var body = agentTextLabel.rectTransform;
             if (rect == null) return;
             string shown = agentTextLabel.text;
-            agentTextLabel.text = fullText;
+            agentTextLabel.text = measureText;
             float bodyH = agentTextLabel.preferredHeight;
             agentTextLabel.text = shown;
             float top = -body.offsetMax.y, bottom = body.offsetMin.y;
