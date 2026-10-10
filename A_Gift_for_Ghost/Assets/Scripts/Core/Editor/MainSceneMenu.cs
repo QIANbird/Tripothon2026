@@ -841,12 +841,107 @@ namespace Ghost.Core.EditorTools
         // 【技术债】Screen Space HUD，赛后改 World Space；布局只用锚点居中，不依赖屏幕像素
         static void BuildFlowScreens(GameFlow flow)
         {
-            var start = BuildFlowScreen<StartScreen>("StartScreen", flow, "A Gift for Ghost", "开始");
+            var start = BuildStartScreen(flow);
             start.group.alpha = 1f;
             var end = BuildFlowScreen<EndScreen>("EndScreen", flow, "感谢游玩", "重新开始");
             end.group.alpha = 0f;
             end.group.interactable = false;
             end.group.blocksRaycasts = false;
+        }
+
+        const string StartArtFolder = "Assets/Art/UI/StartScreen";
+        // 底图 start_bg.png 的像素尺寸，按它等比铺满屏幕（多出的边裁掉）
+        static readonly Vector2 StartArtSize = new Vector2(2000f, 1390f);
+        // AWAKE 按钮在底图上的位置（底图像素，左上为原点）：番茄正下方
+        static readonly Vector2 AwakeRingCenter = new Vector2(1265f, 1130f);
+        const float AwakeRingDiameter = 110f;
+        static readonly Vector2 AwakeLabelCenter = new Vector2(1270f, 1225f);
+        static readonly Vector2 AwakeLabelSize = new Vector2(260f, 70f);
+        static readonly Vector2 AwakeButtonCenter = new Vector2(1267f, 1167f);
+        static readonly Vector2 AwakeButtonSize = new Vector2(280f, 200f);
+        static readonly Vector2 AwakeButtonTopLeft = AwakeButtonCenter - AwakeButtonSize * 0.5f;
+
+        // 开始界面（10-10 策划底图）：标题已画在底图里；"开始"是番茄下方的环 + AWAKE 字样，点击开始游戏
+        static StartScreen BuildStartScreen(GameFlow flow)
+        {
+            var canvas = AgentUIStyle.CreateHudCanvas("StartScreen", null, FlowScreenSortingOrder);
+            var root = (RectTransform)canvas.transform;
+            var group = canvas.gameObject.AddComponent<CanvasGroup>();
+
+            // 黑底挡住植株和对节点的点击；底图按宽高比铺满，按钮挂在底图上随它缩放
+            var background = AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Background", root), Color.black);
+            background.raycastTarget = true;
+            var artRect = AgentUIStyle.CreateStretch("Art", background.transform);
+            var art = AgentUIStyle.AddImage(artRect, Color.white);
+            art.sprite = EnsureUISprite(StartArtFolder + "/start_bg.png", mips: false);
+            var fitter = artRect.gameObject.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            fitter.aspectRatio = StartArtSize.x / StartArtSize.y;
+
+            // 按钮区域包住环和字样，点哪儿都算；环随悬停 / 按下变亮变暗
+            var buttonRect = CreateIn("AwakeButton", artRect, StartArtSize, AwakeButtonCenter, AwakeButtonSize);
+            var hitArea = AgentUIStyle.AddImage(buttonRect, Color.clear);
+            hitArea.raycastTarget = true;
+            var ringRect = CreateIn("Ring", buttonRect, AwakeButtonSize, AwakeRingCenter - AwakeButtonTopLeft,
+                new Vector2(AwakeRingDiameter, AwakeRingDiameter));
+            var ring = AgentUIStyle.AddImage(ringRect, new Color(0.82f, 0.82f, 0.83f));
+            ring.sprite = EnsureUISprite(StartArtFolder + "/awake_ring.png", mips: true);
+            ring.preserveAspect = true;
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = ring;
+            var colors = button.colors;
+            colors.normalColor = new Color(0.85f, 0.85f, 0.85f);
+            colors.highlightedColor = Color.white;
+            colors.selectedColor = new Color(0.85f, 0.85f, 0.85f);
+            colors.pressedColor = new Color(0.6f, 0.6f, 0.6f);
+            button.colors = colors;
+
+            var labelRect = CreateIn("Label", buttonRect, AwakeButtonSize, AwakeLabelCenter - AwakeButtonTopLeft, AwakeLabelSize);
+            var label = AgentUIStyle.AddText(labelRect, "AWAKE", 48, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            label.resizeTextForBestFit = true;
+            label.resizeTextMinSize = 10;
+            label.resizeTextMaxSize = 96;
+
+            canvas.gameObject.SetActive(false);
+            var screen = canvas.gameObject.AddComponent<StartScreen>();
+            screen.flow = flow;
+            screen.group = group;
+            screen.button = button;
+            canvas.gameObject.SetActive(true);
+            return screen;
+        }
+
+        // 子矩形：用归一化锚点定位定大小（像素按父物体的设计尺寸、左上为原点），父物体怎么缩放它都贴在同一处
+        static RectTransform CreateIn(string name, Transform parent, Vector2 parentSizePx, Vector2 centerPx, Vector2 sizePx)
+        {
+            var go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            var rect = (RectTransform)go.transform;
+            var c = new Vector2(centerPx.x / parentSizePx.x, 1f - centerPx.y / parentSizePx.y);
+            var half = new Vector2(sizePx.x / parentSizePx.x, sizePx.y / parentSizePx.y) * 0.5f;
+            rect.anchorMin = c - half;
+            rect.anchorMax = c + half;
+            rect.offsetMin = rect.offsetMax = Vector2.zero;
+            return rect;
+        }
+
+        static Sprite EnsureUISprite(string path, bool mips)
+        {
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                Debug.LogWarning($"[Flow] 缺少开始界面素材 {path}");
+                return null;
+            }
+            if (importer.textureType != TextureImporterType.Sprite || importer.mipmapEnabled != mips)
+            {
+                importer.textureType = TextureImporterType.Sprite;
+                importer.spriteImportMode = SpriteImportMode.Single;
+                importer.mipmapEnabled = mips;
+                importer.alphaIsTransparency = true;
+                importer.SaveAndReimport();
+            }
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
         static T BuildFlowScreen<T>(string name, GameFlow flow, string title, string buttonText) where T : FlowScreen

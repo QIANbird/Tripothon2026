@@ -105,6 +105,8 @@ namespace Ghost.Stages
             fruitReady = false;
 
             hintShown = false;
+            // 写实场景里背景杂，字幕加白色描边；其他阶段不加
+            if (ctx.subtitles != null) ctx.subtitles.OutlineEnabled = true;
             if (ctx.dialogue != null) ctx.dialogue.LineFinished += OnLineFinished;
             ctx.Play(introSequence, ShowControlsHint);
         }
@@ -112,6 +114,7 @@ namespace Ghost.Stages
         public override void Exit()
         {
             if (ctx != null && ctx.dialogue != null) ctx.dialogue.LineFinished -= OnLineFinished;
+            if (ctx != null && ctx.subtitles != null) ctx.subtitles.OutlineEnabled = false;
             if (hintShown) ControlsHintHidden?.Invoke();
             hintShown = false;
             if (eat != null) eat.BiteTaken -= OnBiteTaken;

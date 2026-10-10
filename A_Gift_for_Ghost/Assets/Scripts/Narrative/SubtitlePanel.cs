@@ -36,6 +36,9 @@ namespace Ghost.Narrative
         public ScreenBlackout blackout;
         public Color lightBackgroundText = new Color(0.08f, 0.09f, 0.11f);
         public Color darkBackgroundText = new Color(0.95f, 0.95f, 0.95f);
+        // 字幕描边 / 外发光只在需要的阶段打开（目前只有 PICK，由 PickStage 进出时开关）；默认关
+        public bool OutlineEnabled { get; set; }
+
         [Tooltip("描边和外发光的整体透明度（乘在两个颜色的 alpha 上）")]
         [Range(0f, 1f)] public float outlineOpacity = 1f;
         [Tooltip("字幕白色描边（浅色背景时显示，黑屏时淡掉）")]
@@ -102,7 +105,7 @@ namespace Ghost.Narrative
                 textLabel.color = c;
                 if (speakerLabel != null) speakerLabel.color = new Color(c.r, c.g, c.b, 0.7f);
                 // 黑屏时字已经是白的，描边 / 发光跟着淡掉
-                float k = (1f - dark) * outlineOpacity;
+                float k = OutlineEnabled ? (1f - dark) * outlineOpacity : 0f;
                 // 每帧同步，Play 中改 Inspector 立刻生效
                 if (textOutline != null)
                 {

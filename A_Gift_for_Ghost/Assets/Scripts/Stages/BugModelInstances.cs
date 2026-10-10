@@ -17,8 +17,8 @@ namespace Ghost.Stages
         public NodeMorpher morpher;
         [Tooltip("虫子模型（FBX 资产）")]
         public GameObject bugPrefab;
-        [Tooltip("虫子身长（米），真实尺寸约 1–1.5 cm，稍放大让 2 m 外看得见")]
-        public float lengthMeters = 0.02f;
+        [Tooltip("虫子身长（米），真实尺寸约 1–1.5 cm，放大到约 4 cm 让 2 m 外看得见、点得到")]
+        public float lengthMeters = 0.04f;
         [Tooltip("变形结束后长出来的时长（秒）")]
         public float growTime = 0.4f;
         [Tooltip("模型本身的朝向修正：Tripo 虫子的长轴是 X、背朝 +Y，转成节点的长轴 Z")]

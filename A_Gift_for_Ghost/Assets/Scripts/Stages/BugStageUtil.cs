@@ -8,8 +8,8 @@ namespace Ghost.Stages
     // S3（找虫）和 S4（除虫）共用的小工具：收集虫子节点、物体名、物体描述（Physical 档）
     public static class BugStageUtil
     {
-        // S3 / S4 虫子节点的默认颜色：和叶片同是绿色系，但更黄更亮，仔细看才分得出
-        public static readonly Color DefaultBugColor = new Color(0.46f, 0.58f, 0.10f);
+        // S3 / S4 虫子节点的默认颜色：#E5FF71（黄绿），和叶片同色系但更黄更亮
+        public static readonly Color DefaultBugColor = new Color(0.898f, 1f, 0.443f); // #E5FF71
 
         // 节点集里所有 Organ.Bug 节点，按 id 排序
         public static List<int> CollectBugs(PlantNodeSet set, string logTag, Object context)
