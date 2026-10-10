@@ -45,6 +45,9 @@ namespace Ghost.Narrative
         [Tooltip("最上面那条：它的台词播完后过这么久才淡出")]
         public float expireAfterFinished = 3f;
 
+        // 追加了一条消息（Pin 不算；音效等订阅）
+        public event System.Action<Kind> Pushed;
+
         public bool HasItems => items.Count > 0;
         // 最新一条还在打字（字幕面板用来决定 Advance 是补全还是跳句）
         public bool IsRevealing => revealing && revealingItem != null;
@@ -97,6 +100,7 @@ namespace Ghost.Narrative
             TrimOverflow();
             Relayout();
             item.visualY = item.targetY - enterOffset;
+            Pushed?.Invoke(kind);
         }
 
         // 台词播完：当前这条开始计 3 s（还没淡出）

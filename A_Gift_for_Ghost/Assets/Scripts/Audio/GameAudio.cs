@@ -31,14 +31,15 @@ namespace Ghost.Audio
 
         public AudioLibrary library;
         public GameFlow flow;
-        [Range(0f, 1f)] public float sfxVolume = 1f;
+        [Tooltip("所有音效（交互、消息提示、转场）的总音量；不影响配音、音乐和环境音")]
+        [Range(0f, 1f)] public float sfxVolume = 0.25f;
         [Range(0f, 1f)] public float musicVolume = 0.6f;
         [Range(0f, 1f)] public float ambienceVolume = 0.5f;
         [Tooltip("音乐 / 环境音切换时的淡入淡出时长（秒）")]
         public float fadeTime = 1.5f;
         public List<StageAudio> stageAudio = new List<StageAudio>();
 
-        AudioSource sfx;
+        AudioSource sfx, pitched;
         Channel music, ambience;
         readonly Dictionary<string, AudioSource> loops = new Dictionary<string, AudioSource>();
         readonly HashSet<string> warned = new HashSet<string>();
@@ -80,6 +81,37 @@ namespace Ghost.Audio
             var clip = AudioLibrary.PickClip(entry);
             if (clip == null) return;
             sfx.PlayOneShot(clip, entry.volume * sfxVolume);
+        }
+
+        // 播指定的变体（按文件名排序，0 = _01）。变体不存在时不播（不退回别的变体）
+        public void PlayVariant(string id, int index)
+        {
+            var entry = Find(id);
+            if (entry == null || entry.clips == null || index < 0 || index >= entry.clips.Length || entry.clips[index] == null)
+            {
+                if (entry != null && warned.Add(id + "#" + index))
+                    Debug.Log($"[Audio] {id} 没有第 {index + 1} 个变体，跳过", this);
+                return;
+            }
+            sfx.PlayOneShot(entry.clips[index], entry.volume * sfxVolume);
+        }
+
+        // 变调播一次（同一音效连续触发时逐个升高音高）。用单独的 AudioSource，不影响其他音效
+        public void PlayPitched(string id, float pitch)
+        {
+            var entry = Find(id);
+            var clip = AudioLibrary.PickClip(entry);
+            if (clip == null) return;
+            if (pitched == null) pitched = NewSource("SFX Pitched");
+            pitched.pitch = pitch;
+            pitched.PlayOneShot(clip, entry.volume * sfxVolume);
+        }
+
+        public bool IsLooping(string id) => loops.TryGetValue(id, out var s) && s != null && s.isPlaying;
+
+        public void StopAllLoops()
+        {
+            foreach (var s in loops.Values) if (s != null) s.Stop();
         }
 
         // 开始循环播放一个音效（拖拽声、打字声）；已经在播时不重新开始

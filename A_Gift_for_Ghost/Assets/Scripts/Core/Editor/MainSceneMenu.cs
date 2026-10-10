@@ -35,6 +35,8 @@ namespace Ghost.Core.EditorTools
         const string BugModelPath = "Assets/3D_Objects/bug/tripo_convert_cbdef70f-0cb3-4f3b-8ed2-3e0794432c86.fbx";
         // Pick：前臂 + 手的模型（Tripo 生成，静态网格，没有骨骼）
         const string ArmModelPath = "Assets/3D_Objects/hand/tripo_convert_07d6ebfa-74e6-4ae4-a1a9-7c87fa196291.fbx";
+        // Outro：结局视频（策划手动放入）
+        const string OutroVideoPath = "Assets/Video/Outro.mp4";
 
         // 阶段配置：名字、是否变形、形态、占位文字。加阶段时在这里加一行，再执行菜单
         struct StageSpec
@@ -70,7 +72,7 @@ namespace Ghost.Core.EditorTools
             new StageSpec("Transition", true, MorphForm.Real, ""),
             // Pick：第一人称走到写实植株前（PickStage，docs/tasks/pick-stage.md）
             new StageSpec("Pick", true, MorphForm.Real, ""),
-            // Outro 还是占位阶段（视频未接入），不显示文字
+            // Outro：全屏播放结局视频 Assets/Video/Outro.mp4，播完进入结束界面（OutroVideoStage）
             new StageSpec("Outro", true, MorphForm.Real, ""),
         };
 
@@ -269,6 +271,10 @@ namespace Ghost.Core.EditorTools
                 {
                     pickStage = BuildPickStage(stageGo, ctx, fit, rotator, camera, actions);
                     stage = pickStage;
+                }
+                else if (spec.name == "Outro")
+                {
+                    stage = BuildOutroStage(stageGo, ctx);
                 }
                 else
                 {
@@ -839,6 +845,49 @@ namespace Ghost.Core.EditorTools
 
         // 开始 / 结束界面的层级：盖住黑屏、字幕和 Agent 界面
         const int FlowScreenSortingOrder = 300;
+        // 结局视频层：盖住字幕和 Agent 界面，在结束界面之下
+        const int OutroVideoSortingOrder = 250;
+
+        // Outro：VideoPlayer 挂在阶段物体上，全屏视频层是单独的 HUD Canvas（黑底 + 按视频比例适配的 RawImage）。
+        // 【技术债】Screen Space HUD，VR 时改成世界空间屏幕
+        static OutroVideoStage BuildOutroStage(GameObject stageGo, StageContext ctx)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<UnityEngine.Video.VideoClip>(OutroVideoPath);
+            if (clip == null) Debug.LogWarning($"[Flow] 找不到结局视频 {OutroVideoPath}，Outro 不播放视频（按 N 继续）");
+
+            var player = stageGo.AddComponent<UnityEngine.Video.VideoPlayer>();
+            player.playOnAwake = false;
+            player.isLooping = false;
+            player.waitForFirstFrame = true;
+            player.renderMode = UnityEngine.Video.VideoRenderMode.RenderTexture;
+            player.audioOutputMode = UnityEngine.Video.VideoAudioOutputMode.AudioSource;
+            var audioSource = stageGo.AddComponent<AudioSource>();
+            audioSource.playOnAwake = false;
+            audioSource.spatialBlend = 0f;
+            player.controlledAudioTrackCount = 1;
+            player.EnableAudioTrack(0, true);
+            player.SetTargetAudioSource(0, audioSource);
+
+            var canvas = AgentUIStyle.CreateHudCanvas("OutroVideo", null, OutroVideoSortingOrder);
+            var background = AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Background", canvas.transform), Color.black);
+            background.raycastTarget = true;
+            var imageRect = AgentUIStyle.CreateStretch("Video", background.transform);
+            var image = imageRect.gameObject.AddComponent<RawImage>();
+            image.raycastTarget = false;
+            var fitter = imageRect.gameObject.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            fitter.aspectRatio = clip != null && clip.height > 0 ? (float)clip.width / clip.height : 16f / 9f;
+            canvas.gameObject.SetActive(false);
+
+            var stage = stageGo.AddComponent<OutroVideoStage>();
+            stage.ctx = ctx;
+            stage.clip = clip;
+            stage.player = player;
+            stage.screen = canvas.gameObject;
+            stage.image = image;
+            stage.fitter = fitter;
+            return stage;
+        }
 
         // 开始界面（标题 + 开始）和结束界面（感谢游玩 + 重新开始）：全屏黑底，内容居中。
         // 【技术债】Screen Space HUD，赛后改 World Space；布局只用锚点居中，不依赖屏幕像素
@@ -853,16 +902,18 @@ namespace Ghost.Core.EditorTools
         }
 
         const string StartArtFolder = "Assets/Art/UI/StartScreen";
-        // 底图 start_bg.png 的像素尺寸，按它等比铺满屏幕（多出的边裁掉）
-        static readonly Vector2 StartArtSize = new Vector2(2000f, 1390f);
-        // AWAKE 按钮在底图上的位置（底图像素，左上为原点）：番茄正下方
-        static readonly Vector2 AwakeRingCenter = new Vector2(1265f, 1130f);
-        const float AwakeRingDiameter = 110f;
-        static readonly Vector2 AwakeLabelCenter = new Vector2(1270f, 1225f);
-        static readonly Vector2 AwakeLabelSize = new Vector2(260f, 70f);
-        static readonly Vector2 AwakeButtonCenter = new Vector2(1267f, 1167f);
-        static readonly Vector2 AwakeButtonSize = new Vector2(280f, 200f);
-        static readonly Vector2 AwakeButtonTopLeft = AwakeButtonCenter - AwakeButtonSize * 0.5f;
+        // AWAKE 按钮在底图上的位置和大小，用底图比例表示（x 按宽、y 按高，左上为原点），换同构图的底图不用改。
+        // 环的直径按底图宽度的比例。10-11 策划在场景里调过：整个按钮移到右下（+711, -62 px @1920×1080），缩放 0.7
+        static readonly Vector2 AwakeOffset = new Vector2(711f / 1920f, 62f / 1080f);
+        static readonly Vector2 AwakeRingCenter = new Vector2(0.5f, 0.75f) + AwakeOffset;
+        const float AwakeRingDiameter = 0.055f;
+        static readonly Vector2 AwakeLabelCenter = new Vector2(0.5f, 0.84f) + AwakeOffset;
+        static readonly Vector2 AwakeLabelSize = new Vector2(0.13f, 0.05f);
+        // 按钮点击区域包住环和字样
+        static readonly Vector2 AwakeButtonCenter = new Vector2(0.5f, 0.795f) + AwakeOffset;
+        const float AwakeButtonScale = 0.7f;
+        const float AwakeLabelScale = 0.6f;
+        static readonly Vector2 AwakeButtonSize = new Vector2(0.14f, 0.17f);
 
         // 开始界面（10-10 策划底图）：标题已画在底图里；"开始"是番茄下方的环 + AWAKE 字样，点击开始游戏
         static StartScreen BuildStartScreen(GameFlow flow)
@@ -877,15 +928,23 @@ namespace Ghost.Core.EditorTools
             var artRect = AgentUIStyle.CreateStretch("Art", background.transform);
             var art = AgentUIStyle.AddImage(artRect, Color.white);
             art.sprite = EnsureUISprite(StartArtFolder + "/start_bg.png", mips: false);
+            // 宽高比直接取底图本身，换图后重新 Build Main Scene 即可
             var fitter = artRect.gameObject.AddComponent<AspectRatioFitter>();
             fitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
-            fitter.aspectRatio = StartArtSize.x / StartArtSize.y;
+            float aspect = art.sprite != null ? art.sprite.rect.width / art.sprite.rect.height : 16f / 9f;
+            fitter.aspectRatio = aspect;
 
-            // 按钮区域包住环和字样，点哪儿都算；环随悬停 / 按下变亮变暗
-            var buttonRect = CreateIn("AwakeButton", artRect, StartArtSize, AwakeButtonCenter, AwakeButtonSize);
+            // 比例里的 y 是按底图高度算的，这里统一换成"底图宽 = 1"的单位，环才能是正圆
+            var artSize = new Vector2(1f, 1f / aspect);
+            Vector2 ToArt(Vector2 normalized) => new Vector2(normalized.x, normalized.y / aspect);
+            var buttonSize = new Vector2(AwakeButtonSize.x, AwakeButtonSize.y / aspect);
+            var buttonTopLeft = ToArt(AwakeButtonCenter) - buttonSize * 0.5f;
+
+            var buttonRect = CreateIn("AwakeButton", artRect, artSize, ToArt(AwakeButtonCenter), buttonSize);
+            buttonRect.localScale = Vector3.one * AwakeButtonScale;
             var hitArea = AgentUIStyle.AddImage(buttonRect, Color.clear);
             hitArea.raycastTarget = true;
-            var ringRect = CreateIn("Ring", buttonRect, AwakeButtonSize, AwakeRingCenter - AwakeButtonTopLeft,
+            var ringRect = CreateIn("Ring", buttonRect, buttonSize, ToArt(AwakeRingCenter) - buttonTopLeft,
                 new Vector2(AwakeRingDiameter, AwakeRingDiameter));
             var ring = AgentUIStyle.AddImage(ringRect, new Color(0.82f, 0.82f, 0.83f));
             ring.sprite = EnsureUISprite(StartArtFolder + "/awake_ring.png", mips: true);
@@ -899,8 +958,11 @@ namespace Ghost.Core.EditorTools
             colors.pressedColor = new Color(0.6f, 0.6f, 0.6f);
             button.colors = colors;
 
-            var labelRect = CreateIn("Label", buttonRect, AwakeButtonSize, AwakeLabelCenter - AwakeButtonTopLeft, AwakeLabelSize);
-            var label = AgentUIStyle.AddText(labelRect, "AWAKE", 48, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            var labelRect = CreateIn("Label", buttonRect, buttonSize, ToArt(AwakeLabelCenter) - buttonTopLeft,
+                new Vector2(AwakeLabelSize.x, AwakeLabelSize.y / aspect));
+            labelRect.localScale = Vector3.one * AwakeLabelScale;
+            var label = AgentUIStyle.AddText(labelRect, "AWAKE", 36, Color.white, TextAnchor.MiddleCenter, FontStyle.Bold);
+            label.lineSpacing = 0.78f;
             label.resizeTextForBestFit = true;
             label.resizeTextMinSize = 10;
             label.resizeTextMaxSize = 96;
@@ -914,7 +976,7 @@ namespace Ghost.Core.EditorTools
             return screen;
         }
 
-        // 子矩形：用归一化锚点定位定大小（像素按父物体的设计尺寸、左上为原点），父物体怎么缩放它都贴在同一处
+        // 子矩形：用归一化锚点定位定大小（坐标和父物体尺寸同一单位、左上为原点），父物体怎么缩放它都贴在同一处
         static RectTransform CreateIn(string name, Transform parent, Vector2 parentSizePx, Vector2 centerPx, Vector2 sizePx)
         {
             var go = new GameObject(name, typeof(RectTransform));

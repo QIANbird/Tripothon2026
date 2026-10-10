@@ -12,7 +12,7 @@ namespace Ghost.Stages
 {
     // Pick 阶段（形态 Real）：写实植株按真实尺寸固定在玩家前方，不能转；玩家第一人称走过去、蹲下、对准果实摘下，按 E 举到嘴边一口一口吃。
     // 这是唯一移动相机的阶段：PlayerRig 接管主相机，离开时还回固定机位（docs/CURRENT_STATE.md 不变量"相机永远不动"的例外）。
-    // 当前完成第 1–5a 步（移动、固定植株、XRI 摘、举到嘴边、咬一口缩小）。5b/5c 的虚幻化和消散订阅 EatSequence.BiteTaken。
+    // 当前完成第 1–5a 步（移动、固定植株、XRI 摘、举到嘴边、咬一口缩小）。5b/5c 的虚幻化和消散订阅 EatSequence.BiteTaken。吃完最后一口（EatSequence.Finished）后自动进入 Outro。
     //
     // 对白来自台词表 PICK 段：进关播 PICK_001–005，hintAfterLineId 这句播完时发 ControlsHintShown（操作提示由 PC 端显示，
     // 见 Player/PC/PcControlsHint）；吃第一口播 PICK_006。进关不锁操作，对白和移动同时进行。
@@ -58,6 +58,10 @@ namespace Ghost.Stages
         [Tooltip("吃第一口时播放")]
         public DialogueSequence firstBiteSequence;
 
+        [Header("吃完")]
+        [Tooltip("最后一口后停留多久再进入 Outro（秒）；吃第一口的台词还没播完时会等它播完")]
+        public float finishDelay = 1f;
+
         // 操作提示：显示（文字）/ 隐藏。只发事件，显示由平台端组件负责
         public event Action<string> ControlsHintShown;
         public event Action ControlsHintHidden;
@@ -70,6 +74,8 @@ namespace Ghost.Stages
         RealModelHandoff handoff;
         bool fruitReady;
         bool hintShown;
+        bool eatFinished;
+        float finishTimer;
 
         public override void Enter()
         {
@@ -100,7 +106,9 @@ namespace Ghost.Stages
             {
                 eat.ResetState();
                 eat.BiteTaken += OnBiteTaken;
+                eat.Finished += OnEatFinished;
             }
+            eatFinished = false;
             player.Activate();
             fruitReady = false;
 
@@ -117,7 +125,12 @@ namespace Ghost.Stages
             if (ctx != null && ctx.subtitles != null) ctx.subtitles.OutlineEnabled = false;
             if (hintShown) ControlsHintHidden?.Invoke();
             hintShown = false;
-            if (eat != null) eat.BiteTaken -= OnBiteTaken;
+            if (eat != null)
+            {
+                eat.BiteTaken -= OnBiteTaken;
+                eat.Finished -= OnEatFinished;
+            }
+            eatFinished = false;
             RestoreFruit();
             if (hand != null) hand.ResetPose();
             if (eat != null) eat.ResetState();
@@ -137,6 +150,26 @@ namespace Ghost.Stages
             if (!IsActive) return;
             if (!fruitReady) TryBindFruit();
             UpdatePickable();
+            UpdateFinish();
+        }
+
+        // 吃完（最后一口）后：等台词播完、再停留 finishDelay 秒，自动进入 Outro。
+        // 5b/5c 做消散时，把这里的等待换成"消散结束"
+        void OnEatFinished()
+        {
+            if (!IsActive) return;
+            eatFinished = true;
+            finishTimer = finishDelay;
+        }
+
+        void UpdateFinish()
+        {
+            if (!eatFinished) return;
+            if (ctx != null && ctx.dialogue != null && ctx.dialogue.IsPlaying) return;
+            finishTimer -= Time.deltaTime;
+            if (finishTimer > 0f) return;
+            eatFinished = false;
+            Complete();
         }
 
         // 植株底部中心对齐到 plantAnchor：PlantFit 在场景根，本地坐标 = 世界坐标

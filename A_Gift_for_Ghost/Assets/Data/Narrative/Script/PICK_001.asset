@@ -18,14 +18,14 @@ MonoBehaviour:
     speaker: 3
     channel: 3
     text: "\u4E49\u4F53\u63A7\u5236\u6743\u9650\u5DF2\u88AB\u7528\u6237\u56DE\u6536\u3002"
-    clip: {fileID: 8300000, guid: 7ee0d8d0be9184a4f8cf0d4aedbe391e, type: 3}
+    clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: PICK_002
     speaker: 3
     channel: 3
     text: "\u60A8\u5DF2\u9000\u51FA\u5168\u80FD\u4EE3\u7406\u6A21\u5F0F\u3002"
-    clip: {fileID: 8300000, guid: 6dbf414651da63d4993ee63f7efa18b9, type: 3}
+    clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: PICK_004

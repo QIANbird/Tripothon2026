@@ -19,7 +19,7 @@
 
 - `GameFlow` 加 `autoStart`（默认 false，Inspector 可勾，方便调试直接进关）。为 false 时 `Start()` 不进关，等外部调 `Begin()`。
 - `Begin()` = `EnterStage(0)`；已经开始过就忽略。
-- 开始界面（10-10 改）：策划底图 `Assets/Art/UI/StartScreen/start_bg.png`（标题画在图里）按宽高比铺满屏幕；开始按钮是番茄下方的环 `awake_ring.png` + "AWAKE" 字样，位置按底图像素定在 `MainSceneMenu.BuildStartScreen` 的常量里，随底图缩放。点按钮 → 界面淡出 → `flow.Begin()`。Intro 自己会把黑屏设上，衔接不跳。
+- 开始界面（10-10 改）：策划底图 `Assets/Art/UI/StartScreen/start_bg.png`（标题画在图里）按宽高比铺满屏幕；开始按钮是番茄下方的环 `awake_ring.png` + "AWAKE" 字样，宽高比从底图读取（换图后重新 Build Main Scene），按钮位置用底图比例定在 `MainSceneMenu.BuildStartScreen` 的常量里，随底图缩放。点按钮 → 界面淡出 → `flow.Begin()`。Intro 自己会把黑屏设上，衔接不跳。
 - 开始界面显示期间：植株不可交互（`PointerInput` 不派发、对白不播放）。最简单的做法是 GameFlow 没进关时什么 Stage 都没 Enter，加上黑底挡住植株。
 - 调试：开始界面上按 N 或 Shift+数字，等同于先 `Begin()` 再跳关（`GameFlowDebug` 里 `CurrentIndex < 0` 时先 Begin）。
 

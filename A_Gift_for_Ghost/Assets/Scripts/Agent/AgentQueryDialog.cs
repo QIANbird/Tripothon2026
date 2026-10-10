@@ -40,6 +40,8 @@ namespace Ghost.Agent
 
         // 玩家点了 Yes（参数为提问文字）
         public event Action<string> Answered;
+        // 询问框弹出（参数为提问文字）
+        public event Action<string> Opened;
 
         public bool Visible => panel != null && panel.gameObject.activeSelf;
         public string Question { get; private set; }
@@ -89,6 +91,7 @@ namespace Ghost.Agent
             SetHover(false);
             Resize();
             acceptAt = Time.time + inputDelay;
+            Opened?.Invoke(Question);
         }
 
         public void Hide()

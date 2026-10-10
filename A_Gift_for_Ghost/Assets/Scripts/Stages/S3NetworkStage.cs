@@ -49,6 +49,9 @@ namespace Ghost.Stages
         readonly List<int> bugNodes = new List<int>();
         readonly HashSet<int> found = new HashSet<int>();
         bool queryShown;
+
+        // 标记了一只虫子（音效等订阅）
+        public event System.Action BugMarked;
         bool savedAllowEmptyDrag = true;
         bool savedAllowNodeDrag = true;
 
@@ -134,6 +137,7 @@ namespace Ghost.Stages
             {
                 ctx.morpher.SetHighlight(id, foundColor);
                 RefreshPanel();
+                BugMarked?.Invoke();
                 if (found.Count == 1 && found.Count < bugNodes.Count) ctx.Play(firstMarkedSequence);
             }
             ctx.RefreshInspect();

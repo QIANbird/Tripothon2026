@@ -45,6 +45,9 @@ namespace Ghost.Stages
         Phase phase;
         Coroutine transitionRoutine;
 
+        // 演示方块开始退回矩阵、其余方块陆续显现（音效等订阅）
+        public event System.Action MergeStarted;
+
         public override void Enter()
         {
             base.Enter();
@@ -230,6 +233,7 @@ namespace Ghost.Stages
             }
             if (transitionRoutine != null) StopCoroutine(transitionRoutine);
             transitionRoutine = StartCoroutine(MergeIntoMatrix());
+            MergeStarted?.Invoke();
         }
 
         IEnumerator MergeIntoMatrix()

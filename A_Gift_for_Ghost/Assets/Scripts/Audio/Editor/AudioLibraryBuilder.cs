@@ -17,6 +17,15 @@ namespace Ghost.Audio.EditorTools
         public const string LibraryPath = LibraryFolder + "/AudioLibrary.asset";
 
         static readonly Regex Variant = new Regex(@"^(.+?)_(\d+)$");
+
+        // 新编号第一次进库时的单条音量（在 GameAudio.sfxVolume 之上再乘）。已经在库里的编号保留 Inspector 里调过的值。
+        // 10-11 试听：这几个偏响，压低一半
+        static readonly Dictionary<string, float> DefaultVolume = new Dictionary<string, float>
+        {
+            { "SFX_S2_EXPAND", 0.5f },
+            { "SFX_S3_COLOR", 0.5f },
+            { "SFX_AGENT_SHUTDOWN", 0.5f },
+        };
         static bool pending;
 
         [MenuItem("Ghost/Audio/Rebuild Audio Library")]
@@ -62,6 +71,7 @@ namespace Ghost.Audio.EditorTools
             {
                 var entry = new AudioLibrary.Entry { id = g.Key, clips = new List<AudioClip>(g.Value.Values).ToArray() };
                 if (oldVolume.TryGetValue(g.Key, out var v)) entry.volume = v;
+                else if (DefaultVolume.TryGetValue(g.Key, out var d)) entry.volume = d;
                 library.entries.Add(entry);
             }
             EditorUtility.SetDirty(library);

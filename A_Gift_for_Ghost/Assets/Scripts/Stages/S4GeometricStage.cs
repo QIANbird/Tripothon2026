@@ -70,6 +70,9 @@ namespace Ghost.Stages
 
         readonly List<int> bugNodes = new List<int>();
         readonly HashSet<int> removed = new HashSet<int>();
+
+        // 摘除了一只虫子（参数：已摘几只、一共几只；音效等订阅）
+        public event System.Action<int, int> BugTaken;
         // 已经摘除、离开本关后仍保持隐藏的虫子（往回跳到更抽象的形态时恢复）
         readonly HashSet<int> keptHidden = new HashSet<int>();
         bool holdsRealness;
@@ -288,6 +291,7 @@ namespace Ghost.Stages
             realnessTo = target;
             realnessT = 0f;
             RefreshPanel();
+            BugTaken?.Invoke(removed.Count, bugNodes.Count);
 
             if (removed.Count < bugNodes.Count) PinProgress();
             else

@@ -4,12 +4,12 @@
 
 ## Current stage
 
-第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition 播 S4_008 并变成写实模型后自动进入 Pick；Outro 还是占位阶段（不显示文字，按 N 继续）。Pick 阶段完成第 1–4 步和 5a（移动、固定植株、XRI 摘果实、举到嘴边、咬一口缩小）；虚幻化和消散（5b/5c）还没做，吃完按 N 继续。
+第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition 播 S4_008 并变成写实模型后自动进入 Pick；Outro 全屏播放结局视频 `Assets/Video/Outro.mp4`，播完自动进入结束界面（`OutroVideoStage`，10-11，**只做过编译检查，Main.unity 未重建、未经 Play 验收**；没有视频时停在 Outro，按 N 继续）。Pick 阶段完成第 1–4 步和 5a（移动、固定植株、XRI 摘果实、举到嘴边、咬一口缩小）；虚幻化和消散（5b/5c）还没做；吃完第 3 口后等台词播完、停 1 s 自动进入 Outro（10-11，只做过编译检查）。
 最新一轮 UX 调整（HUD、右键详情、PlantFit 适配、Gizmos 竖线）已通过 Play 验收（10-08）。
 
 ## Features currently working
 
-- 流程：开始界面（策划底图 + 番茄下方"环 + AWAKE"按钮，点它开始）→ Intro（黑屏 + 字幕）→ Tutorial → S1 Matrix → S2 Circuit → S3 Network → S4 Geometric → Transition（S4_008 + 变写实，自动继续）→ Pick → Outro（占位）→ 结束界面（点"重新开始"重载场景回到开始界面）。进关和变形同时发生。开始 / 结束界面见 `docs/tasks/start-restart-screens.md`（10-10，**未经 Play 验收**，只做过编译检查）；文案是占位。
+- 流程：开始界面（策划底图 + 番茄下方"环 + AWAKE"按钮，点它开始）→ Intro（黑屏 + 字幕）→ Tutorial → S1 Matrix → S2 Circuit → S3 Network → S4 Geometric → Transition（S4_008 + 变写实，自动继续）→ Pick → Outro（结局视频）→ 结束界面（点"重新开始"重载场景回到开始界面）。进关和变形同时发生。开始 / 结束界面见 `docs/tasks/start-restart-screens.md`（10-10，**未经 Play 验收**，只做过编译检查）；文案是占位。
 - 教学（`docs/tasks/tutorial-single-cube.md`）：只有一个放大 6 倍的演示方块，其余节点隐藏。左键一次解决（简单问题）→ 同一方块变成困难问题，点了失败 → 温柔女声引导右键 → 右键详情显示"维护单元07……" → 方块 1.5 s 后退缩回矩阵槽位，其余方块陆续显现，直接进入 S1。台词全部来自台词表 TUT 段（`Script/TUT_002/004/008/014/015`）。已在 Play 里走通（10-09，含跳关进出和转场中途跳走）。
 - 调试：N 下一关，Shift+1–9 跳关（两个方向都能干净进出）。开始界面上按 N 等于点开始，Shift+数字直接进关；在最后一关按 N 弹出结束界面。`GameFlow.autoStart` 勾上可跳过开始界面。
 - 节点问题：Easy / Medium / Hard 三档；Medium 两次点击之间隔 5 s 再闪；Hard 永远解决不了。
@@ -22,7 +22,7 @@
 - 台词表：`docs/script/02_dialogue.csv` 在编辑器里自动导入（也可用菜单 Ghost/Narrative/Import Dialogue CSV），生成 `Assets/Data/Narrative/Script/*.asset` 和 `DialogueLibrary.asset`；台词可以单独指定通道（字幕 / `Agent弹窗_02` 聊天气泡 / `Agent弹窗_01` Caution 卡）；通道为 `Agent询问`、以 `_query` 结尾或 `操作提示` 的行单独成段，只取文本（Yes 询问框、Pick 左上角提示）。
 - 定稿台词已接入全流程（`docs/tasks/final-script-integration.md`，10-10，**未经 Play 验收**，只做过编译检查）：Intro 分两段，INTRO_008 后等一次点击；S1 进关台词、点方块随机池（S1_P*，只写植物部位状态、不点名，`{a-b}` 运行时换随机数）、通关台词 + 询问；S2 错误起点提示，缺水解决播 S2_006–007，看过果实后播 S2_008 直接进入 S3（没有询问）；S3 第一次标记台词、全部标记台词 + 询问（S3_011 全文）；S4 每摘一只虫子，Agent 弹窗固定显示 S4_005 + 进度 n/3（`SubtitlePanel.Pin`），摘完收起，播 S4_006–007 后进入 Transition；Pick 进关台词、PICK_002 后显示操作提示（`Player/PC/PcControlsHint`）、吃第一口台词。段 key 常量在 `StageAssets`。旧的 S2–S4 占位对白资产和 `Ensure*` 方法还在，但不再挂到场景。
 - 配音：`Assets/Audio/VO/` 下名为 `<台词ID>` 或 `VO_<台词ID>` 的音频自动挂到 `Script/` 里同 ID 台词的 `clip`（`VoiceClipBinder`，导入/替换音频时自动执行，也可用菜单 Ghost/Narrative/Bind Voice Clips）；导入设置强制单声道 + Vorbis。有 clip 的台词按音频时长播放。重新导入 CSV 会保留已挂的 clip。音频被删掉时自动清掉丢失的引用。已换成 `最终配音` 交付的 38 句 `VO_*.wav`，全部挂上（10-10，未 Play 验收）。
-- 音效 / 音乐 / 环境音（10-10，**未经编译和 Play 验收**）：文件放 `Assets/Audio/SFX|BGM|AMB/`，文件名 = 05_audio_list 编号，变体加 `_01/_02`；`AudioLibraryBuilder` 自动生成 `Assets/Data/Audio/AudioLibrary.asset`（菜单 Ghost/Audio/Rebuild Audio Library）。BGM / AMB 导入为 Streaming，SFX 加载时解压。`GameAudio`（场景里由 Build Main Scene 生成）进关时按 `stageAudio` 表交叉淡入切换音乐 / 环境音（Intro 起播 BGM_DIGITAL，开场动画音效包含在里面）；还没交付的编号跳过、保持上一首。音效接口 `GameAudio.Play(id)` / `StartLoop` / `StopLoop` 已有，**但还没有任何玩法代码调用**。已放入 16 个 SFX 和 BGM_DIGITAL。加完需要跑一次 Build Main Scene 才会出现在场景里。
+- 音效 / 音乐 / 环境音（10-10，**未经编译和 Play 验收**）：文件放 `Assets/Audio/SFX|BGM|AMB/`，文件名 = 05_audio_list 编号，变体加 `_01/_02`；`AudioLibraryBuilder` 自动生成 `Assets/Data/Audio/AudioLibrary.asset`（菜单 Ghost/Audio/Rebuild Audio Library）。BGM / AMB 导入为 Streaming，SFX 加载时解压。`GameAudio`（场景里由 Build Main Scene 生成）进关时按 `stageAudio` 表交叉淡入切换音乐 / 环境音（Intro 起播 BGM_DIGITAL，开场动画音效包含在里面）；还没交付的编号跳过、保持上一首。BGM：一首 BGM_DIGITAL 从 Intro 贯穿到 Outro 之前，进 Outro 淡出；AMB_BALCONY 从 Transition 起（还没交付）。音效由 `GameAudioCues` 订阅玩法事件播放（不改玩法逻辑）：点节点授权（TUT/S1）、Agent 弹窗出现（S1 随机池改为数据念白）、Agent 打字循环、询问框（S3 为高风险警告）、TUT 方块融入矩阵、每次变形（`SFX_MORPH_01–04` 按目标形态）、S2 拖拽循环 + 连上节点（音高逐个升高）、S3 标记虫子、S4 摘虫 + 拖拽旋转时叶子沙沙、Pick 摘下果实、咬一口。为此给 Tutorial / S2 / S3 / S4 / `AgentQueryDialog` / `AgentChatFeed` 加了只发不收的事件，`TargetRotator` 加了 `IsDragging`。已编译通过（10-10），**`Main.unity` 还没有重建，场景里还没有 `GameAudio`，未经 Play 验收**。
 - 对白推进：左键点空白处或按空格 / 回车，打字中先补全整句，再点进入下一句；点中节点时只算点节点（全黑屏时除外）。
 - PlantFit：相机固定（眼高 1.6 m、水平正视），按形态缩放、居中植株。
 - Pick：进关时 PlayerRig 接管主相机（画面不跳），光标锁定，屏幕中心准星；WASD 约 2 m/s，鼠标转头（俯仰 -75°…70°），C / 左 Ctrl 切换蹲下（眼高 1.6 → 1.0 m）。植株按真实尺寸（约 0.7 m 高）固定在前方 2.5 m 的矮台上，不能转；有地面、四面不可见边界和植株挡板。离开时相机回固定机位、光标解锁、PlantFit 恢复适配。

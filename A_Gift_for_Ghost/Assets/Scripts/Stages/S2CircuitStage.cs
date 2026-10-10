@@ -115,6 +115,12 @@ namespace Ghost.Stages
         int routeTotal;       // 供给线路上的节点数（含树根），用来算连通比例
         LineRenderer dragLine;
 
+        // 音效等订阅：开始 / 结束沿脉冲拖拽；连上段内一个节点（参数：段内第几个，从 1 起）
+        public event System.Action TraceStarted;
+        public event System.Action TraceEnded;
+        public event System.Action<int> NodeLinked;
+        public bool IsTracing => tracing;
+
         public override void Enter()
         {
             base.Enter();
@@ -426,6 +432,7 @@ namespace Ghost.Stages
                 return;
             }
             tracing = true;
+            TraceStarted?.Invoke();
         }
 
         void HandleDragOver(int id)
@@ -439,6 +446,7 @@ namespace Ghost.Stages
             {
                 if (ctx.links != null) ctx.links.SetLinkColor(segment[i - 1], segment[i], tracedLinkColor);
                 Visit(segment[i]);
+                NodeLinked?.Invoke(i);
             }
             segmentReached = k;
             if (k < segment.Count - 1) return;
@@ -446,7 +454,11 @@ namespace Ghost.Stages
             // 段走完：终点就是下一段的脉冲源时可以接着拖，否则（回到分叉点）要重新按住
             int end = segment[k];
             RebuildSegment();
-            if (source != end) tracing = false;
+            if (source != end)
+            {
+                tracing = false;
+                TraceEnded?.Invoke();
+            }
         }
 
         void HandleDragEnd()
@@ -454,7 +466,9 @@ namespace Ghost.Stages
             if (!IsActive) return;
             // 中断不回退：从已连通的部分重新计算下一段
             if (tracing && segmentReached > 0) RebuildSegment();
+            bool was = tracing;
             tracing = false;
+            if (was) TraceEnded?.Invoke();
             UpdateLinkElbow();
         }
 

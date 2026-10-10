@@ -40,6 +40,8 @@ namespace Ghost.Interaction
         public bool rotateOnNodeDrag = true;
 
         public bool IsEnabled { get; private set; }
+        // 玩家正在拖拽旋转（空白处或节点上）
+        public bool IsDragging => IsEnabled && dragging;
         public float Yaw => yaw;
         public float Pitch => pitch;
         // 还在转（追随目标角或复位中）
