@@ -13,6 +13,7 @@ namespace Ghost.Stages
     // Pick 阶段（形态 Real）：写实植株按真实尺寸固定在玩家前方，不能转；玩家第一人称走过去、蹲下、对准果实摘下，按 E 举到嘴边一口一口吃。
     // 这是唯一移动相机的阶段：PlayerRig 接管主相机，离开时还回固定机位（docs/CURRENT_STATE.md 不变量"相机永远不动"的例外）。
     // 当前完成第 1–5a 步（移动、固定植株、XRI 摘、举到嘴边、咬一口缩小）。5b/5c 的虚幻化和消散订阅 EatSequence.BiteTaken。
+    // 吃完（EatSequence.Finished）后等 completeDelay 自动通关；它是最后一关，通关即进入结束界面播结尾视频。
     //
     // 对白来自台词表 PICK 段：进关播 PICK_001–005，hintAfterLineId 这句播完时发 ControlsHintShown（操作提示由 PC 端显示，
     // 见 Player/PC/PcControlsHint）；吃第一口播 PICK_006。进关不锁操作，对白和移动同时进行。
@@ -58,6 +59,10 @@ namespace Ghost.Stages
         [Tooltip("吃第一口时播放")]
         public DialogueSequence firstBiteSequence;
 
+        [Header("通关")]
+        [Tooltip("吃完最后一口后等多久（秒）通关，进入结束界面（结尾视频）")]
+        public float completeDelay = 2f;
+
         // 操作提示：显示（文字）/ 隐藏。只发事件，显示由平台端组件负责
         public event Action<string> ControlsHintShown;
         public event Action ControlsHintHidden;
@@ -70,6 +75,7 @@ namespace Ghost.Stages
         RealModelHandoff handoff;
         bool fruitReady;
         bool hintShown;
+        float completeTimer = -1f;
 
         public override void Enter()
         {
@@ -100,7 +106,9 @@ namespace Ghost.Stages
             {
                 eat.ResetState();
                 eat.BiteTaken += OnBiteTaken;
+                eat.Finished += OnEatFinished;
             }
+            completeTimer = -1f;
             player.Activate();
             fruitReady = false;
 
@@ -117,7 +125,12 @@ namespace Ghost.Stages
             if (ctx != null && ctx.subtitles != null) ctx.subtitles.OutlineEnabled = false;
             if (hintShown) ControlsHintHidden?.Invoke();
             hintShown = false;
-            if (eat != null) eat.BiteTaken -= OnBiteTaken;
+            if (eat != null)
+            {
+                eat.BiteTaken -= OnBiteTaken;
+                eat.Finished -= OnEatFinished;
+            }
+            completeTimer = -1f;
             RestoreFruit();
             if (hand != null) hand.ResetPose();
             if (eat != null) eat.ResetState();
@@ -137,6 +150,11 @@ namespace Ghost.Stages
             if (!IsActive) return;
             if (!fruitReady) TryBindFruit();
             UpdatePickable();
+            if (completeTimer >= 0f)
+            {
+                completeTimer -= Time.deltaTime;
+                if (completeTimer < 0f) Complete();
+            }
         }
 
         // 植株底部中心对齐到 plantAnchor：PlantFit 在场景根，本地坐标 = 世界坐标
@@ -199,6 +217,12 @@ namespace Ghost.Stages
         {
             // 5a：只缩小。5b/5c 订阅 BiteTaken 做虚幻化和碎片
             if (index == 1 && IsActive) ctx.Play(firstBiteSequence);
+        }
+
+        // 吃完最后一口：等 completeDelay 后通关。Pick 是最后一关，GameFlow 随后发 FlowFinished，结束界面播结尾视频
+        void OnEatFinished()
+        {
+            if (IsActive) completeTimer = Mathf.Max(0f, completeDelay);
         }
 
         void OnLineFinished(DialogueLine line)

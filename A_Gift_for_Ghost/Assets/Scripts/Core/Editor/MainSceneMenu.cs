@@ -17,6 +17,7 @@ using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 using UnityEngine.UI;
+using UnityEngine.Video;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Readers;
 using UnityEngine.XR.Interaction.Toolkit.Interactors;
@@ -69,9 +70,8 @@ namespace Ghost.Core.EditorTools
             // 过渡：播 S4_008，同时变成写实模型，播完自动进入 Pick（RealTransitionStage）
             new StageSpec("Transition", true, MorphForm.Real, ""),
             // Pick：第一人称走到写实植株前（PickStage，docs/tasks/pick-stage.md）
+            // 吃完自动通关；Pick 是最后一关，之后由 EndScreen 播结尾视频（原 Outro 占位阶段已去掉）
             new StageSpec("Pick", true, MorphForm.Real, ""),
-            // Outro 还是占位阶段（视频未接入），不显示文字
-            new StageSpec("Outro", true, MorphForm.Real, ""),
         };
 
         [MenuItem("Ghost/Core/Build Main Scene")]
@@ -847,6 +847,48 @@ namespace Ghost.Core.EditorTools
             end.group.alpha = 0f;
             end.group.interactable = false;
             end.group.blocksRaycasts = false;
+            BuildEndingVideo(end);
+        }
+
+        const string EndingVideoPath = "Assets/Art/Video/ending.mp4";
+
+        // 结尾视频层：EndScreen 画布里最上层的全屏黑底 + RawImage，播完由 EndScreen 关掉，露出"重新开始"。
+        // 视频按自身宽高比完整显示（FitInParent），多出的部分是黑边
+        static void BuildEndingVideo(EndScreen end)
+        {
+            var clip = AssetDatabase.LoadAssetAtPath<VideoClip>(EndingVideoPath);
+            if (clip == null)
+            {
+                Debug.LogWarning($"[MainScene] 找不到结尾视频 {EndingVideoPath}，结束界面不播视频");
+                return;
+            }
+
+            var root = (RectTransform)end.transform;
+            var layer = AgentUIStyle.CreateStretch("EndingVideo", root);
+            var backdrop = AgentUIStyle.AddImage(layer, Color.black);
+            backdrop.raycastTarget = true; // 播放期间挡住下面的按钮
+
+            var imageRect = AgentUIStyle.CreateStretch("Video", layer);
+            var image = imageRect.gameObject.AddComponent<RawImage>();
+            image.color = Color.white;
+            image.raycastTarget = false;
+            var fitter = imageRect.gameObject.AddComponent<AspectRatioFitter>();
+            fitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            fitter.aspectRatio = clip.height > 0 ? (float)clip.width / clip.height : 16f / 9f;
+
+            var player = layer.gameObject.AddComponent<VideoPlayer>();
+            player.source = VideoSource.VideoClip;
+            player.clip = clip;
+            player.playOnAwake = false;
+            player.isLooping = false;
+            player.renderMode = VideoRenderMode.APIOnly;
+            player.audioOutputMode = VideoAudioOutputMode.Direct;
+
+            end.video = player;
+            end.videoLayer = layer.gameObject;
+            end.videoImage = image;
+            end.videoFitter = fitter;
+            layer.gameObject.SetActive(false);
         }
 
         const string StartArtFolder = "Assets/Art/UI/StartScreen";

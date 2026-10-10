@@ -8,7 +8,7 @@ Pick 阶段：写实植株固定在玩家前方 2–3 m，不能转。玩家用�
 - `Player` 表里已经有 `Grab`（鼠标左键）和 `Eat`（E）两个 Action，第 4–5 步直接订阅，不用再改 `.inputactions`。
 - 第 4 步 + 5a 已完成（10-09，Play 自测通过）：`Scripts/Pick/`（`PickableFruit`、`HandReach`、`EatSequence`）、`PickStage` 接线、`PcCrosshairRayHover`。按 E 举到嘴边，之后每次 E 咬一口，果实缩小（3 口：1 → 0.35），发 `EatSequence.BiteTaken(index, total)`，最后一口发 `Finished`。还没有"缺口"粒子（并入 5b 的碎片）。
 - 与原计划的差异：手臂是胶囊上臂 + Tripo 前臂/手模型（`3D_Objects/hand`，静态网格，挂在 Elbow 下）；植株挡板改到 Ignore Raycast 层，射线穿过它打到果实；可摘范围 = 眼睛到果实中心 ≤ 0.7 m（站着够不到，要蹲下走近）。
-- 剩余：5b、5c、第 6 步（下一个对话，订阅 `BiteTaken` / `Finished`）。`Finished` 目前没人订阅，吃完停在嘴边，按 N 进 Outro。
+- 剩余：5b、5c、第 6 步（下一个对话，订阅 `BiteTaken` / `Finished`）。`Finished` 由 PickStage 订阅：吃完等 `completeDelay` 后 Complete()，直接进入结束界面（结尾视频）；Outro 占位阶段已去掉（10-10）。
 
 # Existing reference
 

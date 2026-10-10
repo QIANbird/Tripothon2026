@@ -4,12 +4,12 @@
 
 ## Current stage
 
-第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition 播 S4_008 并变成写实模型后自动进入 Pick；Outro 还是占位阶段（不显示文字，按 N 继续）。Pick 阶段完成第 1–4 步和 5a（移动、固定植株、XRI 摘果实、举到嘴边、咬一口缩小）；虚幻化和消散（5b/5c）还没做，吃完按 N 继续。
+第一阶段（比赛 demo 主流程 G0–G9）开发完成。S1–S4 可以玩通；Transition 播 S4_008 并变成写实模型后自动进入 Pick；Pick 是最后一关（Outro 占位阶段 10-10 已去掉）。Pick 阶段完成第 1–4 步和 5a（移动、固定植株、XRI 摘果实、举到嘴边、咬一口缩小）；虚幻化和消散（5b/5c）还没做；吃完最后一口等 `completeDelay`（2 s）自动通关，进入结束界面播结尾视频（10-10，**未经 Play 验收**）。
 最新一轮 UX 调整（HUD、右键详情、PlantFit 适配、Gizmos 竖线）已通过 Play 验收（10-08）。
 
 ## Features currently working
 
-- 流程：开始界面（策划底图 + 番茄下方"环 + AWAKE"按钮，点它开始）→ Intro（黑屏 + 字幕）→ Tutorial → S1 Matrix → S2 Circuit → S3 Network → S4 Geometric → Transition（S4_008 + 变写实，自动继续）→ Pick → Outro（占位）→ 结束界面（点"重新开始"重载场景回到开始界面）。进关和变形同时发生。开始 / 结束界面见 `docs/tasks/start-restart-screens.md`（10-10，**未经 Play 验收**，只做过编译检查）；文案是占位。
+- 流程：开始界面（策划底图 + 番茄下方"环 + AWAKE"按钮，点它开始）→ Intro（黑屏 + 字幕）→ Tutorial → S1 Matrix → S2 Circuit → S3 Network → S4 Geometric → Transition（S4_008 + 变写实，自动继续）→ Pick（吃完自动通关）→ 结束界面（先全屏播结尾视频 `Assets/Art/Video/ending.mp4`，播完露出按钮；点"重新开始"重载场景回到开始界面）。进关和变形同时发生。开始 / 结束界面见 `docs/tasks/start-restart-screens.md`（10-10，**未经 Play 验收**，只做过编译检查）；文案是占位。结尾视频 10-10 接入，**未经 Play 验收**，需重新执行 MainSceneMenu 生成场景才会出现。
 - 教学（`docs/tasks/tutorial-single-cube.md`）：只有一个放大 6 倍的演示方块，其余节点隐藏。左键一次解决（简单问题）→ 同一方块变成困难问题，点了失败 → 温柔女声引导右键 → 右键详情显示"维护单元07……" → 方块 1.5 s 后退缩回矩阵槽位，其余方块陆续显现，直接进入 S1。台词全部来自台词表 TUT 段（`Script/TUT_002/004/008/014/015`）。已在 Play 里走通（10-09，含跳关进出和转场中途跳走）。
 - 调试：N 下一关，Shift+1–9 跳关（两个方向都能干净进出）。开始界面上按 N 等于点开始，Shift+数字直接进关；在最后一关按 N 弹出结束界面。`GameFlow.autoStart` 勾上可跳过开始界面。
 - 节点问题：Easy / Medium / Hard 三档；Medium 两次点击之间隔 5 s 再闪；Hard 永远解决不了。
