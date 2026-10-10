@@ -8,7 +8,7 @@ namespace Ghost.Narrative.EditorTools
     // 按文件名把配音挂到台词上：VoiceFolder 下（含子目录）名为 <台词ID> 或 VO_<台词ID> 的音频，
     // 自动填进 Script/ 里同 ID 台词的 clip。文件名对照 docs/script/05_audio_list.xlsx 的"配音"页。
     // 往 VoiceFolder 拖入 / 替换音频后自动执行；也可以用菜单手动执行。
-    // 只覆盖找到同名音频的台词，没有音频的台词保持原样（不清空手挂的 clip）。
+    // 找不到同名音频时，只清掉已丢失的引用（音频被删了），手挂在别处的 clip 保持原样。
     public static class VoiceClipBinder
     {
         public const string VoiceFolder = "Assets/Audio/VO";
@@ -36,7 +36,7 @@ namespace Ghost.Narrative.EditorTools
                 clips[id] = AssetDatabase.LoadAssetAtPath<AudioClip>(p);
             }
 
-            int bound = 0;
+            int bound = 0, cleared = 0;
             var used = new HashSet<string>();
             foreach (var guid in AssetDatabase.FindAssets("t:DialogueSequence", new[] { DialogueCsvImporter.OutFolder }))
             {
@@ -46,7 +46,18 @@ namespace Ghost.Narrative.EditorTools
                 foreach (var line in seq.lines)
                 {
                     if (line == null || string.IsNullOrEmpty(line.id)) continue;
-                    if (!clips.TryGetValue(line.id, out var clip)) continue;
+                    if (!clips.TryGetValue(line.id, out var clip))
+                    {
+                        // 引用还在但资产没了（Missing）：清掉，免得播放时拿到空音频
+                        // 没挂过的字段在编辑器里也可能是"假 null"，instance id 为 0，要排除
+                        if (!ReferenceEquals(line.clip, null) && line.clip == null && line.clip.GetInstanceID() != 0)
+                        {
+                            line.clip = null;
+                            dirty = true;
+                            cleared++;
+                        }
+                        continue;
+                    }
                     used.Add(line.id);
                     if (line.clip == clip) continue;
                     line.clip = clip;
@@ -57,10 +68,10 @@ namespace Ghost.Narrative.EditorTools
             }
             AssetDatabase.SaveAssets();
 
-            if (!log && bound == 0) return;
+            if (!log && bound == 0 && cleared == 0) return;
             var unused = new List<string>();
             foreach (var id in clips.Keys) if (!used.Contains(id)) unused.Add(id);
-            Debug.Log($"[Voice] 新挂上 {bound} 句配音，共找到 {clips.Count} 个音频" +
+            Debug.Log($"[Voice] 新挂上 {bound} 句配音，清掉 {cleared} 个丢失的引用，共找到 {clips.Count} 个音频" +
                       (unused.Count > 0 ? $"；没有对应台词的：{string.Join(", ", unused)}" : ""));
         }
 
@@ -84,6 +95,12 @@ namespace Ghost.Narrative.EditorTools
 
             static void OnPostprocessAllAssets(string[] imported, string[] deleted, string[] moved, string[] movedFrom)
             {
+                foreach (var p in deleted)
+                {
+                    if (!InVoiceFolder(p)) continue;
+                    EditorApplication.delayCall += () => Bind(false);
+                    return;
+                }
                 foreach (var p in imported)
                 {
                     if (!InVoiceFolder(p)) continue;

@@ -1,0 +1,77 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b1e4c9f2f0ec8ac4589b72f15f3fb383, type: 3}
+  m_Name: AudioLibrary
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Audio.AudioLibrary
+  entries:
+  - id: BGM_DIGITAL
+    clips:
+    - {fileID: 8300000, guid: 1d995fa3ccb871d4f8d953e3f28eed0e, type: 3}
+    volume: 1
+  - id: SFX_AGENT_DATA
+    clips:
+    - {fileID: 8300000, guid: 09d05f711385c62409778da98326a042, type: 3}
+    volume: 1
+  - id: SFX_AGENT_POPUP
+    clips:
+    - {fileID: 8300000, guid: 973fd168777556e4e8a04bfb4ca6969f, type: 3}
+    volume: 1
+  - id: SFX_AGENT_TYPE
+    clips:
+    - {fileID: 8300000, guid: 47e60a0b5df83024b9dbd7fd75e4aed3, type: 3}
+    volume: 1
+  - id: SFX_BITE
+    clips:
+    - {fileID: 8300000, guid: 0a5d19d6a0555ba468c728adebafdfce, type: 3}
+    volume: 1
+  - id: SFX_MORPH
+    clips:
+    - {fileID: 8300000, guid: 0174d83133784bd41b3469b5f7d53f90, type: 3}
+    - {fileID: 8300000, guid: dc0a52ae66ea2644f965a9c165436070, type: 3}
+    - {fileID: 8300000, guid: 672cf8f915f4b124594a83c797bf2281, type: 3}
+    volume: 1
+  - id: SFX_PICK_SNAP
+    clips:
+    - {fileID: 8300000, guid: 4e69539bbf9282a48bf23d8deab6ae7e, type: 3}
+    volume: 1
+  - id: SFX_QUERY_WARN
+    clips:
+    - {fileID: 8300000, guid: d56f339240354874cb314fad0332925d, type: 3}
+    volume: 1
+  - id: SFX_S2_DRAG
+    clips:
+    - {fileID: 8300000, guid: 6f31fff23dd22ef4db52f7049f5f0da3, type: 3}
+    volume: 1
+  - id: SFX_S2_NODE_LINK
+    clips:
+    - {fileID: 8300000, guid: d930419c9a6ebb24ba9a47b850f2bdd5, type: 3}
+    volume: 1
+  - id: SFX_S3_MARK
+    clips:
+    - {fileID: 8300000, guid: 9e5277d4e0fde5b4d89e20f8c5d0db8b, type: 3}
+    volume: 1
+  - id: SFX_S4_LEAF_RUSTLE
+    clips:
+    - {fileID: 8300000, guid: b3d16d5c3f31b0445beda9748af1f937, type: 3}
+    volume: 1
+  - id: SFX_S4_REMOVE_BUG
+    clips:
+    - {fileID: 8300000, guid: 2f0f6364da6b968408ef39b17fa24f8d, type: 3}
+    volume: 1
+  - id: SFX_TAP_AUTH
+    clips:
+    - {fileID: 8300000, guid: cc6502e64e890a64c841c9e080a7d4c9, type: 3}
+    volume: 1
+  - id: SFX_TUT_TO_MATRIX
+    clips:
+    - {fileID: 8300000, guid: 72aa8fd04e6b43140a15864ccfc4e429, type: 3}
+    volume: 1

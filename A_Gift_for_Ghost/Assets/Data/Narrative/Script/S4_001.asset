@@ -39,6 +39,6 @@ MonoBehaviour:
     speaker: 3
     channel: 2
     text: "\u68C0\u67E5\u53F6\u7247\u80CC\u9762\uFF0C\u627E\u5230\u4E0A\u4E00\u6B65\u4E2D\u53D1\u73B0\u7684bugs\u5E76\u70B9\u51FB\u79FB\u9664\u3002"
-    clip: {fileID: 8300000, guid: e08ee3fa57b48da43aeb032d94d1e568, type: 3}
+    clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

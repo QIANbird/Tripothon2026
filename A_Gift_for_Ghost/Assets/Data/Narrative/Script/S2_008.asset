@@ -18,6 +18,6 @@ MonoBehaviour:
     speaker: 0
     channel: 1
     text: "\u63A5\u4E0B\u6765\uFF0C\u6211\u4EEC\u5C06\u8FDB\u4E00\u6B65\u8FD8\u539F\u4FE1\u606F\u538B\u7F29\u68AF\u5EA6\u3002\u8BA9\u6211\u4EEC\u4ECE\u66F4\u591A\u7EF4\u7684\u89D2\u5EA6\u5BFB\u627E\u673A\u4F1A\u3002"
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: dde7faa94f0d41544b96b5aaab664760, type: 3}
     durationOverride: 0
     pauseAfter: -1

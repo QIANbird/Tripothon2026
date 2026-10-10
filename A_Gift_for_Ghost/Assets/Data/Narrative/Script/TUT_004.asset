@@ -25,13 +25,13 @@ MonoBehaviour:
     speaker: 0
     channel: 1
     text: "\u57FA\u672C\u4E0A\uFF0C\u8FD9\u5C31\u662F\u4F60\u73B0\u5728\u6BCF\u5929\u5168\u90E8\u7684\u601D\u7EF4\u6D3B\u52A8\u4E86\u3002"
-    clip: {fileID: 8300000, guid: c9f8ed2bfdeca684f9a6533c0997187d, type: 3}
+    clip: {fileID: 8300000, guid: eee0f773830622a4a895dbb7a5561e61, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: TUT_007
     speaker: 0
     channel: 1
     text: "\u518D\u6765\u770B\u770B\u8FD9\u4E2A\u3002"
-    clip: {fileID: 8300000, guid: e785ca3a67b7ffb41b6ff3a0d3b74995, type: 3}
+    clip: {fileID: 8300000, guid: f7d3579530f973943bfc201ee5bd9481, type: 3}
     durationOverride: 0
     pauseAfter: -1

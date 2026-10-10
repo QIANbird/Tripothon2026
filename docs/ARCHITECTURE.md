@@ -12,6 +12,7 @@
 | Agent UI | `Scripts/Agent` | 任务面板、详情弹窗、Yes 询问框（HUD） |
 | Player | `Scripts/Player` | Pick 阶段的第一人称玩家：`FirstPersonMotor`（CharacterController 移动、转头、蹲下）、`PlayerRig`（开关玩家、接管 / 归还主相机）；`Player/PC/` 下是 PC 专用的 `PcCursorLock`、`PcCrosshair`、`PcControlsHint`（订阅 `PickStage.ControlsHintShown/Hidden` 显示键位提示） |
 | Narrative | `Scripts/Narrative` | 对白播放、字幕、Agent 聊天栏（`AgentChatFeed`）、黑屏、节点详情文本表 |
+| Audio | `Scripts/Audio` | `GameAudio`：音效（`Play(id)`、`StartLoop/StopLoop`）和音乐 / 环境音（订阅 `GameFlow.StageEntered`，按 `stageAudio` 表交叉淡入切换）；`AudioLibrary`（SO）编号 → 音频，由 `AudioLibraryBuilder` 扫描 `Assets/Audio/SFX|BGM|AMB` 生成。配音不走这里，挂在 `DialogueLine.clip` 上（`VoiceClipBinder`） |
 
 ## Ownership of state
 

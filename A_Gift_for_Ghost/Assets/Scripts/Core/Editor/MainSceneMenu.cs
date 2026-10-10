@@ -287,6 +287,9 @@ namespace Ghost.Core.EditorTools
             debug.flow = flow;
             debug.actions = actions;
 
+            // 音效 / 音乐 / 环境音（GameAudio，进关时按表切换音乐）
+            Ghost.Audio.EditorTools.AudioSceneBuilder.Build(flow);
+
             BuildStagePanel(flow, cameraGo.transform);
             // 开始 / 结束界面（docs/tasks/start-restart-screens.md）
             BuildFlowScreens(flow);

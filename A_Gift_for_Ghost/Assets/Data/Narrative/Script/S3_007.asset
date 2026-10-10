@@ -25,20 +25,20 @@ MonoBehaviour:
     speaker: 0
     channel: 1
     text: "\u8FD9\u4E9Bbugs\u4E00\u76F4\u90FD\u5B58\u5728\u3002"
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 4cf46000016450d43ba6ef86662ee6b7, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: S3_009
     speaker: 0
     channel: 1
     text: "\u53EA\u662F\u8FC7\u53BB\u6709agent\u66FF\u4F60\u770B\u3001\u66FF\u4F60\u5224\u65AD\uFF0C\u4F60\u4FBF\u6E10\u6E10\u4E0D\u518D\u7559\u610F\u3002"
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 9fedb52903240fa4e9d10a191dc12c22, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: S3_010
     speaker: 0
     channel: 1
     text: "\u73B0\u5728\uFF0C\u8BD5\u7740\u7528\u81EA\u5DF1\u7684\u773C\u775B\u770B\u4E00\u6B21\u3002"
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 654246dda250cde4382760c87b47633c, type: 3}
     durationOverride: 0
     pauseAfter: -1

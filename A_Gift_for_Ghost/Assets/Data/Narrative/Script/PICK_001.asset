@@ -18,27 +18,27 @@ MonoBehaviour:
     speaker: 3
     channel: 3
     text: "\u4E49\u4F53\u63A7\u5236\u6743\u9650\u5DF2\u88AB\u7528\u6237\u56DE\u6536\u3002"
-    clip: {fileID: 8300000, guid: 25b8f653d1508af46a57581b680c6383, type: 3}
+    clip: {fileID: 8300000, guid: 7ee0d8d0be9184a4f8cf0d4aedbe391e, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: PICK_002
     speaker: 3
     channel: 3
     text: "\u60A8\u5DF2\u9000\u51FA\u5168\u80FD\u4EE3\u7406\u6A21\u5F0F\u3002"
-    clip: {fileID: 8300000, guid: 37012476cbab8c945ac6fcf142f65241, type: 3}
+    clip: {fileID: 8300000, guid: 6dbf414651da63d4993ee63f7efa18b9, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: PICK_004
     speaker: 0
     channel: 1
     text: "\u4F60\u773C\u524D\u8FD9\u9897\u690D\u7269\u662F\u6211\u4EEC\u4E3A\u4F60\u690D\u5165\u7684\u201C\u540E\u95E8\u201D\uFF0C\u5176\u4E2D\u6709\u4E00\u9897\u662F\u9000\u51FAagent\u6DF1\u5EA6\u4EE3\u7406\u6A21\u5F0F\u7684\u201D\u786E\u8BA4\u94A5\u5319\u201C\u3002"
-    clip: {fileID: 8300000, guid: 79a1cd64efa6dfd4cbdec06464e8b10e, type: 3}
+    clip: {fileID: 8300000, guid: 6e5645666acd49f448439e7100542439, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: PICK_005
     speaker: 0
     channel: 1
     text: "\u53BB\u627E\u5230\u5C5E\u4E8E\u4F60\u7684\u90A3\u4E00\u9897\u80DC\u5229\u679C\u5B9E\u5427\u3002"
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 8bf001d84460c5e45aff7e5363be2333, type: 3}
     durationOverride: 0
     pauseAfter: -1
