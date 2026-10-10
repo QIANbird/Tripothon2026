@@ -15,6 +15,55 @@ namespace Ghost.Agent
         public static readonly Color PanelFill = new Color(0.96f, 0.96f, 0.97f, 0.94f);
         public static readonly Color PanelBorder = new Color(0.12f, 0.13f, 0.15f, 0.85f);
 
+        // ---- Agent 聊天气泡（docs/tasks/agent-chat-bubbles.md，配色来自 10-10 参考图）----
+        public static readonly Color ChatAvatar = Hex(0xE5FF71);                       // 头像圆底
+        public static readonly Color ChatIcon = new Color(0.04f, 0.04f, 0.05f);         // 头像图标
+        public static readonly Color ChatBubble = WithAlpha(Hex(0xD9D9D9), 0.88f);     // 聊天气泡（半透明灰）
+        public static readonly Color ChatText = new Color(0.10f, 0.11f, 0.12f);
+        public static readonly Color CautionHeader = Hex(0xC9DB85);                    // Caution 卡顶部条
+        public static readonly Color CautionBody = Hex(0xE9FF88);                      // Caution 卡底色
+
+        // 素材都是白色，Image.color 染色。缺图时退回直角纯色块（AgentChatArt 会自动生成）
+        public const string ChatArtFolder = "Assets/Art/UI/AgentChat";
+        public const string ChatRoundSprite = "bubble_round.png";
+        public const string ChatCircleSprite = "circle.png";
+        public const string ChatTailSprite = "bubble_tail.png";
+        public const string ChatHeaderSprite = "caution_header.png";
+        public const string ChatIconSprite = "icon_agent.png";
+
+        static Color Hex(int rgb) =>
+            new Color(((rgb >> 16) & 0xFF) / 255f, ((rgb >> 8) & 0xFF) / 255f, (rgb & 0xFF) / 255f);
+
+        static Color WithAlpha(Color c, float a) => new Color(c.r, c.g, c.b, a);
+
+        static bool warnedMissingArt;
+
+        // 构建界面时取素材（只在编辑器里能取到；运行时由组件上已序列化的引用提供）
+        public static Sprite LoadChatSprite(string file)
+        {
+#if UNITY_EDITOR
+            var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(ChatArtFolder + "/" + file);
+            if (sprite == null && !warnedMissingArt)
+            {
+                warnedMissingArt = true;
+                Debug.LogWarning($"[Agent] 缺少聊天气泡素材 {ChatArtFolder}/{file}，退回直角纯色块（菜单 Ghost/Agent/Generate Chat Bubble Art 可重新生成）");
+            }
+            return sprite;
+#else
+            return null;
+#endif
+        }
+
+        // 带素材的 Image：九宫格图用 Sliced；sprite 为空时就是纯色块
+        public static Image AddSprite(RectTransform rect, Sprite sprite, Color color, bool sliced = false)
+        {
+            var image = AddImage(rect, color);
+            image.sprite = sprite;
+            if (sprite != null && sliced) image.type = Image.Type.Sliced;
+            else image.preserveAspect = sprite != null;
+            return image;
+        }
+
         // World Space Canvas 的像素 → 米：1000 px = 1 m
         public const float CanvasScale = 0.001f;
 

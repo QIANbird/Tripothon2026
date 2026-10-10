@@ -30,14 +30,14 @@ MonoBehaviour:
     pauseAfter: -1
   - id: S3_003
     speaker: 3
-    channel: 2
+    channel: 3
     text: "RGB\u6A21\u5F0F\u5DF2\u6062\u590D\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: S3_004
     speaker: 3
-    channel: 2
+    channel: 3
     text: "\u7A7A\u95F4\u89C6\u89C9\u5DF2\u6062\u590D\u3002"
     clip: {fileID: 0}
     durationOverride: 0

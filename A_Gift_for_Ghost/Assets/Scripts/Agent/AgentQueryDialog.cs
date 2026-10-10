@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -19,20 +19,20 @@ namespace Ghost.Agent
         public Text yesLabel;
 
         [Header("文字")]
-        public string header = "AGENT · QUERY";
+        public string header = "Caution";
         public string yesText = "YES";
 
         [Header("尺寸（HUD 参考分辨率像素）")]
         public float width = 560f;
-        public float padding = 28f;
-        public float headerHeight = 40f;
-        public float buttonHeight = 64f;
+        public float padding = 24f;
+        public float headerHeight = 60f;
+        public float buttonHeight = 60f;
         public float buttonWidth = 180f;
         public float gap = 22f;
 
         [Header("颜色")]
         public Color buttonColor = AgentUIStyle.Ink;
-        public Color buttonHoverColor = AgentUIStyle.BlueGray;
+        public Color buttonHoverColor = new Color(0.30f, 0.32f, 0.36f);
         public Color buttonTextColor = new Color(0.96f, 0.96f, 0.97f);
 
         [Tooltip("显示后多少秒内不接受点击，防止上一关的点击误触")]
@@ -124,12 +124,12 @@ namespace Ghost.Agent
         {
             float inner = width - padding * 2f;
             var qRect = questionLabel.rectTransform;
-            qRect.anchoredPosition = new Vector2(padding, -padding - headerHeight);
+            qRect.anchoredPosition = new Vector2(padding, -headerHeight - padding * 0.75f);
             qRect.sizeDelta = new Vector2(inner, 10f);
             float qHeight = Mathf.Max(questionLabel.fontSize * 1.3f, questionLabel.preferredHeight);
             qRect.sizeDelta = new Vector2(inner, qHeight);
 
-            float height = padding + headerHeight + qHeight + gap + buttonHeight + padding;
+            float height = headerHeight + padding * 0.75f + qHeight + gap + buttonHeight + padding;
             panel.sizeDelta = new Vector2(width, height);
 
             var bRect = (RectTransform)yesButton.transform;

@@ -16,8 +16,8 @@ MonoBehaviour:
   lines:
   - id: S1_P02
     speaker: 3
-    channel: 2
-    text: "\u5916\u90E8\u8054\u7CFB{01-99}\uFF1A\u7B49\u5F85\u56DE\u5E94\n\u5EFA\u8BAE\u64CD\u4F5C\uFF1A\u81EA\u52A8\u56DE\u590D\n\u5173\u7CFB\u98CE\u9669\uFF1A\u4F4E"
+    channel: 0
+    text: "\u5355\u5143{01-99}\uFF1A\u4F20\u8F93\u5EF6\u8FDF\n\u5EFA\u8BAE\u64CD\u4F5C\uFF1A\u81EA\u52A8\u91CD\u65B0\u5206\u914D\n\u98CE\u9669\uFF1A\u4F4E"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

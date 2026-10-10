@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 
 namespace Ghost.Agent
@@ -103,11 +103,11 @@ namespace Ghost.Agent
             if (group != null) group.alpha = a;
         }
 
-        // 左上角；Agent 剧情弹窗可见时放到它下方
+        // 左上角；Agent 聊天栏里有消息时放到它下方（栏高度随消息变化，每帧跟随）
         void Place()
         {
             Vector2 pos = topLeft;
-            if (stackBelow != null && stackBelow.gameObject.activeInHierarchy)
+            if (stackBelow != null && stackBelow.gameObject.activeInHierarchy && stackBelow.rect.height > 0.5f)
                 pos.y = stackBelow.anchoredPosition.y - stackBelow.rect.height - stackGap;
             panel.anchoredPosition = pos;
         }

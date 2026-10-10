@@ -11,7 +11,7 @@
 | Interaction | `Scripts/Interaction` | `PointerInput`（交互发起方）、`DialogueAdvanceInput`（PC 端对白推进）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
 | Agent UI | `Scripts/Agent` | 任务面板、详情弹窗、Yes 询问框（HUD） |
 | Player | `Scripts/Player` | Pick 阶段的第一人称玩家：`FirstPersonMotor`（CharacterController 移动、转头、蹲下）、`PlayerRig`（开关玩家、接管 / 归还主相机）；`Player/PC/` 下是 PC 专用的 `PcCursorLock`、`PcCrosshair`、`PcControlsHint`（订阅 `PickStage.ControlsHintShown/Hidden` 显示键位提示） |
-| Narrative | `Scripts/Narrative` | 对白播放、字幕和 Agent 弹窗、黑屏、节点详情文本表 |
+| Narrative | `Scripts/Narrative` | 对白播放、字幕、Agent 聊天栏（`AgentChatFeed`）、黑屏、节点详情文本表 |
 
 ## Ownership of state
 
@@ -53,7 +53,8 @@
 | `FirstPersonMotor` | — | `PlaceAt(eyePos, viewRot, crouched)`、`IsCrouching`、`EyeHeight`、`Pitch` |
 | `NodeIssueSystem` | `IssueCreated`、`IssueAttempted(issue, solved)`、`IssueResolved` | `AddIssue(s)`、`GenerateRandom`、`TryAttempt(id)`、`Resolve`、`RemoveIssue`、`ClearAll`、`GetIssue/HasIssue`、`AllResolved`、`CountUnresolved`、`TotalAttempts` |
 | `DialoguePlayer` | `LineStarted`、`LineFinished`、`SequenceFinished`、`Stopped` | `Play/Enqueue(sequence, onComplete)`、`Skip`、`Stop`、`CurrentLine` |
-| `SubtitlePanel` | `AdvancedWhileIdle`（没有对白在播时被推进，开场"点击继续"用） | `Show(line)`、`Hide()`、`Pin(speaker, text)` / `Unpin()`（Agent 弹窗常驻消息，台词播完后回来；`ResetShared` 会 Unpin）、`Advance()`（打字中补全，否则 `DialoguePlayer.Skip`）；按 `Speaker` 分到 `Channel.Subtitle` / `AgentPopup` |
+| `SubtitlePanel` | `AdvancedWhileIdle`（没有对白在播时被推进，开场"点击继续"用） | `Show(line)`、`Hide()`、`Pin(speaker, text)` / `Unpin()`（聊天栏常驻消息）、`ClearAgentFeed()`（跳关立刻清空）、`Advance()`（打字中补全，否则 `DialoguePlayer.Skip`）；按 `Speaker` / `LineChannel` 分到字幕或 `AgentChatFeed`（`AgentPopup` 聊天气泡 / `AgentCaution` Caution 卡） |
+| `AgentChatFeed` | — | `Push(kind, text)`、`MarkFinished`、`CompleteReveal`、`Pin` / `Unpin`、`ClearImmediate`；最新消息在栏底，最上面那条播完 3 s 后淡出 |
 | `ScreenBlackout` | — | `SetImmediate(black)`、`FadeTo(black, fade)` |
 | `AgentQueryDialog` | `Answered(string)` | `Ask(question, onYes)`、`Hide`、`ConfirmYes` |
 | `AgentTaskPanel` | `TaskChanged(index, TaskState)` | `SetTasks/AddTask/UpdateTask`、`SetMetric`、`Show/Hide`（当前 `showTaskPanel = false`，不显示） |
@@ -69,7 +70,7 @@
 - **右键查看**：`InspectStart(id)` → `StageContext` 调当前 Stage 设置的 `InspectProvider` 取标题/正文（通常来自 `NodeDetailTable`，深度由 `DepthForStage` 决定）→ `NodeDetailPopup.Show` → 触发 `Inspected(id)`；`InspectEnd` → `Release`，2.5 s 后淡出。
 - **空白处拖动**：`DragEmpty(delta)` → `TargetRotator.AddRotation`（S3/S4 才 `Enable`）。
 - **推进对白**：`PointerInput.TapEmpty`（点空白处；点中节点不触发）或 Input Action `Advance`（空格 / 回车）→ `DialogueAdvanceInput` → `SubtitlePanel.Advance()`。
-- **换关**：`Stage.Completed`（需要时先 `AgentQueryDialog.Ask`，Yes 后再 `Complete`）→ `GameFlow.Next` → `Exit` 旧关 → `NodeMorpher.MorphTo(form)` → `MorphStarted` → `PlantFit.TransitionTo` → `Enter` 新关 → `StageContext.Play(开场对白)` → `DialoguePlayer.LineStarted` → `SubtitlePanel.Show`。
+- **换关**：`Stage.Completed`（需要时先 `AgentQueryDialog.Ask`，Yes 后再 `Complete`）→ `GameFlow.Next` → `Exit` 旧关 → `NodeMorpher.MorphTo(form)` → `MorphStarted` → `PlantFit.TransitionTo` → `Enter` 新关 → `StageContext.Play(开场对白)` → `DialoguePlayer.LineStarted` → `SubtitlePanel.Show`（字幕或 `AgentChatFeed.Push`）。
 - **S4 写实化**：每摘一只虫子 → Stage 设 `NodeMorpher.Realness` 提高一档；进入 `Real` 时 `RealModelHandoff` 写 `RealReveal`，节点缩没、写实模型显现。
 
 ## Interface stability

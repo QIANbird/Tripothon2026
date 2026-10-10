@@ -157,7 +157,7 @@ namespace Ghost.Stages
             if (detailPopup != null) detailPopup.Hide();
             if (query != null) query.Hide();
             if (dialogue != null) dialogue.Stop();
-            if (subtitles != null) subtitles.Unpin();
+            if (subtitles != null) subtitles.ClearAgentFeed();
             if (taskPanel != null)
             {
                 taskPanel.ClearTasks();

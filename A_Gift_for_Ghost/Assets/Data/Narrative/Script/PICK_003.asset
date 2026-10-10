@@ -16,7 +16,7 @@ MonoBehaviour:
   lines:
   - id: PICK_003
     speaker: 0
-    channel: 2
+    channel: 3
     text: "\u79FB\u52A8\uFF1AWASD    \u8E72\u4E0B/\u7AD9\u8D77\uFF1AC / Ctrl    \u6458\uFF1A\u5DE6\u952E   
       \u5403\uFF1AE"
     clip: {fileID: 0}

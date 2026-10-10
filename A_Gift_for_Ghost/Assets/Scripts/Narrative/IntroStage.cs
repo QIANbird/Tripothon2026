@@ -6,7 +6,7 @@ namespace Ghost.Narrative
     // 开场剧情：黑屏 + 语音字幕。台词表 INTRO 段分两段：
     //   sequence（INTRO_001–008）播完后停住，等玩家点击屏幕任意处（SubtitlePanel.AdvancedWhileIdle）；
     //   afterClickSequence（INTRO_009–011）播完自动 Complete() 进入教学。
-    // 按 N 跳关时 GameFlow 调 Exit()：停止对白、隐藏字幕、黑屏淡出。
+    // 按 N 跳关时 GameFlow 调 Exit()：停止对白、隐藏字幕、清空 Agent 聊天栏、黑屏淡出。
     public class IntroStage : Stage
     {
         public DialoguePlayer player;
@@ -42,6 +42,7 @@ namespace Ghost.Narrative
             waitingClick = false;
             if (subtitles != null) subtitles.AdvancedWhileIdle -= HandleIdleAdvance;
             if (player != null && (player.CurrentSequence == sequence || player.CurrentSequence == afterClickSequence)) player.Stop();
+            if (subtitles != null) subtitles.ClearAgentFeed();
             if (blackout != null) blackout.FadeTo(false, fadeOutTime);
             base.Exit();
         }

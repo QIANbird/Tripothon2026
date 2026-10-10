@@ -12,12 +12,15 @@ namespace Ghost.Narrative
         Agent,             // Agent（如 AI 询问的旁白）
     }
 
-    // 显示通道。Auto = 按说话人决定（SubtitlePanel.styles）；其他值强制走指定通道，署名仍按说话人
+    // 显示通道。Auto = 按说话人决定（SubtitlePanel.styles）；其他值强制走指定通道。
+    // AgentPopup = 聊天气泡（Agent弹窗_02）；AgentCaution = Caution 标签卡（Agent弹窗_01）。
+    // 枚举值只追加在末尾，已有资产的序列化值不变。
     public enum LineChannel
     {
         Auto,
         Subtitle,
         AgentPopup,
+        AgentCaution,
     }
 
     // 一句台词。策划在 DialogueSequence 资产的 Inspector 里填，或从台词表 CSV 导入

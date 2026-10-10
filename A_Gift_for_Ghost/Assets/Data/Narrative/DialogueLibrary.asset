@@ -115,12 +115,16 @@ MonoBehaviour:
     sequence: {fileID: 11400000, guid: ce5e9fc28cb32ae418a1077a1a3fc0fc, type: 2}
   - key: S4_005
     section: S4
-    trigger: "\u6458\u9664\u7B2C\u4E00\u4E2A\u866B\u5B50"
+    trigger: "\u6BCF\u6458\u9664\u4E00\u4E2A\u866B\u5B50"
     sequence: {fileID: 11400000, guid: dd5ff19c421a0e248833cee13184da2d, type: 2}
   - key: S4_006
     section: S4
     trigger: "\u6458\u9664\u5168\u90E8\u866B\u5B50"
     sequence: {fileID: 11400000, guid: 12d9986c157bc08449e2b62a64b30a4b, type: 2}
+  - key: S4_008
+    section: S4
+    trigger: "S4_007 \u64AD\u5B8C\uFF0C\u79BB\u5F00 S4 \u8FDB\u5165\u8FC7\u6E21"
+    sequence: {fileID: 11400000, guid: aa78d3f5dbdf5fb47bcde5684d758bec, type: 2}
   - key: PICK_001
     section: PICK
     trigger: "\u6BB5\u843D\u5F00\u59CB"

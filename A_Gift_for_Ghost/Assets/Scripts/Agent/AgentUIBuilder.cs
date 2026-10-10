@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem.UI;
 using UnityEngine.UI;
@@ -135,11 +135,11 @@ namespace Ghost.Agent
             return p;
         }
 
-        // Agent 剧情弹窗（NarrativeSceneBuilder 建的 DialogueHUD/AgentMessage）；详情和它同时出现时放在它下方
+        // Agent 聊天栏（NarrativeSceneBuilder 建的 DialogueHUD/AgentFeed）；详情放在栏里所有消息的下方
         static RectTransform FindAgentMessageRect()
         {
             var subtitle = Object.FindAnyObjectByType<Ghost.Narrative.SubtitlePanel>(FindObjectsInactive.Include);
-            return subtitle != null && subtitle.agentRoot != null ? subtitle.agentRoot.transform as RectTransform : null;
+            return subtitle != null && subtitle.agentFeed != null ? subtitle.agentFeed.feedRoot : null;
         }
 
         // ---- 询问框 ----
@@ -149,31 +149,40 @@ namespace Ghost.Agent
             var host = NewInactiveHost("AgentQueryDialog", parent);
             var q = host.AddComponent<AgentQueryDialog>();
 
-            // HUD 屏幕右侧中部。position 参数留给赛后的 World Space 版本
+            // HUD 屏幕右侧中部，Caution 卡样式（和聊天栏的 Agent弹窗_01 一致）+ YES。position 参数留给赛后的 World Space 版本
+            var round = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatRoundSprite);
+            var circle = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatCircleSprite);
+            var iconSprite = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatIconSprite);
+            var headerSprite = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatHeaderSprite);
             var canvas = AgentUIStyle.CreateHudCanvas("Canvas", host.transform, QuerySortingOrder);
             var panel = AgentUIStyle.CreateAnchored("Panel", canvas.transform, new Vector2(1f, 0.5f),
                 DefaultQueryOffset, new Vector2(q.width, 260f));
-            AgentUIStyle.AddFramedBackground(panel, AgentUIStyle.PanelFill, AgentUIStyle.PanelBorder, 3f);
+            AgentUIStyle.AddSprite(panel, round, AgentUIStyle.CautionBody, sliced: true);
 
-            var tick = AgentUIStyle.CreateRect("Tick", panel, new Vector2(q.padding, -q.padding - 9f), new Vector2(16f, 16f));
-            AgentUIStyle.AddImage(tick, AgentUIStyle.BlueGray);
-            var headerRect = AgentUIStyle.CreateRect("Header", panel, new Vector2(q.padding + 28f, -q.padding),
-                new Vector2(q.width - q.padding * 2f - 28f, 34f));
-            var header = AgentUIStyle.AddText(headerRect, q.header, 20, AgentUIStyle.Gray, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var headerBar = AgentUIStyle.CreateRect("HeaderBar", panel, Vector2.zero, new Vector2(q.width, q.headerHeight));
+            AgentUIStyle.AddSprite(headerBar, headerSprite != null ? headerSprite : round, AgentUIStyle.CautionHeader, sliced: true);
+            float a = q.headerHeight - 10f;
+            var avatar = AgentUIStyle.CreateRect("Avatar", headerBar, new Vector2(5f, -5f), new Vector2(a, a));
+            AgentUIStyle.AddSprite(avatar, circle, AgentUIStyle.ChatAvatar);
+            var icon = AgentUIStyle.CreateStretch("Icon", avatar, a * 0.22f);
+            AgentUIStyle.AddSprite(icon, iconSprite, AgentUIStyle.ChatIcon);
+            var headerRect = AgentUIStyle.CreateRect("Header", headerBar, new Vector2(a + 18f, 0f),
+                new Vector2(q.width - a - 36f, q.headerHeight));
+            var header = AgentUIStyle.AddText(headerRect, q.header, 24, AgentUIStyle.Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
 
             var questionRect = AgentUIStyle.CreateRect("Question", panel, Vector2.zero, new Vector2(100f, 60f));
-            var question = AgentUIStyle.AddText(questionRect, "", 30, AgentUIStyle.Ink, TextAnchor.UpperLeft);
+            var question = AgentUIStyle.AddText(questionRect, "", 28, AgentUIStyle.Ink, TextAnchor.UpperLeft);
             question.lineSpacing = 1.1f;
 
-            // Yes 按钮：深色块 + 反白字，UGUI Button（EventSystem 点击）
+            // Yes 按钮：深色圆角块 + 反白字，UGUI Button（EventSystem 点击）
             var buttonRect = AgentUIStyle.CreateRect("YesButton", panel, Vector2.zero, new Vector2(q.buttonWidth, q.buttonHeight));
-            var buttonImage = AgentUIStyle.AddImage(buttonRect, q.buttonColor);
+            var buttonImage = AgentUIStyle.AddSprite(buttonRect, round, q.buttonColor, sliced: true);
             buttonImage.raycastTarget = true;
             var button = buttonRect.gameObject.AddComponent<Button>();
             button.targetGraphic = buttonImage;
             button.transition = Selectable.Transition.None;
             var yesRect = AgentUIStyle.CreateStretch("Label", buttonRect);
-            var yes = AgentUIStyle.AddText(yesRect, q.yesText, 30, q.buttonTextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            var yes = AgentUIStyle.AddText(yesRect, q.yesText, 28, q.buttonTextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
 
             q.panel = panel;
             q.headerLabel = header;

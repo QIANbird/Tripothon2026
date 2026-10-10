@@ -16,7 +16,7 @@ MonoBehaviour:
   lines:
   - id: S1_005
     speaker: 3
-    channel: 2
+    channel: 3
     text: "\u662F\u5426\u8981\u8FDB\u4E00\u6B65\u67E5\u770B\u4FE1\u606F\uFF1F"
     clip: {fileID: 0}
     durationOverride: 0

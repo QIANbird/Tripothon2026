@@ -17,7 +17,7 @@ MonoBehaviour:
   - id: S4_005
     speaker: 3
     channel: 2
-    text: "\u6210\u529F\u53D1\u73B0\u5F02\u5E38\u76EE\u6807\uFF0C\u7CFB\u7EDF\u5C06\u8FDB\u4E00\u6B65\u6062\u590D\u7269\u7406\u89C6\u89C9\u91CD\u5EFA\u3002"
-    clip: {fileID: 0}
+    text: "\u6210\u529F\u53D1\u73B0\u5F02\u5E38\u76EE\u6807\uFF0C\u7CFB\u7EDF\u5C06\u8FDB\u4E00\u6B65\u6062\u590D\u7269\u7406\u89C6\u89C9\u91CD\u5EFA\u3002\n\u5F02\u5E38\u6E05\u9664\u8FDB\u5EA6\uFF1A{current}/{total}"
+    clip: {fileID: 8300000, guid: 205a8b7e1805a5a4c8fce03781b7dc3c, type: 3}
     durationOverride: 0
     pauseAfter: -1

@@ -11,9 +11,11 @@ namespace Ghost.Narrative.EditorTools
     //
     // 分段规则：触发条件是"上一句结束"或"<上一句ID> 之后 / 结束"的台词，接在上一句后面成为同一段；
     // 其他触发条件开始新的一段，段的 key 就是这一段第一句的 ID。文本为空的行（视频、演出）跳过，不打断分段。
-    // 通道：字幕 / Agent弹窗 → 强制该通道；其他（待确认、空）→ Auto，按说话人决定。
-    // 通道为"Agent询问"（带 Yes 的弹窗）或"操作提示"（左上角提示文字）的行不由 DialoguePlayer 播放：
-    // 每行单独成一段（key = 自己的 ID），阶段脚本读它的文本自己显示；这一行不打断前后台词的分段。
+    // 通道：字幕 → Subtitle；Agent弹窗 / Agent弹窗_02 → AgentPopup（聊天气泡）；
+    // Agent弹窗_01 → AgentCaution（Caution 标签卡）；其他（待确认、空）→ Auto，按说话人决定。
+    // 通道为"Agent询问"、以 "_query" 结尾（带 Yes 的弹窗）或"操作提示"（左上角提示文字）的行
+    // 不由 DialoguePlayer 播放：每行单独成一段（key = 自己的 ID），阶段脚本读它的文本自己显示；
+    // 这一行不打断前后台词的分段。
     //
     // 生成到 Assets/Data/Narrative/Script/，每段一个资产（文件名 = key）。重新导入时原地更新（GUID 不变），
     // 同一 ID 的台词保留已挂的配音和时长设置；表里删掉的段，对应资产一起删除。不改其他目录里手做的对白资产。
@@ -30,7 +32,9 @@ namespace Ghost.Narrative.EditorTools
             EditorApplication.delayCall += ImportIfChanged;
         }
 
-        static string PrefKey => "Ghost.DialogueCsv.LastImport." + Application.dataPath;
+        // 导入规则变了（例如新增通道）就把版本号加一，下次编辑器加载时强制重新导入一次
+        const int ImporterVersion = 2;
+        static string PrefKey => "Ghost.DialogueCsv.LastImport.v" + ImporterVersion + "." + Application.dataPath;
         static string FullPath() => Path.GetFullPath(Path.Combine(Application.dataPath, "..", CsvPath));
 
         static void ImportIfChanged()
@@ -98,7 +102,7 @@ namespace Ghost.Narrative.EditorTools
                 {
                     var cue = new Group { key = id, section = CsvUtil.Cell(row, iSection), trigger = trigger };
                     TryParseSpeaker(CsvUtil.Cell(row, iSpeaker), out Speaker cueSpeaker); // "—" 等无法识别时按默认处理，不报警告
-                    cue.lines.Add(new DialogueLine(cueSpeaker, text) { id = id, channel = LineChannel.AgentPopup });
+                    cue.lines.Add(new DialogueLine(cueSpeaker, text) { id = id, channel = LineChannel.AgentCaution });
                     groups.Add(cue);
                     lineCount++;
                     continue; // 不更新 current / prevId：下一句"上一句结束"仍接在前一段后面
@@ -198,14 +202,21 @@ namespace Ghost.Narrative.EditorTools
         }
 
         // 不进对白段、由阶段脚本单独显示的行
-        static bool IsCue(string channelCell) =>
-            channelCell == "Agent询问" || channelCell == "Agent 询问" || channelCell == "操作提示";
+        static bool IsCue(string channelCell)
+        {
+            if (string.IsNullOrEmpty(channelCell)) return false;
+            if (channelCell == "Agent询问" || channelCell == "Agent 询问" || channelCell == "操作提示")
+                return true;
+            return channelCell.EndsWith("_query");
+        }
 
         static LineChannel ParseChannel(string cell)
         {
             switch (cell)
             {
                 case "字幕": return LineChannel.Subtitle;
+                case "Agent弹窗_01": return LineChannel.AgentCaution;
+                case "Agent弹窗_02":
                 case "Agent弹窗":
                 case "Agent 弹窗": return LineChannel.AgentPopup;
                 default: return LineChannel.Auto; // 待确认 / 空

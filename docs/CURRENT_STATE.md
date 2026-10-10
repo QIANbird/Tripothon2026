@@ -18,9 +18,10 @@
 - S2：脉冲引路（`docs/tasks/S2_PULSE_ROUTE.md`）。脉冲源蓝色闪烁 + 外圈呼吸发光，段内节点外圈依次亮起并慢慢衰减（`NodeHaloRenderer`），每段最多 5 个节点；拖拽时一条蓝线连着最后连上的节点和指针；连线进关时是直角折线，每结束一次拖拽按连通比例往两点直连过渡，全部连通时变成树形直线（S3 变形从这里开始）；从脉冲源按住沿脉冲拖过这一段连上（线和节点变蓝，缺水恢复），终点成为下一个脉冲源，自动指向最近的缺水节点；中途松开不回退。彩椒上共 16 段。果实不在线路上；右键查看果实是通关条件之一。已通过 Play 验收（10-09）。
 - S3：拖空白处旋转网络，左键标记 3 个虫子节点，弹出 AI 询问，选 Yes 进下一关。
 - S4：旋转找叶背虫子并点击摘除（含虫子 FBX 实例），每摘一只写实度提高一档。
-- 对白分流：亲切的声音 = 底部字幕（浅色背景黑字、黑屏时白字）；没有温度的声音 = 左侧弹窗。
-- 台词表：`docs/script/02_dialogue.csv` 在编辑器里自动导入（也可用菜单 Ghost/Narrative/Import Dialogue CSV），生成 `Assets/Data/Narrative/Script/*.asset` 和 `DialogueLibrary.asset`；台词可以单独指定通道（字幕 / Agent 弹窗）；通道为 `Agent询问` / `操作提示` 的行单独成段，只取文本（Yes 询问框、Pick 左上角提示）。
+- 对白分流：亲切的声音 = 底部字幕（浅色背景黑字、黑屏时白字）；没有温度的声音 = 左侧聊天栏（`AgentChatFeed`）。`Agent弹窗_02` 是头像 + 半透明灰气泡，`Agent弹窗_01` 是 Caution 标签卡；不显示署名。新消息从底部滑入、向下堆叠，最上面那条播完 3 s 后淡出，同时最多 8 条。询问框（`Agent弹窗_01_query`）是 Caution 卡 + YES，单独在屏幕右侧，不进滚动栏。图标先用占位几何图形，可覆盖 `Assets/Art/UI/AgentChat/` 同名文件。见 `docs/tasks/agent-chat-bubbles.md`（10-10，**未经 Play 验收**，只做过编译检查）。改完后必须用菜单 Ghost → Core → Build Main Scene 重建场景。
+- 台词表：`docs/script/02_dialogue.csv` 在编辑器里自动导入（也可用菜单 Ghost/Narrative/Import Dialogue CSV），生成 `Assets/Data/Narrative/Script/*.asset` 和 `DialogueLibrary.asset`；台词可以单独指定通道（字幕 / `Agent弹窗_02` 聊天气泡 / `Agent弹窗_01` Caution 卡）；通道为 `Agent询问`、以 `_query` 结尾或 `操作提示` 的行单独成段，只取文本（Yes 询问框、Pick 左上角提示）。
 - 定稿台词已接入全流程（`docs/tasks/final-script-integration.md`，10-10，**未经 Play 验收**，只做过编译检查）：Intro 分两段，INTRO_008 后等一次点击；S1 进关台词、点方块随机池（S1_P*，只写植物部位状态、不点名，`{a-b}` 运行时换随机数）、通关台词 + 询问；S2 错误起点提示，缺水解决播 S2_006–007，看过果实后播 S2_008 直接进入 S3（没有询问）；S3 第一次标记台词、全部标记台词 + 询问（S3_011 全文）；S4 每摘一只虫子，Agent 弹窗固定显示 S4_005 + 进度 n/3（`SubtitlePanel.Pin`），摘完收起，播 S4_006–007 后进入 Transition；Pick 进关台词、PICK_002 后显示操作提示（`Player/PC/PcControlsHint`）、吃第一口台词。段 key 常量在 `StageAssets`。旧的 S2–S4 占位对白资产和 `Ensure*` 方法还在，但不再挂到场景。
+- 配音：`Assets/Audio/VO/` 下名为 `<台词ID>` 或 `VO_<台词ID>` 的音频自动挂到 `Script/` 里同 ID 台词的 `clip`（`VoiceClipBinder`，导入/替换音频时自动执行，也可用菜单 Ghost/Narrative/Bind Voice Clips）；导入设置强制单声道 + Vorbis。有 clip 的台词按音频时长播放。重新导入 CSV 会保留已挂的 clip。已放入 37 句人声（10-10，**未经编译和 Play 验收**）。音效 / BGM 还没有接入入口。
 - 对白推进：左键点空白处或按空格 / 回车，打字中先补全整句，再点进入下一句；点中节点时只算点节点（全黑屏时除外）。
 - PlantFit：相机固定（眼高 1.6 m、水平正视），按形态缩放、居中植株。
 - Pick：进关时 PlayerRig 接管主相机（画面不跳），光标锁定，屏幕中心准星；WASD 约 2 m/s，鼠标转头（俯仰 -75°…70°），C / 左 Ctrl 切换蹲下（眼高 1.6 → 1.0 m）。植株按真实尺寸（约 0.7 m 高）固定在前方 2.5 m 的矮台上，不能转；有地面、四面不可见边界和植株挡板。离开时相机回固定机位、光标解锁、PlantFit 恢复适配。

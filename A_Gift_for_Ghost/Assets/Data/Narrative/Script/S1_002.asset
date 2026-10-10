@@ -16,7 +16,7 @@ MonoBehaviour:
   lines:
   - id: S1_002
     speaker: 3
-    channel: 2
+    channel: 0
     text: "\u6838\u5FC3\u9879\u76EE\uFF1A\u672C\u5468\u671F\u8FDB\u5EA6\u843D\u540E\n\u5EFA\u8BAE\u64CD\u4F5C\uFF1A\u63D0\u9AD8\u6267\u884C\u5F3A\u5EA6"
     clip: {fileID: 0}
     durationOverride: 0
@@ -25,13 +25,13 @@ MonoBehaviour:
     speaker: 0
     channel: 1
     text: "\u770B\u8D77\u6765\u4F60\u5DF2\u7ECF\u6062\u590D\u4E86\u6700\u57FA\u672C\u7684\u4FE1\u606F\u5904\u7406\u80FD\u529B\uFF0C\u5E76\u4E14\u9010\u6E10\u5F00\u59CB\u5BF9\u8FD9\u4E9B\u6CA1\u5934\u6CA1\u5C3E\u7684\u79BB\u6563\u4FE1\u606F\u611F\u5230\u56F0\u60D1\u3002"
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: 37bff809d21c69248ae8ee9dd50fa319, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: S1_004
     speaker: 0
     channel: 1
     text: "\u73B0\u5728\u6211\u4EEC\u5C06\u5F00\u59CB\u91CD\u5EFA\u4FE1\u606F\u8282\u70B9\u4E4B\u95F4\u7684\u8BED\u4E49\u5173\u7CFB\u4E0E\u6982\u5FF5\u5730\u56FE\u3002"
-    clip: {fileID: 0}
+    clip: {fileID: 8300000, guid: e76d0021fe806ec4e966d908ae8b9524, type: 3}
     durationOverride: 0
     pauseAfter: -1

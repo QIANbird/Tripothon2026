@@ -1,4 +1,5 @@
 ﻿using Ghost.Agent;
+using Ghost.Agent.EditorTools;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -55,7 +56,7 @@ namespace Ghost.Narrative.EditorTools
 
         // 【技术债】比赛期间改为 Screen Space Overlay HUD（1920×1080 参考），赛后改回 World Space（docs/VR_GUIDELINES.md 第 5 节）。
         // 字幕：屏幕下方居中，一行小字（30 px），宽 1400 px，长句折两行；没有深色底板。
-        // Agent 弹窗：屏幕左上角，带浅色底板（黑屏时也清楚），署名 + 正文
+        // Agent 聊天栏：屏幕左上角，聊天气泡 / Caution 卡向下堆叠（docs/tasks/agent-chat-bubbles.md）
         static SubtitlePanel BuildSubtitlePanel(DialoguePlayer player)
         {
             var canvas = AgentUIStyle.CreateHudCanvas("DialogueHUD", null, DialogueSortingOrder);
@@ -81,41 +82,24 @@ namespace Ghost.Narrative.EditorTools
             body.alignment = TextAnchor.UpperCenter;
             body.lineSpacing = 1.05f;
 
-            // ---- Agent 弹窗 ----
+            // ---- Agent 聊天栏（左上锚定，消息向下堆叠，AgentChatFeed）----
             float w = AgentUIStyle.HudLeftColumnWidth, m = AgentUIStyle.HudMargin;
-            var agentRoot = AgentUIStyle.CreateAnchored("AgentMessage", canvasRect, new Vector2(0f, 1f),
-                new Vector2(m, -m), new Vector2(w, 140f));
-            AgentUIStyle.AddFramedBackground(agentRoot, AgentUIStyle.PanelFill, AgentUIStyle.PanelBorder, 2f);
-            var tick = AgentUIStyle.CreateRect("Tick", agentRoot, new Vector2(20f, -24f), new Vector2(12f, 12f));
-            AgentUIStyle.AddImage(tick, AgentUIStyle.BlueGray).raycastTarget = false;
-            var agentName = MakeText(agentRoot, "Speaker", 22, FontStyle.Bold);
-            var anRect = agentName.rectTransform;
-            anRect.anchorMin = new Vector2(0f, 1f);
-            anRect.anchorMax = new Vector2(1f, 1f);
-            anRect.pivot = new Vector2(0f, 1f);
-            anRect.anchoredPosition = new Vector2(42f, -14f);
-            anRect.sizeDelta = new Vector2(-62f, 32f);
-            agentName.color = AgentUIStyle.Gray;
-            agentName.alignment = TextAnchor.MiddleLeft;
-            var agentText = MakeText(agentRoot, "Text", 28, FontStyle.Normal);
-            var atRect = agentText.rectTransform;
-            Stretch(atRect);
-            atRect.offsetMin = new Vector2(20f, 20f);
-            atRect.offsetMax = new Vector2(-20f, -56f);
-            agentText.color = AgentUIStyle.Ink;
-            agentText.lineSpacing = 1.1f;
+            var feedRoot = AgentUIStyle.CreateAnchored("AgentFeed", canvasRect, new Vector2(0f, 1f),
+                new Vector2(m, -m), new Vector2(w, 0f));
+            var feed = feedRoot.gameObject.AddComponent<AgentChatFeed>();
+            feed.feedRoot = feedRoot;
+            feed.itemParent = feedRoot;
+            feed.width = w;
+            AgentChatArtLoader.Assign(feed);
 
             var panel = canvas.gameObject.AddComponent<SubtitlePanel>();
             panel.player = player;
             panel.root = subRoot.gameObject;
             panel.speakerLabel = speaker;
             panel.textLabel = body;
-            panel.agentRoot = agentRoot.gameObject;
-            panel.agentSpeakerLabel = agentName;
-            panel.agentTextLabel = agentText;
+            panel.agentFeed = feed;
             panel.blackout = Object.FindAnyObjectByType<ScreenBlackout>();
             subRoot.gameObject.SetActive(false);
-            agentRoot.gameObject.SetActive(false);
             return panel;
         }
 
