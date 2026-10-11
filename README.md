@@ -17,7 +17,7 @@
 
 <!-- TODO：上传后把下面两项换成链接，例如 [▶ 演示视频](https://...) · [⬇ 下载 Windows 版](https://github.com/QIANbird/Tripothon2026/releases) -->
 
-▶ 演示视频（待上传） · ⬇ Windows 版（待发布） · [🛠 从源码运行](#-从源码运行)
+▶ 演示视频（[待上传](https://youtu.be/a36yJ9647o8)） · ⬇ Windows 版（待发布） · [🛠 从源码运行](#-从源码运行)
 
 </div>
 
