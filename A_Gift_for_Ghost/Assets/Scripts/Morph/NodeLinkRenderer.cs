@@ -45,6 +45,9 @@ namespace Ghost.Morph
         Color[] overrideColors;
         float[] overrideTarget;
         float[] overrideWeight;
+        Color[] pulseColors;
+        float[] pulseStarts;
+        float[] pulseDurations;
 
         void Start()
         {
@@ -71,6 +74,10 @@ namespace Ghost.Morph
             overrideColors = new Color[linkChildren.Count];
             overrideTarget = new float[linkChildren.Count];
             overrideWeight = new float[linkChildren.Count];
+            pulseColors = new Color[linkChildren.Count];
+            pulseStarts = new float[linkChildren.Count];
+            pulseDurations = new float[linkChildren.Count];
+            ClearAllLinkPulses();
 
             int vertexCount = linkChildren.Count * 4;
             vertices = new Vector3[vertexCount];
@@ -111,8 +118,8 @@ namespace Ghost.Morph
                 float alpha = Mathf.Min(pa.y, pb.y);
                 if (overrideWeight[i] > 0f) alpha = Mathf.Lerp(alpha, Mathf.Max(alpha, overrideMinAlpha), overrideWeight[i]);
                 // 两端节点被隐藏或缩没时连线一起淡出
-                alpha *= Mathf.Min(morpher.GetNodeVisibility(parent), morpher.GetNodeVisibility(child));
-                maxAlpha = Mathf.Max(maxAlpha, alpha);
+                float visibility = Mathf.Min(morpher.GetNodeVisibility(parent), morpher.GetNodeVisibility(child));
+                alpha *= visibility;
 
                 // 直角折线：先水平走到子节点的 x，再竖直走到子节点；直线时拐点在中点
                 Vector3 corner = Vector3.Lerp((a + b) * 0.5f, new Vector3(b.x, a.y, (a.z + b.z) * 0.5f), elbow);
@@ -124,7 +131,15 @@ namespace Ghost.Morph
                 vertices[v + 3] = b;
                 var color = OrganPalette.LinkColor;
                 if (overrideWeight[i] > 0f) color = Color.Lerp(color, overrideColors[i], overrideWeight[i]);
+                float pulse = PulseWeight(i);
+                if (pulse > 0f)
+                {
+                    Color pulseColor = pulseColors[i];
+                    color = Color.Lerp(color, pulseColor, pulse);
+                    alpha = Mathf.Max(alpha, pulseColor.a * visibility * pulse);
+                }
                 color.a = alpha;
+                maxAlpha = Mathf.Max(maxAlpha, alpha);
                 colors[v] = colors[v + 1] = colors[v + 2] = colors[v + 3] = color;
             }
 
@@ -188,9 +203,46 @@ namespace Ghost.Morph
             for (int i = 0; i < overrideTarget.Length; i++) overrideTarget[i] = 0f;
         }
 
+        public void PulseLink(int childId, Color color, float duration)
+        {
+            if (!HasLink(childId) || pulseStarts == null) return;
+            int i = linkIndexOf[childId];
+            pulseColors[i] = color;
+            pulseStarts[i] = Time.time;
+            pulseDurations[i] = Mathf.Max(0.01f, duration);
+        }
+
+        public bool PulseLink(int a, int b, Color color, float duration)
+        {
+            int child = FindLink(a, b);
+            if (child < 0) return false;
+            PulseLink(child, color, duration);
+            return true;
+        }
+
+        public void ClearAllLinkPulses()
+        {
+            if (pulseStarts == null) return;
+            for (int i = 0; i < pulseStarts.Length; i++)
+            {
+                pulseStarts[i] = -1f;
+                pulseDurations[i] = 0f;
+                pulseColors[i] = Color.clear;
+            }
+        }
+
         public bool IsLinkColored(int childId)
         {
             return HasLink(childId) && overrideTarget[linkIndexOf[childId]] > 0f;
+        }
+
+        float PulseWeight(int linkIndex)
+        {
+            if (pulseStarts == null || linkIndex < 0 || linkIndex >= pulseStarts.Length || pulseStarts[linkIndex] < 0f) return 0f;
+            float t = Mathf.Clamp01((Time.time - pulseStarts[linkIndex]) / Mathf.Max(0.01f, pulseDurations[linkIndex]));
+            if (t >= 1f) return 0f;
+            float fade = 1f - t;
+            return fade * fade;
         }
 
         void OnDestroy()

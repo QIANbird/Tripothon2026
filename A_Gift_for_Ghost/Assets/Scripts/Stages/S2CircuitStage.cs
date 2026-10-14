@@ -74,6 +74,8 @@ namespace Ghost.Stages
         public float hintDuration = 1.2f;
         [Tooltip("脉冲外发光的颜色")]
         public Color pulseColor = new Color(0.35f, 0.7f, 1f, 0.85f);
+        [Tooltip("脉冲经过连线时的亮色，用来提示下一步连接方向")]
+        public Color linkPulseColor = new Color(0.42f, 0.9f, 1f, 0.95f);
         [Tooltip("果实被经过后仍异常：改用这个颜色快速闪烁（线路上正常不会经过果实）")]
         public Color fruitAbnormalColor = new Color(1f, 0.45f, 0.15f);
         public float fruitAbnormalBlinkFrequency = 3f;
@@ -161,7 +163,11 @@ namespace Ghost.Stages
                 return;
             }
             ctx.ResetShared();
-            if (ctx.links != null) ctx.links.ClearAllLinkColors();
+            if (ctx.links != null)
+            {
+                ctx.links.ClearAllLinkColors();
+                ctx.links.ClearAllLinkPulses();
+            }
             tracing = false;
             viewedFruit = waterSolved = finishing = waterLinesDone = false;
             passedFruit.Clear();
@@ -230,6 +236,7 @@ namespace Ghost.Stages
                     // 不在这里恢复：通关时连线已是直线，S3 的变形从直线开始；变形结束后再恢复原值（见 RestoreElbowAfterMorph）
                     if (savedLinkElbow >= 0f && ctx.morpher != null) ctx.morpher.MorphCompleted += RestoreElbowAfterMorph;
                     else if (savedLinkElbow >= 0f) ctx.links.SetElbowScale(savedLinkElbow, immediate: true);
+                    ctx.links.ClearAllLinkPulses();
                 }
                 if (halos != null) halos.ClearAll();
                 // 脉冲源的闪烁和果实的"仍异常"闪烁不归问题系统管，这里一并恢复
@@ -445,6 +452,8 @@ namespace Ghost.Stages
             if (pulseIndex < segment.Count)
             {
                 halos.Flash(segment[pulseIndex], pulseColor, pulseHalfLife);
+                if (ctx.links != null && pulseIndex > 0)
+                    ctx.links.PulseLink(segment[pulseIndex - 1], segment[pulseIndex], linkPulseColor, pulseHalfLife);
                 pulseIndex++;
                 nextPulseAt = Time.time + pulseStep;
             }
