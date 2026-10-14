@@ -1,0 +1,757 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VR Hand Interaction Logic Prototype</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #101318;
+      --panel: #171d24;
+      --panel-2: #202832;
+      --line: #344150;
+      --text: #eef4f8;
+      --muted: #9fb0bd;
+      --blue: #4aa4ff;
+      --cyan: #61e4ff;
+      --green: #60e28b;
+      --amber: #ffbe58;
+      --red: #ff6b73;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      min-height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Inter, "Segoe UI", "Microsoft YaHei", Arial, sans-serif;
+      letter-spacing: 0;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      padding: 18px 24px 14px;
+      background: #121820;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      font-weight: 680;
+    }
+
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 980px;
+    }
+
+    main {
+      display: grid;
+      grid-template-columns: minmax(520px, 1fr) 360px;
+      gap: 16px;
+      padding: 16px;
+      min-height: 0;
+      flex: 1;
+    }
+
+    .stage {
+      min-height: 560px;
+      border: 1px solid var(--line);
+      background: #0c1015;
+      position: relative;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 560px;
+    }
+
+    .hud {
+      position: absolute;
+      left: 16px;
+      top: 16px;
+      display: grid;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .label {
+      display: inline-flex;
+      align-items: center;
+      width: max-content;
+      min-height: 30px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(10, 14, 19, 0.72);
+      padding: 5px 9px;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    aside {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    section {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 14px;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 15px;
+      font-weight: 650;
+    }
+
+    .segmented {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    button,
+    .toggle {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      color: var(--text);
+      min-height: 36px;
+      padding: 7px 10px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    button:hover,
+    .toggle:hover {
+      border-color: #557087;
+    }
+
+    button.active {
+      border-color: var(--cyan);
+      background: #173141;
+      color: #e9fbff;
+    }
+
+    .toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      user-select: none;
+    }
+
+    .toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--cyan);
+    }
+
+    .row {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .meter {
+      height: 8px;
+      background: #0b1117;
+      border: 1px solid #273442;
+      overflow: hidden;
+    }
+
+    .meter > div {
+      height: 100%;
+      width: 0;
+      background: linear-gradient(90deg, var(--blue), var(--green));
+      transition: width 160ms linear;
+    }
+
+    .readout {
+      display: grid;
+      gap: 8px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .readout strong {
+      color: var(--text);
+      font-weight: 650;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .swatch {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      margin-right: 6px;
+      vertical-align: -1px;
+      border: 1px solid rgba(255,255,255,0.25);
+    }
+
+    kbd {
+      display: inline-block;
+      min-width: 22px;
+      border: 1px solid #445363;
+      background: #101720;
+      color: var(--text);
+      padding: 1px 5px;
+      font: 12px Consolas, monospace;
+      text-align: center;
+    }
+
+    footer {
+      border-top: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      padding: 10px 16px 14px;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .stage,
+      canvas {
+        min-height: 420px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>VR 手部交互逻辑模拟</h1>
+    <p>演示从默认 ray 到 S2 导水器、S3 镊子 / 半手指、S4 半透明手的过渡，以及 Grasp + Actuate 组合抓虫的状态变化。</p>
+  </header>
+
+  <main>
+    <div class="stage">
+      <canvas id="sim" width="1120" height="720" aria-label="hand interaction simulation"></canvas>
+      <div class="hud">
+        <div class="label" id="modeLabel">S1 · RayOnly</div>
+        <div class="label" id="stateLabel">Idle</div>
+      </div>
+    </div>
+
+    <aside>
+      <section>
+        <h2>阶段</h2>
+        <div class="segmented" id="stageButtons">
+          <button data-stage="s1" class="active">S1 Ray</button>
+          <button data-stage="s2">S2 导水器</button>
+          <button data-stage="s3a">S3 镊子</button>
+          <button data-stage="s3b">S3 半手指</button>
+          <button data-stage="s4">S4 虚拟手</button>
+          <button data-stage="pick">Pick 稳定手</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>输入</h2>
+        <label class="toggle">
+          <span>瞄准目标</span>
+          <input id="aimBug" type="checkbox" checked>
+        </label>
+        <label class="toggle">
+          <span>Grasp 按住</span>
+          <input id="grasp" type="checkbox">
+        </label>
+        <label class="toggle">
+          <span>Actuate 执行</span>
+          <input id="actuate" type="checkbox">
+        </label>
+        <div class="row">
+          <button id="attempt">执行一次抓取</button>
+          <button id="resetBug">重置 bug</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>状态</h2>
+        <div class="readout">
+          <div>视觉模式：<strong id="visualMode">RayOnly</strong></div>
+          <div>交互状态：<strong id="interactionState">Idle</strong></div>
+          <div>判定结果：<strong id="resultText">等待输入</strong></div>
+          <div>手部清晰度</div>
+          <div class="meter"><div id="clarityMeter"></div></div>
+          <div>抖动强度</div>
+          <div class="meter"><div id="tremorMeter"></div></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>图例</h2>
+        <div class="legend">
+          <div><span class="swatch" style="background: var(--cyan)"></span>ray / 水线</div>
+          <div><span class="swatch" style="background: var(--green)"></span>叶片侧反馈</div>
+          <div><span class="swatch" style="background: var(--blue)"></span>根系侧反馈</div>
+          <div><span class="swatch" style="background: var(--red)"></span>bug / 失败</div>
+        </div>
+      </section>
+
+      <section>
+        <h2>快捷键</h2>
+        <div class="readout">
+          <div><kbd>1</kbd>-<kbd>6</kbd> 切换阶段</div>
+          <div><kbd>G</kbd> 切换 Grasp</div>
+          <div><kbd>Space</kbd> 执行 Actuate</div>
+          <div><kbd>A</kbd> 切换是否瞄准 bug</div>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <footer>
+    Standalone HTML prototype. It does not require Unity or network access.
+  </footer>
+
+  <script>
+    const canvas = document.getElementById('sim');
+    const ctx = canvas.getContext('2d');
+    const stageButtons = document.getElementById('stageButtons');
+    const aimBugInput = document.getElementById('aimBug');
+    const graspInput = document.getElementById('grasp');
+    const actuateInput = document.getElementById('actuate');
+    const attemptButton = document.getElementById('attempt');
+    const resetBugButton = document.getElementById('resetBug');
+    const modeLabel = document.getElementById('modeLabel');
+    const stateLabel = document.getElementById('stateLabel');
+    const visualMode = document.getElementById('visualMode');
+    const interactionState = document.getElementById('interactionState');
+    const resultText = document.getElementById('resultText');
+    const clarityMeter = document.getElementById('clarityMeter');
+    const tremorMeter = document.getElementById('tremorMeter');
+
+    const stages = {
+      s1: { name: 'S1 · RayOnly', mode: 'RayOnly', clarity: 0.08, tremor: 0.05 },
+      s2: { name: 'S2 · WaterConduit', mode: 'WaterConduit', clarity: 0.22, tremor: 0.12 },
+      s3a: { name: 'S3 · Tweezer', mode: 'Tweezer', clarity: 0.42, tremor: 0.52 },
+      s3b: { name: 'S3 · ProtoFinger', mode: 'ProtoFinger', clarity: 0.62, tremor: 0.34 },
+      s4: { name: 'S4 · GhostHand', mode: 'GhostHand', clarity: 0.82, tremor: 0.18 },
+      pick: { name: 'Pick · BodyHand', mode: 'StableHand', clarity: 1, tremor: 0.06 }
+    };
+
+    const app = {
+      stage: 's1',
+      bugAlive: true,
+      result: '等待输入',
+      feedbackUntil: 0,
+      feedbackKind: 'none',
+      lastAttempt: 0,
+      pulse: 0
+    };
+
+    function setStage(id) {
+      app.stage = id;
+      for (const button of stageButtons.querySelectorAll('button')) {
+        button.classList.toggle('active', button.dataset.stage === id);
+      }
+      app.result = '等待输入';
+      app.feedbackKind = 'none';
+      app.feedbackUntil = 0;
+      updateReadout();
+    }
+
+    function stateName() {
+      const stage = stages[app.stage];
+      if (stage.mode === 'RayOnly') return aimBugInput.checked ? 'AimingTarget' : 'Idle';
+      if (stage.mode === 'WaterConduit') {
+        if (graspInput.checked || actuateInput.checked) return aimBugInput.checked ? 'WaterLinking' : 'WrongNodeFeedback';
+        return aimBugInput.checked ? 'AimingWaterNode' : 'Idle';
+      }
+      if (!app.bugAlive) return 'BugRemoved';
+      if (actuateInput.checked && graspInput.checked) return aimBugInput.checked ? 'PinchSuccess' : 'PinchFail';
+      if (graspInput.checked) return aimBugInput.checked ? 'GraspHeldLocked' : 'GraspHeldSearching';
+      return aimBugInput.checked ? 'AimingBug' : 'Idle';
+    }
+
+    function attemptGrab() {
+      const mode = stages[app.stage].mode;
+      app.lastAttempt = performance.now();
+      actuateInput.checked = true;
+      window.setTimeout(() => { actuateInput.checked = false; updateReadout(); }, 180);
+
+      if (mode === 'RayOnly') {
+        app.result = 'S1 只做远程授权，不执行抓取';
+        app.feedbackKind = 'neutral';
+      } else if (mode === 'WaterConduit') {
+        app.result = aimBugInput.checked ? '导水接通：播放短促充水反馈' : '接到错误节点：播放低沉沙沙声';
+        app.feedbackKind = aimBugInput.checked ? 'water' : 'fail';
+      } else if (graspInput.checked && aimBugInput.checked && app.bugAlive) {
+        app.result = '抓取成功：bug 被移除，指尖短亮';
+        app.feedbackKind = 'success';
+        app.bugAlive = false;
+      } else if (!graspInput.checked) {
+        app.result = '需要先按住 Grasp，再执行 Actuate';
+        app.feedbackKind = 'fail';
+      } else {
+        app.result = '抓取失败：未对准有效 bug';
+        app.feedbackKind = 'fail';
+      }
+      app.feedbackUntil = performance.now() + 650;
+      updateReadout();
+    }
+
+    function resetBug() {
+      app.bugAlive = true;
+      app.result = 'bug 已重置';
+      app.feedbackKind = 'neutral';
+      app.feedbackUntil = performance.now() + 450;
+      updateReadout();
+    }
+
+    function updateReadout() {
+      const stage = stages[app.stage];
+      const state = stateName();
+      modeLabel.textContent = stage.name;
+      stateLabel.textContent = state;
+      visualMode.textContent = stage.mode;
+      interactionState.textContent = state;
+      resultText.textContent = app.result;
+      clarityMeter.style.width = `${stage.clarity * 100}%`;
+      const tremor = tremorAmount(stage);
+      tremorMeter.style.width = `${Math.min(1, tremor) * 100}%`;
+    }
+
+    function tremorAmount(stage) {
+      let value = stage.tremor;
+      if (graspInput.checked) value *= aimBugInput.checked ? 0.55 : 1.35;
+      if (performance.now() < app.feedbackUntil && app.feedbackKind === 'fail') value = Math.max(value, 0.9);
+      return value;
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.max(800, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(420, Math.floor(rect.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function draw() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      const now = performance.now();
+      const t = now * 0.001;
+      const stage = stages[app.stage];
+      const mode = stage.mode;
+      const feedbackActive = now < app.feedbackUntil;
+      const state = stateName();
+
+      ctx.clearRect(0, 0, w, h);
+      drawGrid(w, h);
+      drawPlant(w, h, t);
+
+      const origin = { x: w * 0.17, y: h * 0.78 };
+      const target = aimBugInput.checked ? { x: w * 0.68, y: h * 0.42 } : { x: w * 0.55, y: h * 0.61 };
+      const tremor = tremorVector(stage, t, feedbackActive && app.feedbackKind === 'fail');
+      const tip = { x: target.x + tremor.x, y: target.y + tremor.y };
+
+      drawRay(origin, tip, mode);
+      if (mode === 'WaterConduit') drawWaterConduit(origin, tip, target, feedbackActive);
+      if (mode === 'Tweezer') drawTweezer(tip, target, state, feedbackActive);
+      if (mode === 'ProtoFinger') drawProtoFinger(tip, target, state, feedbackActive);
+      if (mode === 'GhostHand' || mode === 'StableHand') drawGhostHand(tip, target, state, feedbackActive, mode === 'StableHand');
+      if (mode === 'RayOnly') drawReticle(tip, '#61e4ff', 1);
+
+      drawBug(w, h, feedbackActive);
+      drawStateOverlay(w, h, state, feedbackActive);
+      updateReadout();
+      requestAnimationFrame(draw);
+    }
+
+    function drawGrid(w, h) {
+      ctx.fillStyle = '#0c1015';
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.055)';
+      ctx.lineWidth = 1;
+      const step = 42;
+      for (let x = 0; x < w; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawPlant(w, h, t) {
+      const root = { x: w * 0.48, y: h * 0.74 };
+      const nodes = [
+        root,
+        { x: w * 0.51, y: h * 0.62 },
+        { x: w * 0.55, y: h * 0.51 },
+        { x: w * 0.64, y: h * 0.43 },
+        { x: w * 0.72, y: h * 0.35 },
+        { x: w * 0.43, y: h * 0.53 },
+        { x: w * 0.34, y: h * 0.45 },
+        { x: w * 0.58, y: h * 0.32 }
+      ];
+      const links = [[0,1],[1,2],[2,3],[3,4],[2,5],[5,6],[3,7]];
+      ctx.lineWidth = 3;
+      for (const [a, b] of links) {
+        const pulse = Math.max(0, Math.sin(t * 3.2 - b * 0.5));
+        ctx.strokeStyle = `rgba(74,164,255,${0.18 + pulse * 0.18})`;
+        ctx.beginPath();
+        ctx.moveTo(nodes[a].x, nodes[a].y);
+        ctx.lineTo(nodes[b].x, nodes[b].y);
+        ctx.stroke();
+      }
+      nodes.forEach((node, i) => {
+        const leafness = i >= 3 ? 1 : i <= 1 ? 0 : 0.5;
+        const color = mixColor([74, 164, 255], [96, 226, 139], leafness);
+        ctx.fillStyle = `rgba(${color[0]},${color[1]},${color[2]},${i === 0 ? 0.9 : 0.72})`;
+        ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, i === 0 ? 9 : 7, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      });
+    }
+
+    function drawBug(w, h, feedbackActive) {
+      const bug = { x: w * 0.68, y: h * 0.42 };
+      if (!app.bugAlive) {
+        ctx.strokeStyle = 'rgba(96,226,139,0.65)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(bug.x, bug.y, 18, 0, Math.PI * 2);
+        ctx.stroke();
+        drawText('removed', bug.x + 22, bug.y + 4, '#9fb0bd');
+        return;
+      }
+      const pulse = feedbackActive && app.feedbackKind === 'success' ? 1 : 0;
+      ctx.fillStyle = pulse ? '#60e28b' : '#ff6b73';
+      ctx.strokeStyle = '#ffe0e3';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(bug.x, bug.y, 12, 8, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.strokeStyle = 'rgba(255,107,115,0.65)';
+      ctx.beginPath();
+      ctx.moveTo(bug.x - 16, bug.y - 8);
+      ctx.lineTo(bug.x - 26, bug.y - 15);
+      ctx.moveTo(bug.x - 14, bug.y + 4);
+      ctx.lineTo(bug.x - 25, bug.y + 10);
+      ctx.moveTo(bug.x + 16, bug.y - 6);
+      ctx.lineTo(bug.x + 27, bug.y - 12);
+      ctx.moveTo(bug.x + 14, bug.y + 5);
+      ctx.lineTo(bug.x + 25, bug.y + 12);
+      ctx.stroke();
+    }
+
+    function drawRay(origin, tip, mode) {
+      const color = mode === 'WaterConduit' ? 'rgba(97,228,255,0.82)' : 'rgba(158,190,220,0.72)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = mode === 'RayOnly' ? 1.5 : 2;
+      ctx.beginPath();
+      ctx.moveTo(origin.x, origin.y);
+      ctx.lineTo(tip.x, tip.y);
+      ctx.stroke();
+      ctx.fillStyle = '#202832';
+      ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+      ctx.lineWidth = 2;
+      roundedRect(origin.x - 24, origin.y - 14, 48, 28, 4, true, true);
+      drawText('controller', origin.x - 32, origin.y + 34, '#9fb0bd');
+    }
+
+    function drawWaterConduit(origin, tip, target, feedbackActive) {
+      const active = graspInput.checked || actuateInput.checked || feedbackActive;
+      ctx.save();
+      ctx.translate(tip.x, tip.y);
+      const angle = Math.atan2(tip.y - origin.y, tip.x - origin.x);
+      ctx.rotate(angle);
+      ctx.fillStyle = active ? '#61e4ff' : '#2e5866';
+      ctx.strokeStyle = 'rgba(233,251,255,0.65)';
+      ctx.lineWidth = 1.5;
+      roundedRect(-8, -8, 28, 16, 3, true, true);
+      ctx.fillStyle = '#14232c';
+      roundedRect(16, -5, 14, 10, 2, true, false);
+      ctx.restore();
+      if (active) {
+        ctx.strokeStyle = aimBugInput.checked ? 'rgba(97,228,255,0.9)' : 'rgba(255,107,115,0.75)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(tip.x, tip.y);
+        ctx.quadraticCurveTo((tip.x + target.x) * 0.5, tip.y - 42, target.x, target.y);
+        ctx.stroke();
+      }
+      drawReticle(tip, active ? '#61e4ff' : '#4aa4ff', active ? 1.3 : 1);
+    }
+
+    function drawTweezer(tip, target, state, feedbackActive) {
+      const closed = state.includes('Pinch') || actuateInput.checked ? 0.25 : graspInput.checked ? 0.55 : 1;
+      const fail = feedbackActive && app.feedbackKind === 'fail';
+      drawClampArms(tip, closed, fail ? '#ff6b73' : '#ffbe58', 68, 9);
+      drawReticle(tip, aimBugInput.checked ? '#ffbe58' : '#9fb0bd', 1);
+    }
+
+    function drawProtoFinger(tip, target, state, feedbackActive) {
+      const closed = state.includes('Pinch') || actuateInput.checked ? 0.2 : graspInput.checked ? 0.5 : 0.9;
+      drawClampArms(tip, closed, '#78d9ff', 58, 15);
+      ctx.strokeStyle = 'rgba(120,217,255,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(tip.x - 32, tip.y + 34, 24, 0.15, Math.PI * 1.2);
+      ctx.stroke();
+      drawReticle(tip, '#78d9ff', 1.1);
+    }
+
+    function drawGhostHand(tip, target, state, feedbackActive, stable) {
+      const closed = state.includes('Pinch') || actuateInput.checked ? 0.2 : graspInput.checked ? 0.48 : 0.92;
+      const color = stable ? '#d8f5ff' : '#9fe7ff';
+      ctx.fillStyle = stable ? 'rgba(216,245,255,0.16)' : 'rgba(159,231,255,0.12)';
+      ctx.strokeStyle = stable ? 'rgba(216,245,255,0.7)' : 'rgba(159,231,255,0.55)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(tip.x - 46, tip.y + 42, 34, 44, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      drawClampArms(tip, closed, color, 54, stable ? 18 : 15);
+      drawReticle(tip, color, stable ? 1.25 : 1.1);
+    }
+
+    function drawClampArms(tip, closed, color, length, width) {
+      const spread = 34 * closed;
+      const left = { x: tip.x - length, y: tip.y - spread };
+      const right = { x: tip.x - length, y: tip.y + spread };
+      ctx.lineCap = 'round';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = width;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(left.x, left.y);
+      ctx.lineTo(tip.x, tip.y - spread * 0.16);
+      ctx.moveTo(right.x, right.y);
+      ctx.lineTo(tip.x, tip.y + spread * 0.16);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(tip.x, tip.y - spread * 0.16, width * 0.42, 0, Math.PI * 2);
+      ctx.arc(tip.x, tip.y + spread * 0.16, width * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawReticle(point, color, scale) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(point.x, point.y, 14 * scale, 0, Math.PI * 2);
+      ctx.moveTo(point.x - 21 * scale, point.y);
+      ctx.lineTo(point.x - 8 * scale, point.y);
+      ctx.moveTo(point.x + 8 * scale, point.y);
+      ctx.lineTo(point.x + 21 * scale, point.y);
+      ctx.stroke();
+    }
+
+    function drawStateOverlay(w, h, state, feedbackActive) {
+      const active = feedbackActive ? app.feedbackKind : 'none';
+      const color = active === 'fail' ? '#ff6b73' : active === 'success' || active === 'water' ? '#60e28b' : '#9fb0bd';
+      drawText(`state: ${state}`, w * 0.05, h - 42, color);
+      drawText(app.result, w * 0.05, h - 20, '#9fb0bd');
+    }
+
+    function tremorVector(stage, t, fail) {
+      const amount = tremorAmount(stage) * (fail ? 16 : 6);
+      return {
+        x: Math.sin(t * 21.7) * amount + Math.sin(t * 9.1) * amount * 0.35,
+        y: Math.cos(t * 18.3) * amount + Math.sin(t * 7.6) * amount * 0.35
+      };
+    }
+
+    function mixColor(a, b, t) {
+      return [
+        Math.round(a[0] + (b[0] - a[0]) * t),
+        Math.round(a[1] + (b[1] - a[1]) * t),
+        Math.round(a[2] + (b[2] - a[2]) * t)
+      ];
+    }
+
+    function roundedRect(x, y, width, height, radius, fill, stroke) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.arcTo(x + width, y, x + width, y + height, radius);
+      ctx.arcTo(x + width, y + height, x, y + height, radius);
+      ctx.arcTo(x, y + height, x, y, radius);
+      ctx.arcTo(x, y, x + width, y, radius);
+      if (fill) ctx.fill();
+      if (stroke) ctx.stroke();
+    }
+
+    function drawText(text, x, y, color) {
+      ctx.fillStyle = color;
+      ctx.font = '12px "Segoe UI", Arial, sans-serif';
+      ctx.fillText(text, x, y);
+    }
+
+    stageButtons.addEventListener('click', event => {
+      const button = event.target.closest('button[data-stage]');
+      if (button) setStage(button.dataset.stage);
+    });
+    aimBugInput.addEventListener('change', updateReadout);
+    graspInput.addEventListener('change', updateReadout);
+    actuateInput.addEventListener('change', updateReadout);
+    attemptButton.addEventListener('click', attemptGrab);
+    resetBugButton.addEventListener('click', resetBug);
+
+    window.addEventListener('keydown', event => {
+      const map = ['s1', 's2', 's3a', 's3b', 's4', 'pick'];
+      if (/^[1-6]$/.test(event.key)) setStage(map[Number(event.key) - 1]);
+      if (event.key.toLowerCase() === 'g') {
+        graspInput.checked = !graspInput.checked;
+        updateReadout();
+      }
+      if (event.key.toLowerCase() === 'a') {
+        aimBugInput.checked = !aimBugInput.checked;
+        updateReadout();
+      }
+      if (event.code === 'Space') {
+        event.preventDefault();
+        attemptGrab();
+      }
+    });
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    updateReadout();
+    requestAnimationFrame(draw);
+  </script>
+</body>
+</html>
