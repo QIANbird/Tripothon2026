@@ -102,6 +102,8 @@ namespace Ghost.Stages
         [Tooltip("充水开始时叠加的一次亮色反馈")]
         public Color waterPulseColor = new Color(0.55f, 0.85f, 1f);
         public float waterPulseDuration = 0.45f;
+        [Tooltip("充水完成后圆球稳定显示的颜色")]
+        public Color waterFilledColor = new Color(0.18f, 0.58f, 1f);
 
         public override string PanelText => "";
 
@@ -618,7 +620,8 @@ namespace Ghost.Stages
                 waterInflateScale,
                 waterRoundness,
                 waterPushRadius,
-                waterPushStrength);
+                waterPushStrength,
+                waterFilledColor);
             ctx.morpher.Pulse(id, waterPulseDuration, waterPulseColor);
         }
 

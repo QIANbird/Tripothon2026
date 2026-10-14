@@ -72,6 +72,7 @@ namespace Ghost.Morph
         float[] waterRoundness;
         float[] waterPushRadii;
         float[] waterPushStrengths;
+        Color[] waterColors;
         // 单节点姿态覆盖：教学把一个方块拉到镜头前，再插值回矩阵槽位。
         // 权重 0 = 用形态插值结果，1 = 完全用 overridePoses。
         NodePose[] overridePoses;
@@ -230,6 +231,7 @@ namespace Ghost.Morph
             if (RealReveal >= 1f) return;
 
             cubeBatch.count = 0;
+            waterSphereBatch.count = 0;
             foreach (var batch in shapeBatches) batch.count = 0;
 
             var localToWorld = transform.localToWorldMatrix;
@@ -242,6 +244,7 @@ namespace Ghost.Morph
                 pose.scale *= DisplayScale(i) * (1f + fill * waterInflateScales[i]);
                 if (pose.scale.sqrMagnitude < 1e-12f) continue;
                 Color color = DisplayColor(i);
+                Color waterColor = fill > 0f ? Color.Lerp(color, waterColors[i], fill) : color;
 
                 // 立方体缩小的同时部位形状长大，两者在中途重叠，避免一下子换形状
                 int shape = shapeOf[i];
@@ -250,7 +253,7 @@ namespace Ghost.Morph
                 float shapeK = 1f - (1f - w) * (1f - w);
                 if (cubeK > 0.001f) Add(cubeBatch, localToWorld, pose, cubeK, color);
                 if (shape >= 0 && shapeK > 0.001f) Add(shapeBatches[shape], localToWorld, pose, shapeK, color);
-                if (roundness > 0.001f) Add(waterSphereBatch, localToWorld, pose, roundness, color);
+                if (roundness > 0.001f) Add(waterSphereBatch, localToWorld, pose, roundness, waterColor);
             }
 
             Submit(cubeBatch);
@@ -377,12 +380,13 @@ namespace Ghost.Morph
             waterRoundness = new float[Count];
             waterPushRadii = new float[Count];
             waterPushStrengths = new float[Count];
+            waterColors = new Color[Count];
             ClearWaterInflation();
         }
 
         // S2 的充水表现：节点逐渐放大，并用球形网格叠加出更圆润的外形；附近节点被轻轻推开。
         // 这是纯表现层，不改节点数据、问题状态或关卡拓扑。
-        public void PlayWaterInflation(int id, float fillDuration, float inflateScale, float roundness, float pushRadius, float pushStrength)
+        public void PlayWaterInflation(int id, float fillDuration, float inflateScale, float roundness, float pushRadius, float pushStrength, Color waterColor)
         {
             if (waterStarts == null || id < 0 || id >= Count) return;
             waterStarts[id] = Time.time;
@@ -391,6 +395,7 @@ namespace Ghost.Morph
             waterRoundness[id] = Mathf.Clamp01(roundness);
             waterPushRadii[id] = Mathf.Max(0f, pushRadius);
             waterPushStrengths[id] = Mathf.Max(0f, pushStrength);
+            waterColors[id] = waterColor;
         }
 
         public void ClearWaterInflation()
@@ -404,6 +409,7 @@ namespace Ghost.Morph
                 waterRoundness[i] = 0f;
                 waterPushRadii[i] = 0f;
                 waterPushStrengths[i] = 0f;
+                waterColors[i] = Color.white;
             }
         }
 
