@@ -27,6 +27,7 @@
 
 - `Assets/Scripts/Interaction/PointerInput.cs`
 - `Assets/Scripts/Interaction/InteractionAvatarVisual.cs`
+- `Assets/Scripts/Interaction/XRInputStatusHud.cs`
 - `Assets/Scripts/Stages/S4GeometricStage.cs`
 
 ## 3. 资产表
@@ -73,6 +74,18 @@
 3. 打开 `Assets/Scenes/Main.unity`。
 4. 运行后用调试快捷键跳到 S2/S3/S4。
 5. 在 S4 中按住右手 grip，再按 trigger 摘虫。
+
+运行时左上角会自动出现 `Quest / VR Input` 状态面板：
+
+| 状态 | 含义 |
+|---|---|
+| `Right controller: seen` | Unity 已经看到 Quest 右手柄 |
+| `Pose: ready` | 右手柄位置和旋转可读 |
+| `XR ray: active` | 当前交互已经走 Quest 手柄射线 |
+| `mouse fallback` | 还没有读到 XR pose，当前仍在用鼠标逻辑 |
+| `Trigger / Grip` | 当前按压轴值，方便确认按键是否被 Unity 收到 |
+
+如果面板一直显示 `Right controller: not seen` 或 `mouse fallback`，优先检查 Quest Link / Air Link、Meta Quest Link 桌面端、Unity OpenXR loader、以及 Project Settings 里的 XR Plug-in Management。`F8` 可以隐藏或显示这个面板。
 
 如果没有头显输入，PC fallback：
 
