@@ -86,6 +86,23 @@ namespace Ghost.Stages
         [Tooltip("拖拽线往相机方向抬起的距离（植株本地空间，米），避免被方块挡住")]
         public float dragLineLift = 0.006f;
 
+        [Header("充水效果")]
+        [Tooltip("连通一个节点时，方块逐渐变大、变圆，并轻轻挤开附近节点。仅 Unity 原型表现，不接 VR/XR")]
+        public bool enableWaterInflation = true;
+        [Tooltip("从普通方块充到最大状态的时长（秒）")]
+        public float waterFillDuration = 0.45f;
+        [Tooltip("最大额外放大比例。0.45 = 比原节点大 45%")]
+        [Range(0f, 1f)] public float waterInflateScale = 0.42f;
+        [Tooltip("最大圆润度。1 = 基本变成圆润充水球体")]
+        [Range(0f, 1f)] public float waterRoundness = 0.9f;
+        [Tooltip("附近节点被推开的本地半径。S2 回路节点间距约 0.035m，0.08 会影响一两圈邻居")]
+        public float waterPushRadius = 0.08f;
+        [Tooltip("附近节点被推开的本地距离")]
+        public float waterPushStrength = 0.012f;
+        [Tooltip("充水开始时叠加的一次亮色反馈")]
+        public Color waterPulseColor = new Color(0.55f, 0.85f, 1f);
+        public float waterPulseDuration = 0.45f;
+
         public override string PanelText => "";
 
         // 任务面板下标
@@ -97,6 +114,7 @@ namespace Ghost.Stages
         readonly List<int> segment = new List<int>();              // 当前一段：segment[0] 是脉冲源
         readonly HashSet<int> fruitIssueNodes = new HashSet<int>();
         readonly HashSet<int> passedFruit = new HashSet<int>();
+        readonly HashSet<int> inflatedNodes = new HashSet<int>();
         int segmentReached;   // 当前段已连到的下标（0 = 只有脉冲源）
         int source = -1;
         int waterTotal;
@@ -136,8 +154,10 @@ namespace Ghost.Stages
             passedFruit.Clear();
             connected.Clear();
             segment.Clear();
+            inflatedNodes.Clear();
             source = -1;
             hintUntil = 0f;
+            if (ctx.morpher != null) ctx.morpher.ClearWaterInflation();
 
             halos = EnsureHalos();
             if (halos != null) halos.ClearAll();
@@ -201,9 +221,11 @@ namespace Ghost.Stages
                 if (halos != null) halos.ClearAll();
                 // 脉冲源的闪烁和果实的"仍异常"闪烁不归问题系统管，这里一并恢复
                 if (ctx.morpher != null) ctx.morpher.RestoreAll();
+                if (ctx.morpher != null) ctx.morpher.ClearWaterInflation();
             }
             tracing = false;
             segment.Clear();
+            inflatedNodes.Clear();
             source = -1;
             ShowDragLine(false);
             base.Exit();
@@ -432,6 +454,7 @@ namespace Ghost.Stages
                 return;
             }
             tracing = true;
+            TriggerWaterInflation(id);
             TraceStarted?.Invoke();
         }
 
@@ -561,6 +584,7 @@ namespace Ghost.Stages
         void Visit(int id)
         {
             connected.Add(id);
+            TriggerWaterInflation(id);
             if (ctx.issues == null) return;
             if (fruitIssueNodes.Contains(id))
             {
@@ -582,6 +606,20 @@ namespace Ghost.Stages
             if (withDialogue && (ctx.dialogue == null || !ctx.dialogue.IsPlaying)) ctx.Play(wrongStartSequence);
             hintUntil = Time.time + hintDuration;
             ApplySourceBlink();
+        }
+
+        void TriggerWaterInflation(int id)
+        {
+            if (!enableWaterInflation || ctx.morpher == null || id < 0) return;
+            if (!inflatedNodes.Add(id)) return;
+            ctx.morpher.PlayWaterInflation(
+                id,
+                waterFillDuration,
+                waterInflateScale,
+                waterRoundness,
+                waterPushRadius,
+                waterPushStrength);
+            ctx.morpher.Pulse(id, waterPulseDuration, waterPulseColor);
         }
 
         // ---------- 点击和详情 ----------

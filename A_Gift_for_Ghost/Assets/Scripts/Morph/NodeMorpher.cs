@@ -66,6 +66,12 @@ namespace Ghost.Morph
         float[] currentShapes;
         float[] delays;
         float[] realHeights;
+        float[] waterStarts;
+        float[] waterDurations;
+        float[] waterInflateScales;
+        float[] waterRoundness;
+        float[] waterPushRadii;
+        float[] waterPushStrengths;
         // 单节点姿态覆盖：教学把一个方块拉到镜头前，再插值回矩阵槽位。
         // 权重 0 = 用形态插值结果，1 = 完全用 overridePoses。
         NodePose[] overridePoses;
@@ -82,6 +88,7 @@ namespace Ghost.Morph
         }
 
         Batch cubeBatch;
+        Batch waterSphereBatch;
         Batch[] shapeBatches;
         // 节点用哪一批部位形状，-1 表示始终是立方体
         int[] shapeOf;
@@ -114,6 +121,7 @@ namespace Ghost.Morph
             overridePoses = new NodePose[Count];
             overrideWeights = new float[Count];
             BuildBatches();
+            InitWaterInflation();
             foreach (var node in nodeSet.nodes) maxDepth = Mathf.Max(maxDepth, node.depth);
             CacheRealHeights();
             InitNodeStates();
@@ -228,21 +236,26 @@ namespace Ghost.Morph
             for (int i = 0; i < Count; i++)
             {
                 var pose = currentPoses[i];
-                pose.scale *= DisplayScale(i);
+                float fill = WaterFill(i);
+                float roundness = Mathf.Clamp01(fill * waterRoundness[i]);
+                pose.position += WaterPushOffset(i, pose.position);
+                pose.scale *= DisplayScale(i) * (1f + fill * waterInflateScales[i]);
                 if (pose.scale.sqrMagnitude < 1e-12f) continue;
                 Color color = DisplayColor(i);
 
                 // 立方体缩小的同时部位形状长大，两者在中途重叠，避免一下子换形状
                 int shape = shapeOf[i];
                 float w = shape < 0 ? 0f : currentShapes[i];
-                float cubeK = 1f - w * w;
+                float cubeK = (1f - w * w) * (1f - roundness);
                 float shapeK = 1f - (1f - w) * (1f - w);
                 if (cubeK > 0.001f) Add(cubeBatch, localToWorld, pose, cubeK, color);
                 if (shape >= 0 && shapeK > 0.001f) Add(shapeBatches[shape], localToWorld, pose, shapeK, color);
+                if (roundness > 0.001f) Add(waterSphereBatch, localToWorld, pose, roundness, color);
             }
 
             Submit(cubeBatch);
             foreach (var batch in shapeBatches) Submit(batch);
+            Submit(waterSphereBatch);
         }
 
         void BuildBatches()
@@ -256,6 +269,7 @@ namespace Ghost.Morph
             }
 
             cubeBatch = NewBatch(mesh, Count);
+            waterSphereBatch = NewBatch(NodeShapes.GetMesh(NodeShapes.Shape.Icosphere), Count);
             shapeBatches = new Batch[NodeShapes.ShapeCount];
             for (int s = 0; s < NodeShapes.ShapeCount; s++)
                 shapeBatches[s] = NewBatch(NodeShapes.GetMesh((NodeShapes.Shape)s), shapeCounts[s]);
@@ -353,6 +367,75 @@ namespace Ghost.Morph
             uint h = (uint)id * 2246822519u + 374761393u;
             h ^= h >> 15;
             return (h & 0xFFFF) / 65535f;
+        }
+
+        void InitWaterInflation()
+        {
+            waterStarts = new float[Count];
+            waterDurations = new float[Count];
+            waterInflateScales = new float[Count];
+            waterRoundness = new float[Count];
+            waterPushRadii = new float[Count];
+            waterPushStrengths = new float[Count];
+            ClearWaterInflation();
+        }
+
+        // S2 的充水表现：节点逐渐放大，并用球形网格叠加出更圆润的外形；附近节点被轻轻推开。
+        // 这是纯表现层，不改节点数据、问题状态或关卡拓扑。
+        public void PlayWaterInflation(int id, float fillDuration, float inflateScale, float roundness, float pushRadius, float pushStrength)
+        {
+            if (waterStarts == null || id < 0 || id >= Count) return;
+            waterStarts[id] = Time.time;
+            waterDurations[id] = Mathf.Max(0.01f, fillDuration);
+            waterInflateScales[id] = Mathf.Max(0f, inflateScale);
+            waterRoundness[id] = Mathf.Clamp01(roundness);
+            waterPushRadii[id] = Mathf.Max(0f, pushRadius);
+            waterPushStrengths[id] = Mathf.Max(0f, pushStrength);
+        }
+
+        public void ClearWaterInflation()
+        {
+            if (waterStarts == null) return;
+            for (int i = 0; i < waterStarts.Length; i++)
+            {
+                waterStarts[i] = -1f;
+                waterDurations[i] = 0f;
+                waterInflateScales[i] = 0f;
+                waterRoundness[i] = 0f;
+                waterPushRadii[i] = 0f;
+                waterPushStrengths[i] = 0f;
+            }
+        }
+
+        float WaterFill(int id)
+        {
+            if (waterStarts == null || id < 0 || id >= waterStarts.Length || waterStarts[id] < 0f) return 0f;
+            float duration = Mathf.Max(0.01f, waterDurations[id]);
+            float t = Mathf.Clamp01((Time.time - waterStarts[id]) / duration);
+            return t * t * (3f - 2f * t);
+        }
+
+        Vector3 WaterPushOffset(int id, Vector3 position)
+        {
+            if (waterStarts == null || currentPoses == null) return Vector3.zero;
+
+            Vector3 offset = Vector3.zero;
+            for (int source = 0; source < waterStarts.Length; source++)
+            {
+                if (source == id || waterStarts[source] < 0f) continue;
+                float fill = WaterFill(source);
+                float radius = waterPushRadii[source];
+                if (fill <= 0f || radius <= 0f) continue;
+
+                Vector3 delta = position - currentPoses[source].position;
+                float dist = delta.magnitude;
+                if (dist <= 1e-5f || dist >= radius) continue;
+
+                float falloff = 1f - dist / radius;
+                falloff *= falloff;
+                offset += delta / dist * (waterPushStrengths[source] * fill * falloff);
+            }
+            return offset;
         }
     }
 }
