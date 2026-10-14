@@ -208,20 +208,20 @@ namespace Ghost.Interaction
 
             var device = InputDevices.GetDeviceAtXRNode(xrPointerNode);
             if (!device.isValid) return false;
-            if (!device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 position)) return false;
-            if (!device.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rotation)) return false;
+            if (!device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.devicePosition, out Vector3 position)) return false;
+            if (!device.TryGetFeatureValue(UnityEngine.XR.CommonUsages.deviceRotation, out Quaternion rotation)) return false;
 
             ray = new Ray(position, rotation * Vector3.forward);
             Vector3 projectedWorld = ray.origin + ray.direction * Mathf.Max(0.1f, xrDefaultRayDistance);
             projectedPosition = rayCamera != null ? (Vector2)rayCamera.WorldToScreenPoint(projectedWorld) : Vector2.zero;
 
-            selectHeld = ButtonOrAxis(device, CommonUsages.triggerButton, CommonUsages.trigger, xrTriggerThreshold);
-            inspectHeld = ButtonOrAxis(device, CommonUsages.primaryButton, CommonUsages.grip, 0.85f);
-            graspHeld = ButtonOrAxis(device, CommonUsages.gripButton, CommonUsages.grip, xrGripThreshold);
+            selectHeld = ButtonOrAxis(device, UnityEngine.XR.CommonUsages.triggerButton, UnityEngine.XR.CommonUsages.trigger, xrTriggerThreshold);
+            inspectHeld = ButtonOrAxis(device, UnityEngine.XR.CommonUsages.primaryButton, UnityEngine.XR.CommonUsages.grip, 0.85f);
+            graspHeld = ButtonOrAxis(device, UnityEngine.XR.CommonUsages.gripButton, UnityEngine.XR.CommonUsages.grip, xrGripThreshold);
             return true;
         }
 
-        static bool ButtonOrAxis(UnityEngine.XR.InputDevice device, InputFeatureUsage<bool> button, InputFeatureUsage<float> axis, float threshold)
+        static bool ButtonOrAxis(UnityEngine.XR.InputDevice device, UnityEngine.XR.InputFeatureUsage<bool> button, UnityEngine.XR.InputFeatureUsage<float> axis, float threshold)
         {
             if (device.TryGetFeatureValue(button, out bool pressed) && pressed) return true;
             return device.TryGetFeatureValue(axis, out float value) && value >= threshold;
