@@ -2,6 +2,7 @@ using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
+using UnityEngine.XR;
 
 namespace Ghost.Interaction
 {
@@ -41,6 +42,17 @@ namespace Ghost.Interaction
         [Tooltip("指针在 UGUI（HUD）上时不拾取节点、不开始手势（比赛期间的 Screen Space HUD，见 PROJECT_SUMMARY 技术债）")]
         public bool blockWhenOverUI = true;
 
+        [Header("XR / Quest Link")]
+        [Tooltip("有 XR 右手控制器时，用控制器 pose 发射同一套 PointerInput 事件；没有 XR 设备时自动退回鼠标")]
+        public bool enableXRControllerRay = true;
+        public XRNode xrPointerNode = XRNode.RightHand;
+        [Tooltip("没有命中物体时，手部可视化和投影用的默认射线距离")]
+        public float xrDefaultRayDistance = 2f;
+        [Tooltip("trigger 大于该值视为 Select / Actuate")]
+        [Range(0f, 1f)] public float xrTriggerThreshold = 0.25f;
+        [Tooltip("grip 大于该值视为 Grasp")]
+        [Range(0f, 1f)] public float xrGripThreshold = 0.25f;
+
         // ---- 事件 ----
         public event Action<int> Tap;
         public event Action<int> DragStart;
@@ -65,6 +77,12 @@ namespace Ghost.Interaction
         // 指针下最近命中点的距离（没有命中时为无穷大），供光标组件把标记放到物体表面
         public float HoverDistance { get; private set; } = float.PositiveInfinity;
         public bool IsPressed { get; private set; }
+        public bool XRRayActive { get; private set; }
+        public bool GraspHeld { get; private set; }
+        public bool GraspPressedThisFrame { get; private set; }
+        public bool GraspReleasedThisFrame { get; private set; }
+        public bool SelectPressedThisFrame { get; private set; }
+        public bool SelectReleasedThisFrame { get; private set; }
         public bool IsDraggingNode => gesture == Gesture.NodeDrag;
         public bool IsDraggingEmpty => gesture == Gesture.EmptyDrag;
         // 正在右键查看的节点（-1 = 没有）
@@ -96,6 +114,9 @@ namespace Ghost.Interaction
         int pressNode = -1;
         IInteractable pressInteractable;
         int lastDragNode = -1;
+        bool lastSelectHeld;
+        bool lastInspectHeld;
+        bool lastGraspHeld;
 
         void OnEnable()
         {
@@ -124,20 +145,43 @@ namespace Ghost.Interaction
         void Update()
         {
             if (map == null) return;
+            SelectPressedThisFrame = false;
+            SelectReleasedThisFrame = false;
+            GraspPressedThisFrame = false;
+            GraspReleasedThisFrame = false;
+
             if (!inputEnabled)
             {
                 return;
             }
 
-            Vector2 position = pointAction.ReadValue<Vector2>();
-            PointerPosition = position;
-            CurrentRay = rayCamera.ScreenPointToRay(position);
+            bool usingXR = TryReadXRInput(out Ray ray, out Vector2 position, out bool selectHeld, out bool inspectHeld, out bool graspHeld);
+            XRRayActive = usingXR;
+            if (!usingXR)
+            {
+                position = pointAction.ReadValue<Vector2>();
+                ray = rayCamera.ScreenPointToRay(position);
+                selectHeld = selectAction.IsPressed();
+                inspectHeld = inspectAction != null && inspectAction.IsPressed();
+                graspHeld = Keyboard.current != null && Keyboard.current.gKey.isPressed;
+            }
 
-            bool pressedThisFrame = selectAction.WasPressedThisFrame();
-            bool releasedThisFrame = selectAction.WasReleasedThisFrame();
+            SelectPressedThisFrame = selectHeld && !lastSelectHeld;
+            SelectReleasedThisFrame = !selectHeld && lastSelectHeld;
+            GraspPressedThisFrame = graspHeld && !lastGraspHeld;
+            GraspReleasedThisFrame = !graspHeld && lastGraspHeld;
+            bool inspectPressedThisFrame = inspectHeld && !lastInspectHeld;
+            bool inspectReleasedThisFrame = !inspectHeld && lastInspectHeld;
+            lastSelectHeld = selectHeld;
+            lastInspectHeld = inspectHeld;
+            lastGraspHeld = graspHeld;
+            GraspHeld = graspHeld;
+
+            PointerPosition = position;
+            CurrentRay = ray;
 
             bool overUI = IsPointerOverUI();
-            if (pressedThisFrame && gesture == Gesture.None)
+            if (SelectPressedThisFrame && gesture == Gesture.None)
             {
                 // 在 HUD 上按下：这次按压整体作废，不点节点也不旋转
                 if (overUI) { gesture = Gesture.Blocked; pressNode = -1; pressInteractable = null; pressPosition = position; }
@@ -146,13 +190,41 @@ namespace Ghost.Interaction
 
             if (gesture != Gesture.None) UpdateGesture(position);
 
-            if (releasedThisFrame && gesture != Gesture.None) EndPress(position);
+            if (SelectReleasedThisFrame && gesture != Gesture.None) EndPress(position);
 
             IsPressed = gesture != Gesture.None;
-            UpdateInspect(overUI);
+            UpdateInspect(overUI, inspectPressedThisFrame, inspectReleasedThisFrame);
             if (overUI) SetHover(-1, null);
             else UpdateHover();
             lastPosition = position;
+        }
+
+        bool TryReadXRInput(out Ray ray, out Vector2 projectedPosition, out bool selectHeld, out bool inspectHeld, out bool graspHeld)
+        {
+            ray = default;
+            projectedPosition = default;
+            selectHeld = inspectHeld = graspHeld = false;
+            if (!enableXRControllerRay) return false;
+
+            var device = InputDevices.GetDeviceAtXRNode(xrPointerNode);
+            if (!device.isValid) return false;
+            if (!device.TryGetFeatureValue(CommonUsages.devicePosition, out Vector3 position)) return false;
+            if (!device.TryGetFeatureValue(CommonUsages.deviceRotation, out Quaternion rotation)) return false;
+
+            ray = new Ray(position, rotation * Vector3.forward);
+            Vector3 projectedWorld = ray.origin + ray.direction * Mathf.Max(0.1f, xrDefaultRayDistance);
+            projectedPosition = rayCamera != null ? (Vector2)rayCamera.WorldToScreenPoint(projectedWorld) : Vector2.zero;
+
+            selectHeld = ButtonOrAxis(device, CommonUsages.triggerButton, CommonUsages.trigger, xrTriggerThreshold);
+            inspectHeld = ButtonOrAxis(device, CommonUsages.primaryButton, CommonUsages.grip, 0.85f);
+            graspHeld = ButtonOrAxis(device, CommonUsages.gripButton, CommonUsages.grip, xrGripThreshold);
+            return true;
+        }
+
+        static bool ButtonOrAxis(UnityEngine.XR.InputDevice device, InputFeatureUsage<bool> button, InputFeatureUsage<float> axis, float threshold)
+        {
+            if (device.TryGetFeatureValue(button, out bool pressed) && pressed) return true;
+            return device.TryGetFeatureValue(axis, out float value) && value >= threshold;
         }
 
         // 射线同时测节点和物体，返回较近的那个。物体更近时 nodeId = -1（被挡住）
@@ -182,7 +254,7 @@ namespace Ghost.Interaction
 
         void BeginPress(Vector2 position)
         {
-            Raycast(rayCamera.ScreenPointToRay(position), out pressNode, out pressInteractable, out _);
+            Raycast(CurrentRay, out pressNode, out pressInteractable, out _);
             pressPosition = position;
             lastPosition = position;
             gesture = Gesture.Pressed;
@@ -230,6 +302,17 @@ namespace Ghost.Interaction
         void SampleDrag(Vector2 from, Vector2 to)
         {
             if (picker == null) return;
+            if (XRRayActive)
+            {
+                int currentNode = picker.Pick(CurrentRay, out float currentDistance);
+                if (currentNode >= 0 && currentDistance <= maxDistance && currentNode != lastDragNode)
+                {
+                    lastDragNode = currentNode;
+                    DragOver?.Invoke(currentNode);
+                }
+                return;
+            }
+
             float length = (to - from).magnitude;
             int steps = Mathf.Max(1, Mathf.CeilToInt(length / Mathf.Max(1f, dragSampleStep)));
             for (int s = 1; s <= steps; s++)
@@ -248,7 +331,7 @@ namespace Ghost.Interaction
             {
                 case Gesture.Pressed:
                     // 松开时再测一次，按下和松开在同一个目标上才算点击
-                    Raycast(rayCamera.ScreenPointToRay(position), out int node, out IInteractable target, out _);
+                    Raycast(CurrentRay, out int node, out IInteractable target, out _);
                     if (pressNode >= 0 && node == pressNode) Tap?.Invoke(node);
                     else if (pressInteractable != null && target == pressInteractable)
                     {
@@ -275,10 +358,10 @@ namespace Ghost.Interaction
             return es != null && es.IsPointerOverGameObject();
         }
 
-        void UpdateInspect(bool overUI)
+        void UpdateInspect(bool overUI, bool pressedThisFrame, bool releasedThisFrame)
         {
             if (inspectAction == null) return;
-            if (inspectAction.WasPressedThisFrame() && !overUI)
+            if (pressedThisFrame && !overUI)
             {
                 Raycast(CurrentRay, out int node, out _, out _);
                 if (node >= 0)
@@ -287,7 +370,7 @@ namespace Ghost.Interaction
                     InspectStart?.Invoke(node);
                 }
             }
-            if (inspectAction.WasReleasedThisFrame()) EndInspect();
+            if (releasedThisFrame) EndInspect();
         }
 
         void EndInspect()

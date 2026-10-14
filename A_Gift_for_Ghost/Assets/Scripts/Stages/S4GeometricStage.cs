@@ -55,6 +55,10 @@ namespace Ghost.Stages
         [Range(-1f, 1f)] public float bugFacingThreshold = 0f;
         [Tooltip("别的节点比虫子近多少米才算挡住虫子（拾取球偏大，留一点余量）")]
         public float occluderMargin = 0.02f;
+        [Tooltip("VR / 手部原型：摘虫需要按住 Grasp（Quest grip；PC 临时用 G）再按 Select / trigger")]
+        public bool requireGraspToRemoveBug = true;
+        [Tooltip("没有按住 Grasp 就尝试摘虫时，虫子闪一下的提示色")]
+        public Color graspRequiredColor = new Color(1f, 0.55f, 0.25f);
 
         [Header("通关")]
         [Tooltip("摘完最后一只后等多久进入下一关（秒），让最后一档写实度过渡完")]
@@ -230,6 +234,11 @@ namespace Ghost.Stages
             if (node.organ == Organ.Bug)
             {
                 if (removed.Contains(id)) return;
+                if (requireGraspToRemoveBug && ctx.pointer != null && !ctx.pointer.GraspHeld)
+                {
+                    ctx.morpher.Pulse(id, 0.35f, graspRequiredColor);
+                    return;
+                }
                 RemoveBug(id);
                 return;
             }
