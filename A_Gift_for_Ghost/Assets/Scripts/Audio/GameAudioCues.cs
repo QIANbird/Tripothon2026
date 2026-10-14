@@ -18,6 +18,12 @@ namespace Ghost.Audio
         [Tooltip("S2 连上段内第 n 个节点时的音高 = 1 + step × (n - 1)")]
         public float linkPitchStep = 0.06f;
         public float linkPitchMax = 1.5f;
+        [Tooltip("S2 根系 / 土壤充水音高")]
+        public float s2RootWaterPitch = 0.82f;
+        [Tooltip("S2 枝条 / 叶片充水音高")]
+        public float s2LeafWaterPitch = 1.28f;
+        [Tooltip("S2 连到不需要水的节点时的低沉沙沙声音高")]
+        public float s2DryRustlePitch = 0.72f;
 
         GameAudio audioOut;
         GameFlow flow;
@@ -62,7 +68,8 @@ namespace Ghost.Audio
             {
                 s2.TraceStarted += HandleTraceStarted;
                 s2.TraceEnded += HandleTraceEnded;
-                s2.NodeLinked += HandleNodeLinked;
+                s2.NodeLinkedDetailed += HandleNodeLinked;
+                s2.WrongNodeLinked += HandleWrongNodeLinked;
             }
             if (s3 != null) s3.BugMarked += HandleBugMarked;
             if (s4 != null) s4.BugTaken += HandleBugTaken;
@@ -88,7 +95,8 @@ namespace Ghost.Audio
             {
                 s2.TraceStarted -= HandleTraceStarted;
                 s2.TraceEnded -= HandleTraceEnded;
-                s2.NodeLinked -= HandleNodeLinked;
+                s2.NodeLinkedDetailed -= HandleNodeLinked;
+                s2.WrongNodeLinked -= HandleWrongNodeLinked;
             }
             if (s3 != null) s3.BugMarked -= HandleBugMarked;
             if (s4 != null) s4.BugTaken -= HandleBugTaken;
@@ -160,10 +168,49 @@ namespace Ghost.Audio
         void HandleTraceStarted() => audioOut.StartLoop("SFX_S2_DRAG");
         void HandleTraceEnded() => audioOut.StopLoop("SFX_S2_DRAG");
 
-        void HandleNodeLinked(int indexInSegment)
+        void HandleNodeLinked(int nodeId, int indexInSegment, bool needsWater)
         {
-            float pitch = Mathf.Min(linkPitchMax, 1f + linkPitchStep * Mathf.Max(0, indexInSegment - 1));
-            audioOut.PlayPitched("SFX_S2_NODE_LINK", pitch);
+            if (!needsWater)
+            {
+                audioOut.PlayPitched("SFX_S2_DRY_RUSTLE", s2DryRustlePitch);
+                return;
+            }
+
+            float organPitch = Mathf.Lerp(s2RootWaterPitch, s2LeafWaterPitch, Leafness(nodeId));
+            float segmentLift = Mathf.Min(linkPitchMax, 1f + linkPitchStep * Mathf.Max(0, indexInSegment - 1));
+            audioOut.PlayPitched("SFX_S2_WATER_FILL", organPitch * Mathf.Lerp(1f, segmentLift, 0.35f));
+        }
+
+        void HandleWrongNodeLinked(int nodeId)
+        {
+            audioOut.PlayPitched("SFX_S2_DRY_RUSTLE", s2DryRustlePitch * 0.9f);
+        }
+
+        float Leafness(int nodeId)
+        {
+            var node = ctx != null ? ctx.Node(nodeId) : null;
+            if (node == null) return 0.45f;
+            float depth = TopologyDepth01(node);
+            switch (node.organ)
+            {
+                case Organ.Soil: return 0f;
+                case Organ.Root: return 0.12f;
+                case Organ.Stem: return Mathf.Lerp(0.28f, 0.78f, depth);
+                case Organ.Bud: return Mathf.Lerp(0.72f, 0.9f, depth);
+                case Organ.Leaf: return 1f;
+                case Organ.Fruit: return Mathf.Lerp(0.5f, 0.72f, depth);
+                default: return Mathf.Lerp(0.25f, 0.75f, depth);
+            }
+        }
+
+        float TopologyDepth01(PlantNode node)
+        {
+            var set = ctx != null && ctx.morpher != null ? ctx.morpher.nodeSet : null;
+            if (set == null || node == null) return 0.5f;
+            int maxDepth = 0;
+            foreach (var n in set.nodes)
+                if (n != null) maxDepth = Mathf.Max(maxDepth, n.depth);
+            return maxDepth <= 0 ? 0.5f : Mathf.Clamp01((float)node.depth / maxDepth);
         }
 
         void HandleBugMarked() => audioOut.PlayOneShot("SFX_S3_MARK");

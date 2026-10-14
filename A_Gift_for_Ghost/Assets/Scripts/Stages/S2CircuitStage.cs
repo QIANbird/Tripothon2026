@@ -93,6 +93,8 @@ namespace Ghost.Stages
         public float waterFillDuration = 0.45f;
         [Tooltip("最大额外放大比例。0.45 = 比原节点大 45%")]
         [Range(0f, 1f)] public float waterInflateScale = 0.42f;
+        [Tooltip("不同节点的放大倍率范围，避免所有充水圆点大小一致")]
+        public Vector2 waterInflateVariance = new Vector2(0.72f, 1.45f);
         [Tooltip("最大圆润度。1 = 基本变成圆润充水球体")]
         [Range(0f, 1f)] public float waterRoundness = 0.9f;
         [Tooltip("附近节点被推开的本地半径。S2 回路节点间距约 0.035m，0.08 会影响一两圈邻居")]
@@ -102,8 +104,14 @@ namespace Ghost.Stages
         [Tooltip("充水开始时叠加的一次亮色反馈")]
         public Color waterPulseColor = new Color(0.55f, 0.85f, 1f);
         public float waterPulseDuration = 0.45f;
-        [Tooltip("充水完成后圆球稳定显示的颜色")]
-        public Color waterFilledColor = new Color(0.18f, 0.58f, 1f);
+        [Tooltip("靠近土壤 / 根系的充水完成色")]
+        public Color waterRootColor = new Color(0.12f, 0.42f, 1f);
+        [Tooltip("靠近枝条 / 叶片的充水完成色")]
+        public Color waterLeafColor = new Color(0.25f, 0.9f, 0.55f);
+        [Tooltip("每个节点的色相轻微偏移，避免颜色完全一致")]
+        [Range(0f, 0.12f)] public float waterColorJitter = 0.035f;
+        [Tooltip("拖过不需要水的节点或段外节点时，沙沙声反馈的最短间隔")]
+        public float wrongFeedbackCooldown = 0.16f;
 
         public override string PanelText => "";
 
@@ -134,11 +142,14 @@ namespace Ghost.Stages
         float savedLinkElbow = -1f;
         int routeTotal;       // 供给线路上的节点数（含树根），用来算连通比例
         LineRenderer dragLine;
+        float nextWrongFeedbackAt;
 
         // 音效等订阅：开始 / 结束沿脉冲拖拽；连上段内一个节点（参数：段内第几个，从 1 起）
         public event System.Action TraceStarted;
         public event System.Action TraceEnded;
         public event System.Action<int> NodeLinked;
+        public event System.Action<int, int, bool> NodeLinkedDetailed;
+        public event System.Action<int> WrongNodeLinked;
         public bool IsTracing => tracing;
 
         public override void Enter()
@@ -465,13 +476,23 @@ namespace Ghost.Stages
             if (!IsActive || !tracing || Morphing) return;
             int k = segment.IndexOf(id);
             // 只收段内、还没连上的节点；跳过的中间节点不超过 maxBridgeHops 步时补齐，否则忽略（拖拽不中断）
+            if (k < 0)
+            {
+                TriggerWrongFeedback(id);
+                return;
+            }
             if (k <= segmentReached) return;
-            if (k - segmentReached > Mathf.Max(1, maxBridgeHops)) return;
+            if (k - segmentReached > Mathf.Max(1, maxBridgeHops))
+            {
+                TriggerWrongFeedback(id);
+                return;
+            }
             for (int i = segmentReached + 1; i <= k; i++)
             {
                 if (ctx.links != null) ctx.links.SetLinkColor(segment[i - 1], segment[i], tracedLinkColor);
-                Visit(segment[i]);
+                bool needsWater = Visit(segment[i]);
                 NodeLinked?.Invoke(i);
+                NodeLinkedDetailed?.Invoke(segment[i], i, needsWater);
             }
             segmentReached = k;
             if (k < segment.Count - 1) return;
@@ -583,11 +604,11 @@ namespace Ghost.Stages
         }
 
         // 连上一个节点：缺水问题恢复；果实不恢复，改成"仍异常"的闪烁（正常线路上不会出现）
-        void Visit(int id)
+        bool Visit(int id)
         {
             connected.Add(id);
             TriggerWaterInflation(id);
-            if (ctx.issues == null) return;
+            if (ctx.issues == null) return false;
             if (fruitIssueNodes.Contains(id))
             {
                 if (passedFruit.Add(id))
@@ -595,9 +616,12 @@ namespace Ghost.Stages
                     ctx.morpher.SetBlink(id, fruitAbnormalBlinkFrequency, fruitAbnormalColor);
                     RefreshPanel();
                 }
-                return;
+                return false;
             }
+            var issue = ctx.issues.GetIssue(id);
+            bool needsWater = issue != null && !issue.resolved;
             ctx.issues.Resolve(id); // 没有问题或已解决时什么也不做
+            return needsWater;
         }
 
         // 提示从脉冲源开始：脉冲源快速闪一阵，不扣分不重置。点击只闪不播对白，免得乱点时对白刷屏
@@ -614,15 +638,75 @@ namespace Ghost.Stages
         {
             if (!enableWaterInflation || ctx.morpher == null || id < 0) return;
             if (!inflatedNodes.Add(id)) return;
+            float inflate = waterInflateScale * Mathf.Lerp(
+                Mathf.Min(waterInflateVariance.x, waterInflateVariance.y),
+                Mathf.Max(waterInflateVariance.x, waterInflateVariance.y),
+                Hash01(id, 19));
             ctx.morpher.PlayWaterInflation(
                 id,
                 waterFillDuration,
-                waterInflateScale,
+                inflate,
                 waterRoundness,
                 waterPushRadius,
                 waterPushStrength,
-                waterFilledColor);
+                WaterColorFor(id));
             ctx.morpher.Pulse(id, waterPulseDuration, waterPulseColor);
+        }
+
+        void TriggerWrongFeedback(int id)
+        {
+            if (Time.time < nextWrongFeedbackAt) return;
+            nextWrongFeedbackAt = Time.time + Mathf.Max(0.01f, wrongFeedbackCooldown);
+            WrongNodeLinked?.Invoke(id);
+        }
+
+        Color WaterColorFor(int id)
+        {
+            float leafness = Leafness(id);
+            Color baseColor = Color.Lerp(waterRootColor, waterLeafColor, leafness);
+            Color.RGBToHSV(baseColor, out float h, out float s, out float v);
+            h = Mathf.Repeat(h + (Hash01(id, 37) - 0.5f) * waterColorJitter, 1f);
+            s = Mathf.Clamp01(s + (Hash01(id, 41) - 0.5f) * 0.08f);
+            v = Mathf.Clamp01(v + (Hash01(id, 43) - 0.5f) * 0.12f);
+            Color result = Color.HSVToRGB(h, s, v);
+            result.a = 1f;
+            return result;
+        }
+
+        float Leafness(int id)
+        {
+            var node = ctx.Node(id);
+            if (node == null) return 0.45f;
+            float depth = TopologyDepth01(node);
+            switch (node.organ)
+            {
+                case Organ.Soil: return 0f;
+                case Organ.Root: return 0.12f;
+                case Organ.Stem: return Mathf.Lerp(0.28f, 0.78f, depth);
+                case Organ.Bud: return Mathf.Lerp(0.72f, 0.9f, depth);
+                case Organ.Leaf: return 1f;
+                case Organ.Fruit: return Mathf.Lerp(0.5f, 0.72f, depth);
+                default: return Mathf.Lerp(0.25f, 0.75f, depth);
+            }
+        }
+
+        float TopologyDepth01(PlantNode node)
+        {
+            if (Set == null || node == null) return 0.5f;
+            int maxDepth = 0;
+            foreach (var n in Set.nodes)
+                if (n != null) maxDepth = Mathf.Max(maxDepth, n.depth);
+            return maxDepth <= 0 ? 0.5f : Mathf.Clamp01((float)node.depth / maxDepth);
+        }
+
+        static float Hash01(int id, int salt)
+        {
+            unchecked
+            {
+                uint x = (uint)(id * 374761393 + salt * 668265263);
+                x = (x ^ (x >> 13)) * 1274126177u;
+                return (x ^ (x >> 16)) / 4294967295f;
+            }
         }
 
         // ---------- 点击和详情 ----------

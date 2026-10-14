@@ -51,9 +51,18 @@ MonoBehaviour:
     clips:
     - {fileID: 8300000, guid: 6f31fff23dd22ef4db52f7049f5f0da3, type: 3}
     volume: 1
+  - id: SFX_S2_DRY_RUSTLE
+    clips:
+    - {fileID: 8300000, guid: fa79fb9fd78329d409f869c7726273d0, type: 3}
+    volume: 0.85
   - id: SFX_S2_NODE_LINK
     clips:
     - {fileID: 8300000, guid: d930419c9a6ebb24ba9a47b850f2bdd5, type: 3}
+    volume: 1
+  - id: SFX_S2_WATER_FILL
+    clips:
+    - {fileID: 8300000, guid: 6e53d56369787d74b9fc957902ec00b5, type: 3}
+    - {fileID: 8300000, guid: 2b3df2de8582989408b8711856d6c0c4, type: 3}
     volume: 1
   - id: SFX_S3_MARK
     clips:
