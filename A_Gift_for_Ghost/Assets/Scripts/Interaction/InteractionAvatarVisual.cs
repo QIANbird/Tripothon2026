@@ -47,6 +47,10 @@ namespace Ghost.Interaction
         public float ghostHandTremor = 0.0018f;
         public float failKickDuration = 0.18f;
 
+        [Header("Desktop Simulation")]
+        [Tooltip("Unity 内无 Quest 时，用键盘直接预览 VR 手部状态。H 开关强制预览，1-6 选外观，G 夹合，F 失败抖动")]
+        public bool enableDesktopSimulation = true;
+
         LineRenderer rayLine;
         Transform visualRoot;
         Transform nozzle;
@@ -66,8 +70,10 @@ namespace Ghost.Interaction
         Material failMaterial;
 
         Mode currentMode = Mode.Hidden;
+        Mode forcedMode = Mode.Hidden;
         float failKickUntil;
         int lastHoveredNode = -1;
+        bool forcePreview;
 
         PointerInput Pointer => ctx != null ? ctx.pointer : null;
 
@@ -90,13 +96,22 @@ namespace Ghost.Interaction
 
         void LateUpdate()
         {
-            if (ctx == null || Pointer == null || ctx.flow == null || !ctx.flow.HasStarted)
+            UpdateDesktopSimulationKeys();
+
+            if (ctx == null || Pointer == null)
             {
                 HideAll();
                 return;
             }
 
-            Mode mode = ModeFor(ctx.flow.CurrentStage);
+            if ((ctx.flow == null || !ctx.flow.HasStarted) && !forcePreview)
+            {
+                HideAll();
+                return;
+            }
+
+            Stage activeStage = ctx.flow != null ? ctx.flow.CurrentStage : null;
+            Mode mode = forcePreview && forcedMode != Mode.Hidden ? forcedMode : ModeFor(activeStage);
             if (mode == Mode.Hidden)
             {
                 HideAll();
@@ -140,8 +155,11 @@ namespace Ghost.Interaction
         {
             // Prototype rule: once the player holds Grasp in S3, show the higher-precision transitional hand.
             // A later UI choice can set this explicitly; this keeps the branch testable today.
-            return Pointer != null && Pointer.GraspHeld;
+            return SimulatedGraspHeld || (Pointer != null && Pointer.GraspHeld);
         }
+
+        bool SimulatedGraspHeld => enableDesktopSimulation && UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.gKey.isPressed;
+        bool SimulatedPinchPressed => enableDesktopSimulation && UnityEngine.InputSystem.Keyboard.current != null && UnityEngine.InputSystem.Keyboard.current.spaceKey.wasPressedThisFrame;
 
         void UpdatePose(Mode mode)
         {
@@ -181,8 +199,8 @@ namespace Ghost.Interaction
             }
 
             bool failed = Time.time < failKickUntil;
-            bool pinching = Pointer.GraspHeld || Pointer.IsPressed;
-            float close = Pointer.SelectPressedThisFrame ? 1f : pinching ? 0.62f : 0f;
+            bool pinching = SimulatedGraspHeld || Pointer.GraspHeld || Pointer.IsPressed;
+            float close = SimulatedPinchPressed || Pointer.SelectPressedThisFrame ? 1f : pinching ? 0.62f : 0f;
 
             SetMaterial(nozzle, failed ? failMaterial : waterMaterial);
             SetMaterial(leftArm, failed ? failMaterial : MaterialFor(mode));
@@ -194,9 +212,9 @@ namespace Ghost.Interaction
 
             if (mode == Mode.WaterConduit)
             {
-                float pulse = Pointer.IsPressed ? 1f + 0.12f * Mathf.Sin(Time.time * 18f) : 1f;
+                float pulse = Pointer.IsPressed || SimulatedGraspHeld ? 1f + 0.12f * Mathf.Sin(Time.time * 18f) : 1f;
                 nozzle.localScale = new Vector3(0.035f, 0.035f, 0.055f) * pulse;
-                centerTip.localScale = Vector3.one * 0.018f * (Pointer.IsPressed ? 1.35f : 1f);
+                centerTip.localScale = Vector3.one * 0.018f * (Pointer.IsPressed || SimulatedGraspHeld ? 1.35f : 1f);
                 return;
             }
 
@@ -241,6 +259,28 @@ namespace Ghost.Interaction
         {
             var node = ctx != null ? ctx.Node(id) : null;
             return node != null && node.organ == Organ.Bug;
+        }
+
+        void UpdateDesktopSimulationKeys()
+        {
+            if (!enableDesktopSimulation) return;
+            var keyboard = UnityEngine.InputSystem.Keyboard.current;
+            if (keyboard == null) return;
+
+            if (keyboard.hKey.wasPressedThisFrame) forcePreview = !forcePreview;
+            if (keyboard.digit1Key.wasPressedThisFrame) ForcePreview(Mode.RayOnly);
+            if (keyboard.digit2Key.wasPressedThisFrame) ForcePreview(Mode.WaterConduit);
+            if (keyboard.digit3Key.wasPressedThisFrame) ForcePreview(Mode.Tweezer);
+            if (keyboard.digit4Key.wasPressedThisFrame) ForcePreview(Mode.ProtoFinger);
+            if (keyboard.digit5Key.wasPressedThisFrame) ForcePreview(Mode.GhostHand);
+            if (keyboard.digit6Key.wasPressedThisFrame) ForcePreview(Mode.StableHand);
+            if (keyboard.fKey.wasPressedThisFrame) failKickUntil = Time.time + failKickDuration;
+        }
+
+        void ForcePreview(Mode mode)
+        {
+            forcePreview = true;
+            forcedMode = mode;
         }
 
         void BuildVisuals()
