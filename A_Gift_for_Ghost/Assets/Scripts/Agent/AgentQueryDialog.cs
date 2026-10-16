@@ -2,6 +2,7 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using UnityEngine.XR;
 
 namespace Ghost.Agent
 {
@@ -17,6 +18,8 @@ namespace Ghost.Agent
         public Button yesButton;
         public Image yesBackground;
         public Text yesLabel;
+        [Tooltip("Yes 文字后面的 A 键圆标（提醒 VR 下按 A 确认），可为空")]
+        public RectTransform yesKeyBadge;
 
         [Header("文字")]
         public string header = "Caution";
@@ -29,6 +32,11 @@ namespace Ghost.Agent
         public float buttonHeight = 60f;
         public float buttonWidth = 180f;
         public float gap = 22f;
+        public float keyBadgeSize = 36f;
+        public float keyBadgeGap = 10f;
+
+        [Tooltip("PC 上也显示 A 键圆标（PC 用鼠标点 Yes，默认只在头显上显示）")]
+        public bool keyBadgeOnPC = false;
 
         [Header("颜色")]
         public Color buttonColor = AgentUIStyle.Ink;
@@ -140,6 +148,29 @@ namespace Ghost.Agent
             bRect.pivot = new Vector2(0.5f, 0f);
             bRect.anchoredPosition = new Vector2(0f, padding);
             bRect.sizeDelta = new Vector2(buttonWidth, buttonHeight);
+            LayoutYesContent();
+        }
+
+        // 按钮里 "YES (A)" 作为一组居中；不显示圆标时文字单独居中
+        void LayoutYesContent()
+        {
+            if (yesLabel == null) return;
+            bool badge = yesKeyBadge != null && (keyBadgeOnPC || XRSettings.isDeviceActive);
+            if (yesKeyBadge != null) yesKeyBadge.gameObject.SetActive(badge);
+            var lRect = yesLabel.rectTransform;
+            lRect.anchorMin = lRect.anchorMax = lRect.pivot = new Vector2(0.5f, 0.5f);
+            float textW = yesLabel.preferredWidth;
+            lRect.sizeDelta = new Vector2(textW + 4f, buttonHeight);
+            if (!badge)
+            {
+                lRect.anchoredPosition = Vector2.zero;
+                return;
+            }
+            float total = textW + keyBadgeGap + keyBadgeSize;
+            lRect.anchoredPosition = new Vector2(-total * 0.5f + textW * 0.5f, 0f);
+            yesKeyBadge.anchorMin = yesKeyBadge.anchorMax = yesKeyBadge.pivot = new Vector2(0.5f, 0.5f);
+            yesKeyBadge.sizeDelta = new Vector2(keyBadgeSize, keyBadgeSize);
+            yesKeyBadge.anchoredPosition = new Vector2(total * 0.5f - keyBadgeSize * 0.5f, 0f);
         }
     }
 }

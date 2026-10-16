@@ -495,7 +495,7 @@ namespace Ghost.Interaction.XR
             if (approvePanel != null) approvePanel.Hide();
         }
 
-        // 射线只找最近的暂停界面目标（XRUIRayTarget.pauseMenu）：场景物体和其他界面（询问框在 0.55 m，比暂停面板近）都不挡
+        // 射线只找最近的暂停界面目标（XRUIRayTarget.pauseMenu）和 Pause/Help 按钮：场景物体和其他界面（询问框在 0.55 m，比暂停面板近）都不挡
         void UpdatePausedUI()
         {
             Transform a = Aim;
@@ -528,8 +528,12 @@ namespace Ghost.Interaction.XR
             for (int i = 0; i < n; i++)
             {
                 if (pausedHits[i].distance >= distance) continue;
-                var interactable = pausedHits[i].collider.GetComponentInParent<XRUIRayTarget>();
-                if (interactable == null || !interactable.pauseMenu) continue;
+                var collider = pausedHits[i].collider;
+                IInteractable interactable = null;
+                var uiTarget = collider.GetComponentInParent<XRUIRayTarget>();
+                if (uiTarget != null && uiTarget.pauseMenu) interactable = uiTarget;
+                else interactable = collider.GetComponentInParent<PauseWorldButton>(); // 矩阵旁的 Pause/Help：再点一次回到游戏
+                if (interactable == null) continue;
                 best = interactable;
                 distance = pausedHits[i].distance;
             }

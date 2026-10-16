@@ -17,35 +17,49 @@ MonoBehaviour:
   - id: S2_001
     speaker: 3
     channel: 2
-    text: "\u5173\u8054\u89C6\u56FE\u6B63\u5728\u5C55\u5F00\u2026\u2026"
+    text: "\u67B6\u6784\u89C6\u56FE\u6B63\u5728\u5C55\u5F00\u2026\u2026"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: S2_002
     speaker: 3
     channel: 2
-    text: "\u5DF2\u5728\u672C\u6982\u5FF5\u5C42\u5C55\u5F00\u91CD\u65B0\u5206\u6790\u3002\u626B\u63CF\u5168\u5C40\u72B6\u6001\u3002"
+    text: "\u9879\u76EE\u4EA7\u80FD\u5F02\u5E38\uFF0C\u81EA\u52A8\u7EF4\u62A4\u7A0B\u5E8F\u505C\u6B62\uFF0C\u6B63\u5728\u5C1D\u8BD5\u81EA\u68C0\u2026\u2026"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: S2_003
     speaker: 3
     channel: 2
-    text: "\u95EE\u9898\u5B9A\u4F4D\uFF1A\u8FDC\u7AEF\u751F\u4EA7\u7CFB\u7EDF\u589E\u957F\u7F13\u6EDE\uFF0C\u5224\u65AD\u9996\u8981\u53EF\u80FD\u6027\u4E3A\u4F9B\u7ED9\u5C42\u8D44\u6E90\u4F9B\u5E94\u4E0D\u8DB3\u3002\u5EFA\u8BAE\u4ECE\u652F\u6491\u7CFB\u7EDF\u5F00\u59CB\u4FEE\u590D\u3002"
+    text: "\u672A\u53D1\u73B0\u95EE\u9898\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1
   - id: S2_004
-    speaker: 0
-    channel: 1
-    text: "\u770B\u6765\u4F60\u7684Agent\u5728\u7CFB\u7EDF\u5C42\u9762\u7684\u67B6\u6784\u8BBE\u8BA1\u4E0A\u4ECD\u7136\u6709\u6240\u77ED\u677F\u3002"
+    speaker: 3
+    channel: 2
+    text: "\u65E0\u6CD5\u8FFD\u8E2A\u5F02\u5E38\u6765\u6E90\u3002\u81EA\u52A8\u7EF4\u62A4\u91CD\u542F\u5931\u8D25\u3002\u5C1D\u8BD5\u91CD\u65B0\u5206\u6790\u2026\u2026"
     clip: {fileID: 8300000, guid: 47b99b727d9bdf6439af1fba685c1047, type: 3}
     durationOverride: 0
     pauseAfter: -1
   - id: S2_005
     speaker: 0
     channel: 1
-    text: "\u770B\u8D77\u6765\u8FD9\u91CC\u6709\u4E24\u4E2A\u672C\u8BE5\u8FDE\u63A5\u7684\u7CFB\u7EDF\u65AD\u5F00\u4E86\uFF0C\u8BF7\u4F60\u4ED4\u7EC6\u89C2\u5BDF\u5E76\u56DE\u60F3\u5982\u4F55\u4FEE\u590D\u8FD9\u4E9B\u5F02\u5E38\u8282\u70B9\u5427\u3002"
+    text: "\u90A3\u4E9B\u771F\u6B63\u8574\u85CF\u7740\u95EE\u9898\u6839\u6E90\u7684\u4FE1\u606F\uFF0C\u5728\u538B\u7F29\u8FC7\u7A0B\u4E2D\u88ABagent\u4E22\u5F03\u4E86\u3002"
     clip: {fileID: 8300000, guid: d172bb1df67e35345b4c2e58e42e33ed, type: 3}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: S2_006
+    speaker: 0
+    channel: 1
+    text: "\u8BF7\u4F60\u4ED4\u7EC6\u89C2\u5BDF\u90A3\u4E9B\u88AB\u4F60\u6CE8\u610F\u5230\u800C\u4FDD\u7559\u4E0B\u6765\u7684\u79BB\u6563\u6A21\u5757\uFF0C"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1
+  - id: S2_007
+    speaker: 0
+    channel: 1
+    text: "\u5C06\u5B83\u4EEC\u63D2\u5165\u5230\u6B63\u786E\u7684\u4F4D\u7F6E\u5427\u3002"
+    clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

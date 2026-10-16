@@ -18,6 +18,8 @@ namespace Ghost.Stages
     //   靠近错误缺口 → 没有反馈；松手 → 飘回散落位置，Agent 播 S2_WRONG。
     //   其他地方松手 → 静默飘回。
     // 4 个补齐之前点击或拖拽其他节点 → Agent 提示路径不存在（S2_NOPATH；对白正在播时不打断，有冷却）。
+    // 卡关提示 S2_H01：补齐前失败（松手没落位、点 / 拖其他节点）超过 hintAfterFails 次后，每 hintEveryFails 次失败播一次；
+    //   失败过这么多次后，玩家空闲 hintIdleSeconds 秒也播一次。
     // 4 个补齐后：播 S2_PATCHED，然后自动浇水——脉冲从树根沿供给线路（树根 → 各缺水节点）逐层推进，
     //   经过的连线变蓝、节点外发光闪一下（NodeHaloRenderer.Flash），缺水节点 Resolve，连线直角程度按进度降到 0；之后接 S2_006–007。
     // 右键节点弹出项目语言的详情（NodeDetailTable 的 Project 档），散落节点也能看；右键看过果实记为"已查看果实"。
@@ -34,6 +36,8 @@ namespace Ghost.Stages
         public DialogueSequence noPathSequence;
         [Tooltip("把散落节点放到错误缺口后松手时的提示（S2_WRONG）")]
         public DialogueSequence wrongModuleSequence;
+        [Tooltip("补齐前多次失败时的操作提示（S2_H01）")]
+        public DialogueSequence hintSequence;
         [Tooltip("4 个缺口补齐后、自动浇水前的提示（S2_PATCHED）")]
         public DialogueSequence patchedSequence;
         [Tooltip("缺水问题全部解决后的提示（引导去看果实）")]
@@ -96,6 +100,12 @@ namespace Ghost.Stages
 
         [Tooltip("路径不存在提示的冷却（秒）")]
         public float noPathCooldown = 5f;
+        [Tooltip("补齐前失败超过这么多次才开始播操作提示（S2_H01）")]
+        public int hintAfterFails = 5;
+        [Tooltip("开始提示后每失败这么多次播一次")]
+        public int hintEveryFails = 3;
+        [Tooltip("失败次数够了之后，空闲（没有拖拽、没有对白）这么多秒也播一次提示")]
+        public float hintIdleSeconds = 12f;
 
         [Header("自动浇水")]
         [Tooltip("脉冲从一层节点推进到下一层的间隔（秒）")]
@@ -131,6 +141,8 @@ namespace Ghost.Stages
         NodeHaloRenderer halos;
         float savedLinkElbow = -1f;
         float noPathAt = -999f;
+        int failCount;       // 补齐前的失败次数（卡关提示用）
+        float lastActionAt;  // 上一次玩家操作或对白结束的时间（空闲提示用）
         Coroutine setupRoutine;
         Coroutine waterRoutine;
 
@@ -169,6 +181,8 @@ namespace Ghost.Stages
             looseGlowing.Clear();
             dragId = previewGap = nearGap = -1;
             noPathAt = -999f;
+            failCount = 0;
+            lastActionAt = Time.time;
 
             halos = ctx.EnsureHalos();
             if (halos != null) halos.ClearAll();
@@ -406,6 +420,7 @@ namespace Ghost.Stages
             }
             if (dragId >= 0) UpdateDrag();
             UpdateLoose();
+            UpdateIdleHint();
         }
 
         // 散落节点的闲置状态：放大 + 蓝色呼吸脉冲 + 小范围浮游。
@@ -469,6 +484,7 @@ namespace Ghost.Stages
             }
             var poses = ctx.morpher.CurrentPoses;
             if (poses == null) return;
+            lastActionAt = Time.time;
             StopMove(id); // 飘回 / 散落途中被抓住：从当前位置接着拖
             dragId = id;
             previewGap = nearGap = -1;
@@ -559,15 +575,17 @@ namespace Ghost.Stages
             dragId = -1;
             TraceEnded?.Invoke();
             if (!IsActive) return;
+            lastActionAt = Time.time;
 
             if (correct)
             {
                 Place(id);
                 return;
             }
+            bool hinted = CountFailure();
             if (wrongGap >= 0)
             {
-                PlayFeedback(wrongModuleSequence);
+                if (!hinted) PlayFeedback(wrongModuleSequence);
                 PlaceRejected?.Invoke(id);
             }
             ReturnToScatter(id);
@@ -724,25 +742,51 @@ namespace Ghost.Stages
 
         // ---------- 提示 ----------
 
-        // 路径不存在：对白正在播时不打断，同一句有冷却
+        // 路径不存在：对白正在播时不打断，同一句有冷却。也算一次失败（可能改播操作提示）
         void HintNoPath()
         {
+            lastActionAt = Time.time;
+            if (CountFailure()) return;
             if (Time.time - noPathAt < noPathCooldown) return;
             if (ctx.dialogue != null && ctx.dialogue.IsPlaying) return;
             noPathAt = Time.time;
             ctx.Play(noPathSequence);
         }
 
-        // 放错的提示：空闲时播；正在播的是本关的提示句时替换掉；其他对白（进关、通关）不打断
-        void PlayFeedback(DialogueSequence sequence)
+        // 放错的提示：空闲时播；正在播的是本关的提示句时替换掉；其他对白（进关、通关）不打断。播出返回 true
+        bool PlayFeedback(DialogueSequence sequence)
         {
-            if (sequence == null) return;
+            if (sequence == null) return false;
             if (ctx.dialogue != null && ctx.dialogue.IsPlaying)
             {
                 var current = ctx.dialogue.CurrentSequence;
-                if (current != noPathSequence && current != wrongModuleSequence) return;
+                if (current != noPathSequence && current != wrongModuleSequence && current != hintSequence) return false;
             }
             ctx.Play(sequence);
+            return true;
+        }
+
+        // 补齐前的一次失败：超过 hintAfterFails 次后每 hintEveryFails 次播一次操作提示。播了提示返回 true（调用方不再播自己的反馈）
+        bool CountFailure()
+        {
+            if (AllPlaced || hintSequence == null) return false;
+            failCount++;
+            if (failCount <= hintAfterFails || failCount % Mathf.Max(1, hintEveryFails) != 0) return false;
+            return PlayFeedback(hintSequence);
+        }
+
+        // 失败次数够了之后，玩家空闲一段时间也播一次操作提示
+        void UpdateIdleHint()
+        {
+            if (hintSequence == null || AllPlaced || !Interactive || failCount <= hintAfterFails || dragId >= 0) return;
+            if (ctx.dialogue != null && ctx.dialogue.IsPlaying)
+            {
+                lastActionAt = Time.time; // 从对白结束时开始算空闲
+                return;
+            }
+            if (Time.time - lastActionAt < hintIdleSeconds) return;
+            lastActionAt = Time.time;
+            ctx.Play(hintSequence);
         }
 
         // ---------- 点击和详情 ----------

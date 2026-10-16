@@ -1,5 +1,6 @@
 using System.Collections;
 using Ghost.Agent;
+using Ghost.Core;
 using Ghost.Gameplay;
 using Ghost.Morph;
 using Ghost.Narrative;
@@ -18,12 +19,17 @@ namespace Ghost.Stages
         public DialogueSequence introSequence;
         [Tooltip("简单问题解决后：这是你的agent……")]
         public DialogueSequence afterEasySequence;
-        [Tooltip("困难问题失败后：尝试解决失败…… / ……你该主动介入一下 / 右键教学")]
+        [Tooltip("困难问题失败后：Mission Failed…… / 主动介入 / 也可以自己查看任务详情（TUT_008–012）")]
         public DialogueSequence afterHardSequence;
         [Tooltip("右键详情的内容：第一句台词的文本，第一行做标题，其余做正文")]
         public DialogueSequence inspectSequence;
-        [Tooltip("右键查看之后：直观、清晰、安心……")]
+        [Tooltip("右键查看之后先播：不过它们经过了agent的自动压缩……")]
+        public DialogueSequence afterInspectIntroSequence;
+        [Tooltip("接着播：这些数据直观、清晰、确定…… / 别着急，我们慢慢来。")]
         public DialogueSequence afterInspectSequence;
+
+        [Header("操作提示弹窗（docs/tasks/tut-guide-popups.md，由 MainSceneMenu 挂上）")]
+        public TutorialGuidePopup guidePopup;
 
         [Header("演示方块（由 MainSceneMenu 按 Matrix 布局填好）")]
         public int demoNode = -1;
@@ -78,6 +84,7 @@ namespace Ghost.Stages
                     ctx.morpher.ShowAll(true);
                 }
             }
+            if (guidePopup != null) guidePopup.HideImmediate();
             phase = Phase.Done;
             base.Exit();
         }
@@ -140,12 +147,14 @@ namespace Ghost.Stages
             phase = Phase.Easy;
             ctx.issues.AddIssue(demoNode, IssueDifficulty.Easy);
             SetTask(0, TaskState.Running);
+            ShowPopup(TutorialGuidePopup.Kind.Submit);
         }
 
         protected override void OnIssueResolved(NodeIssue issue)
         {
             if (issue.nodeId != demoNode || phase != Phase.Easy) return;
             phase = Phase.AfterEasy;
+            if (guidePopup != null) guidePopup.Hide();
             SetTask(0, TaskState.Done);
             if (ctx.taskPanel != null)
             {
@@ -176,12 +185,28 @@ namespace Ghost.Stages
         {
             if (!IsActive) return;
             phase = Phase.WaitInspect;
+            ShowPopup(TutorialGuidePopup.Kind.Details);
+        }
+
+        // 弹窗锚在演示方块中心（植株本地空间），弹窗自己每帧换算到世界坐标
+        void ShowPopup(TutorialGuidePopup.Kind kind)
+        {
+            if (guidePopup == null || ctx.morpher == null || ctx.morpher.nodeSet == null
+                || ctx.morpher.nodeSet.Get(demoNode) == null) return;
+            guidePopup.Show(kind, ctx.morpher.transform, DemoPose().position);
         }
 
         void HandleInspected(int id)
         {
             if (!IsActive || id != demoNode || phase != Phase.WaitInspect) return;
             phase = Phase.AfterInspect;
+            if (guidePopup != null) guidePopup.Hide();
+            ctx.Play(afterInspectIntroSequence, PlayAfterInspect);
+        }
+
+        void PlayAfterInspect()
+        {
+            if (!IsActive) return;
             ctx.Play(afterInspectSequence, BeginTransition);
         }
 

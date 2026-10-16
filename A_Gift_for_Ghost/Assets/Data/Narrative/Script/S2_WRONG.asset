@@ -17,7 +17,7 @@ MonoBehaviour:
   - id: S2_WRONG
     speaker: 3
     channel: 2
-    text: "\u6B64\u6A21\u5757\u4E0E\u5F53\u524D\u533A\u57DF\u7CFB\u7EDF\u4E0D\u517C\u5BB9\u3002"
+    text: "\u7C7B\u578B\u9519\u8BEF\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

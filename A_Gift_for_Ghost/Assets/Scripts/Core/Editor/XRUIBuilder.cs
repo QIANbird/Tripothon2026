@@ -37,10 +37,10 @@ namespace Ghost.Core.EditorTools
             var subtitles = Object.FindAnyObjectByType<SubtitlePanel>(FindObjectsInactive.Include);
             if (subtitles != null)
             {
-                // 字幕：视野下方（头前 1.5 m、低 0.4 m ≈ 视线下 15°，10-16 实机调整），不挡中间的植株。
+                // 字幕：视野下方（头前 1.5 m、低 0.55 m ≈ 视线下 20°，10-16 实机调整），不挡中间的植株。
                 // VR 下宽 900 px（0.9 m @ 1.5 m ≈ 33°），字号不变（30 px = 3 cm，约 1.1°）
                 var w = Add(subtitles.GetComponent<Canvas>(), XRWorldCanvas.Placement.LazyFollow, head, null,
-                    new Vector3(0f, -0.4f, 1.5f), 0.001f, subtitles.root.GetComponent<RectTransform>());
+                    new Vector3(0f, -0.55f, 1.5f), 0.001f, subtitles.root.GetComponent<RectTransform>());
                 w.contentSizePx = new Vector2(900f, 0f);
                 AddLazyFollow(w);
                 BuildChatFeed(subtitles.agentFeed, head, refs.rightAim);

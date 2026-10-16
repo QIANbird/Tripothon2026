@@ -229,6 +229,7 @@ namespace Ghost.Core.EditorTools
                     s1.clickPool = StageAssets.LoadScriptsWithPrefix(StageAssets.S1ClickPoolPrefix);
                     s1.completeSequence = StageAssets.LoadScript(StageAssets.S1CompleteKey);
                     s1.querySequence = StageAssets.LoadScript(StageAssets.S1QueryKey);
+                    s1.hintSequence = StageAssets.LoadScript(StageAssets.S1HintKey);
                     stage = s1;
                 }
                 else if (spec.name == "S2")
@@ -239,6 +240,7 @@ namespace Ghost.Core.EditorTools
                     s2.noPathSequence = StageAssets.LoadScript(StageAssets.S2NoPathKey);
                     s2.wrongModuleSequence = StageAssets.LoadScript(StageAssets.S2WrongModuleKey);
                     s2.patchedSequence = StageAssets.LoadScript(StageAssets.S2PatchedKey);
+                    s2.hintSequence = StageAssets.LoadScript(StageAssets.S2HintKey);
                     s2.waterSolvedSequence = StageAssets.LoadScript(StageAssets.S2SolvedKey);
                     s2.finishSequence = StageAssets.LoadScript(StageAssets.S2FinishKey);
                     stage = s2;
@@ -312,14 +314,21 @@ namespace Ghost.Core.EditorTools
             Ghost.Audio.EditorTools.AudioSceneBuilder.Build(flow);
 
             BuildStagePanel(flow, cameraGo.transform);
+            // 键位提示图：矩阵左边，世界坐标固定、转向玩家，S1–S4 和 Pick 显示（参数在 ControlsGuideSettings.asset）
+            BuildControlsGuide(flow, camera.transform);
+            // 教学操作提示弹窗：演示方块右侧滑出（docs/tasks/tut-guide-popups.md，参数在 ControlsGuideSettings.asset 教学弹窗一栏）
+            var tutorialStage = stageList.Find(s => s is TutorialStage) as TutorialStage;
+            if (tutorialStage != null) tutorialStage.guidePopup = BuildTutorialGuidePopup(camera.transform);
             // 开始 / 结束界面（docs/tasks/start-restart-screens.md）
             BuildFlowScreens(flow, actions, set.sourceModel, pickStage != null ? pickStage.fruitObjectName : "pepper_red_picked", camera);
+            // 暂停界面（docs/tasks/outro02-end-pause-screens.md 第 3 部分）：Esc / 左手柄 menu
+            var pauseMenu = BuildPauseMenu(flow, actions, pointer.gameObject);
+            // 矩阵左上方的 Pause/Help 按钮：射线点击打开暂停界面（位置 / 大小在 ControlsGuideSettings.asset）
+            BuildPauseWorldButton(flow, pauseMenu, camera);
             // VR 第 4 步：HUD 在头显运行时换成 World Space（PC 不变）
             XRUIBuilder.Build(new XRUIBuilder.Refs { camera = camera, viewAnchor = rig.viewAnchor, rightAim = rig.rightAim });
             // 场景保存时玩家根物体是停用的，Pick 阶段 Enter 时才打开
             if (pickStage != null)
-            // 暂停界面（docs/tasks/outro02-end-pause-screens.md 第 3 部分）：Esc / 左手柄 menu
-            BuildPauseMenu(flow, actions, pointer.gameObject);
             {
                 // VR：Pick 阶段眼高交给头显，motor 不再加 1.6 m（挂在常驻的 XR Origin 上，PlayerRoot 平时停用）
                 var headTracking = rig.origin.gameObject.AddComponent<XRPlayerHeadTracking>();
@@ -345,6 +354,7 @@ namespace Ghost.Core.EditorTools
             stage.afterEasySequence = StageAssets.LoadScript(StageAssets.TutorialAfterEasyKey);
             stage.afterHardSequence = StageAssets.LoadScript(StageAssets.TutorialAfterHardKey);
             stage.inspectSequence = StageAssets.LoadScript(StageAssets.TutorialInspectKey);
+            stage.afterInspectIntroSequence = StageAssets.LoadScript(StageAssets.TutorialAfterInspectIntroKey);
             stage.afterInspectSequence = StageAssets.LoadScript(StageAssets.TutorialAfterInspectKey);
 
             var used = new HashSet<int>();
@@ -964,6 +974,106 @@ namespace Ghost.Core.EditorTools
         const int FlowScreenSortingOrder = 300;
         // 结局视频层：盖住字幕和 Agent 界面，在结束界面之下
         const int OutroVideoSortingOrder = 250;
+        // 暂停界面：盖住字幕、黑屏、HUD 和结局视频，在开始 / 结束界面之下（VR 幕布再低一档）
+        const int PauseSortingOrder = 280;
+        static readonly Color PauseAccent = new Color(0xE5 / 255f, 0xFF / 255f, 0x71 / 255f);
+
+        // 暂停界面：全屏半透明黑幕布（alpha 0.6）、中央 #E5FF71 菱形（正方形转 45°，PauseMenu 让它缓慢旋转 + 呼吸）、
+        // 底部"返回开始界面"按钮（PC 鼠标点；VR 扳机或 A，见 XRUIBuilder）。暂停键由 Pointer 物体上的 PauseInput 读取。
+        // 第一个子物体是幕布（VR 下关掉，改用头前的 XRScreenBackdrop）
+        static PauseMenu BuildPauseMenu(GameFlow flow, InputActionAsset actions, GameObject inputHost)
+        {
+            var canvas = AgentUIStyle.CreateHudCanvas("PauseMenu", null, PauseSortingOrder);
+            var root = (RectTransform)canvas.transform;
+            var group = canvas.gameObject.AddComponent<CanvasGroup>();
+
+            // 幕布挡住后面的点击（PointerInput 在 HUD 上不派发）
+            var dim = AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Dim", root), new Color(0f, 0f, 0f, 0.6f));
+            dim.raycastTarget = true;
+
+            var diamondRect = AgentUIStyle.CreateAnchored("Diamond", root, new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(150f, 150f));
+            diamondRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            AgentUIStyle.AddImage(diamondRect, PauseAccent);
+
+            var buttonRect = AgentUIStyle.CreateAnchored("Button", root, new Vector2(0.5f, 0f), new Vector2(0f, 120f), new Vector2(420f, 70f));
+            var hitArea = AgentUIStyle.AddImage(buttonRect, Color.clear);
+            hitArea.raycastTarget = true;
+            var label = AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", buttonRect), "返回开始界面", 30, Color.white,
+                TextAnchor.MiddleCenter);
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = label;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = PauseAccent;
+            colors.selectedColor = Color.white;
+            colors.pressedColor = new Color(0.65f, 0.65f, 0.65f);
+            button.colors = colors;
+
+            // 按钮下方的手柄提示（VR 才显示，PauseMenu.SetWorldLayout 开关）：[A] 确认   [≡] 返回游戏
+            var hints = AgentUIStyle.CreateAnchored("XRHints", root, new Vector2(0.5f, 0f), new Vector2(0f, 50f), new Vector2(520f, 56f));
+            BuildPauseHint(hints, new Vector2(-250f, 0f), "确认", icon => AddIconLetter(icon, "A"));
+            BuildPauseHint(hints, new Vector2(20f, 0f), "返回游戏", AddIconBars);
+            hints.gameObject.SetActive(false);
+
+            var blocking = new List<CanvasGroup>();
+            foreach (var screen in Object.FindObjectsByType<FlowScreen>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (screen.group != null) blocking.Add(screen.group);
+            var videos = new List<UnityEngine.Video.VideoPlayer>();
+            foreach (var stage in flow.stages)
+                if (stage is OutroVideoStage outro && outro.player != null) videos.Add(outro.player);
+
+            // 先停用再加组件，保证 Awake 时引用已填好
+            canvas.gameObject.SetActive(false);
+            var menu = canvas.gameObject.AddComponent<PauseMenu>();
+            menu.flow = flow;
+            menu.group = group;
+            menu.button = button;
+            menu.diamond = diamondRect;
+            menu.dim = dim;
+            menu.xrHints = hints.gameObject;
+            menu.blockingScreens = blocking.ToArray();
+            menu.videos = videos.ToArray();
+            menu.actions = actions;
+            canvas.gameObject.SetActive(true);
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            var input = inputHost.AddComponent<PauseInput>();
+            input.menu = menu;
+            input.actions = actions;
+            return menu;
+        }
+
+        // 一条手柄提示：#E5FF71 圆形图标（直径 56）+ 右侧白字。x 是图标左边缘相对 hints 中心的偏移
+        static void BuildPauseHint(RectTransform hints, Vector2 position, string text, System.Action<RectTransform> drawIcon)
+        {
+            var icon = AgentUIStyle.CreateAnchored("Icon_" + text, hints, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(56f, 56f));
+            icon.anchoredPosition = position + new Vector2(28f, 0f);
+            AgentUIStyle.AddSprite(icon, AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatCircleSprite), PauseAccent).raycastTarget = false;
+            drawIcon(icon);
+            var label = AgentUIStyle.CreateAnchored("Label_" + text, hints, new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(180f, 56f));
+            label.pivot = new Vector2(0f, 0.5f);
+            label.anchoredPosition = position + new Vector2(70f, 0f);
+            AgentUIStyle.AddText(label, text, 28, Color.white, TextAnchor.MiddleLeft);
+        }
+
+        // 图标：圆里一个黑色粗体字母
+        static void AddIconLetter(RectTransform icon, string letter)
+        {
+            var rect = AgentUIStyle.CreateStretch("Letter", icon);
+            AgentUIStyle.AddText(rect, letter, 34, Color.black, TextAnchor.MiddleCenter, FontStyle.Bold);
+        }
+
+        // 图标：圆里三道黑杠（菜单键）
+        static void AddIconBars(RectTransform icon)
+        {
+            for (int i = 0; i < 3; i++)
+            {
+                var bar = AgentUIStyle.CreateAnchored("Bar" + i, icon, new Vector2(0.5f, 0.5f), new Vector2(0f, (1 - i) * 9f), new Vector2(28f, 5f));
+                AgentUIStyle.AddImage(bar, Color.black).raycastTarget = false;
+            }
+        }
 
         // Outro：VideoPlayer 挂在阶段物体上，全屏视频层是单独的 HUD Canvas（黑底 + 按视频比例适配的 RawImage）。
         // 【技术债】Screen Space HUD，VR 时改成世界空间屏幕
@@ -1000,69 +1110,6 @@ namespace Ghost.Core.EditorTools
             stage.ctx = ctx;
             stage.clip = clip;
             stage.player = player;
-        // 暂停界面：盖住字幕、黑屏、HUD 和结局视频，在开始 / 结束界面之下（VR 幕布再低一档）
-        const int PauseSortingOrder = 280;
-        static readonly Color PauseAccent = new Color(0xE5 / 255f, 0xFF / 255f, 0x71 / 255f);
-
-        // 暂停界面：全屏半透明黑幕布（alpha 0.6）、中央 #E5FF71 菱形（正方形转 45°，PauseMenu 让它缓慢旋转 + 呼吸）、
-        // 底部"返回开始界面"按钮（PC 鼠标点；VR 扳机或 A，见 XRUIBuilder）。暂停键由 Pointer 物体上的 PauseInput 读取。
-        // 第一个子物体是幕布（VR 下关掉，改用头前的 XRScreenBackdrop）
-        static PauseMenu BuildPauseMenu(GameFlow flow, InputActionAsset actions, GameObject inputHost)
-        {
-            var canvas = AgentUIStyle.CreateHudCanvas("PauseMenu", null, PauseSortingOrder);
-            var root = (RectTransform)canvas.transform;
-            var group = canvas.gameObject.AddComponent<CanvasGroup>();
-
-            // 幕布挡住后面的点击（PointerInput 在 HUD 上不派发）
-            var dim = AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Dim", root), new Color(0f, 0f, 0f, 0.6f));
-            dim.raycastTarget = true;
-
-            var diamondRect = AgentUIStyle.CreateAnchored("Diamond", root, new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(150f, 150f));
-            diamondRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
-            AgentUIStyle.AddImage(diamondRect, PauseAccent);
-
-            var buttonRect = AgentUIStyle.CreateAnchored("Button", root, new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(420f, 70f));
-            var hitArea = AgentUIStyle.AddImage(buttonRect, Color.clear);
-            hitArea.raycastTarget = true;
-            var label = AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", buttonRect), "返回开始界面", 30, Color.white,
-                TextAnchor.MiddleCenter);
-            var button = buttonRect.gameObject.AddComponent<Button>();
-            button.targetGraphic = label;
-            var colors = button.colors;
-            colors.normalColor = Color.white;
-            colors.highlightedColor = PauseAccent;
-            colors.selectedColor = Color.white;
-            colors.pressedColor = new Color(0.65f, 0.65f, 0.65f);
-            button.colors = colors;
-
-            var blocking = new List<CanvasGroup>();
-            foreach (var screen in Object.FindObjectsByType<FlowScreen>(FindObjectsInactive.Include, FindObjectsSortMode.None))
-                if (screen.group != null) blocking.Add(screen.group);
-            var videos = new List<UnityEngine.Video.VideoPlayer>();
-            foreach (var stage in flow.stages)
-                if (stage is OutroVideoStage outro && outro.player != null) videos.Add(outro.player);
-
-            // 先停用再加组件，保证 Awake 时引用已填好
-            canvas.gameObject.SetActive(false);
-            var menu = canvas.gameObject.AddComponent<PauseMenu>();
-            menu.flow = flow;
-            menu.group = group;
-            menu.button = button;
-            menu.diamond = diamondRect;
-            menu.dim = dim;
-            menu.blockingScreens = blocking.ToArray();
-            menu.videos = videos.ToArray();
-            menu.actions = actions;
-            canvas.gameObject.SetActive(true);
-            group.alpha = 0f;
-            group.interactable = false;
-            group.blocksRaycasts = false;
-
-            var input = inputHost.AddComponent<PauseInput>();
-            input.menu = menu;
-            input.actions = actions;
-            return menu;
-        }
             stage.screen = canvas.gameObject;
             stage.image = image;
             stage.fitter = fitter;
@@ -1232,14 +1279,12 @@ namespace Ghost.Core.EditorTools
             screen.flow = flow;
             screen.group = group;
             screen.button = button;
-            canvas.gameObject.SetActive(true);
-            return screen;
             screen.actions = actions;
             BuildEndPepperShowcase(group, view, plantModel, fruitName, mainCamera);
+            canvas.gameObject.SetActive(true);
+            return screen;
         }
 
-        // 重新开始要靠 SceneManager.LoadScene，Main.unity 必须在 Build Settings 里，放在第 0 个
-        static void EnsureMainSceneInBuild()
         const string EndShowcaseLayerName = "EndShowcase";
         const string EndPepperMaterialPath = "Assets/Art/Pick/EndPepper.mat";
         // 展示区放在场景下方很远处，专用相机只拍 EndShowcase 层，主相机不拍这一层
@@ -1425,11 +1470,169 @@ namespace Ghost.Core.EditorTools
             return null;
         }
 
+        // 重新开始要靠 SceneManager.LoadScene，Main.unity 必须在 Build Settings 里，放在第 0 个
+        static void EnsureMainSceneInBuild()
         {
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             scenes.RemoveAll(s => s.path == MainScenePath);
             scenes.Insert(0, new EditorBuildSettingsScene(MainScenePath, true));
             EditorBuildSettings.scenes = scenes.ToArray();
+        }
+
+        const string GuideSettingsPath = "Assets/Data/UI/ControlsGuideSettings.asset";
+        const string GuideMaterialPath = "Assets/Art/UI/Guide/Guide.mat";
+        const string GuideFolder = "Assets/Art/UI/Guide/";
+
+        static void BuildControlsGuide(GameFlow flow, Transform cameraTransform)
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<ControlsGuideSettings>(GuideSettingsPath);
+            if (settings == null)
+            {
+                if (!AssetDatabase.IsValidFolder("Assets/Data/UI")) AssetDatabase.CreateFolder("Assets/Data", "UI");
+                settings = ScriptableObject.CreateInstance<ControlsGuideSettings>();
+                AssetDatabase.CreateAsset(settings, GuideSettingsPath);
+            }
+            // 只补空着的图片，已经在资产里改过的不覆盖
+            bool dirty = false;
+            if (settings.s1s2.image == null) { settings.s1s2.image = AssetDatabase.LoadAssetAtPath<Texture2D>(GuideFolder + "guide_s1s2.png"); dirty = true; }
+            if (settings.s2.image == null) { settings.s2.image = AssetDatabase.LoadAssetAtPath<Texture2D>(GuideFolder + "guide_s2.png"); dirty = true; }
+            // 10-16：S2 改用 guide_s2.png，旧资产里 s1s2 的阶段去掉 S2
+            if (settings.s1s2.stages != null && System.Array.IndexOf(settings.s1s2.stages, "S2") >= 0)
+            {
+                settings.s1s2.stages = System.Array.FindAll(settings.s1s2.stages, st => st != "S2");
+                dirty = true;
+            }
+            if (settings.s3s4.image == null) { settings.s3s4.image = AssetDatabase.LoadAssetAtPath<Texture2D>(GuideFolder + "guide_s3s4.png"); dirty = true; }
+            if (settings.pick.image == null) { settings.pick.image = AssetDatabase.LoadAssetAtPath<Texture2D>(GuideFolder + "guid_pick.png"); dirty = true; }
+            if (settings.tutorialSubmitImage == null) { settings.tutorialSubmitImage = AssetDatabase.LoadAssetAtPath<Texture2D>(GuideFolder + "guide_submit.png"); dirty = true; }
+            if (settings.tutorialDetailsImage == null) { settings.tutorialDetailsImage = AssetDatabase.LoadAssetAtPath<Texture2D>(GuideFolder + "guid_details.png"); dirty = true; }
+            if (dirty) { EditorUtility.SetDirty(settings); AssetDatabase.SaveAssets(); }
+
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(GuideMaterialPath);
+            if (mat == null)
+            {
+                var shader = Shader.Find("Ghost/GuideUnlit");
+                if (shader == null)
+                {
+                    Debug.LogError("[Flow] 找不到着色器 Ghost/GuideUnlit，键位提示未生成");
+                    return;
+                }
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, GuideMaterialPath);
+            }
+
+            var go = new GameObject("ControlsGuide");
+            var quadGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quadGo.name = "Image";
+            quadGo.transform.SetParent(go.transform, false);
+            Object.DestroyImmediate(quadGo.GetComponent<Collider>());
+            var renderer = quadGo.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = mat;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.enabled = false;
+
+            var guide = go.AddComponent<ControlsGuide>();
+            guide.flow = flow;
+            guide.settings = settings;
+            guide.viewCamera = cameraTransform;
+            guide.quad = renderer;
+        }
+
+        const string GuidePanelMaterialPath = "Assets/Art/UI/Guide/GuidePanel.mat";
+
+        // 教学弹窗：根物体 + 两块面片（圆角底板 Ghost/GuidePanel、手柄图 Guide.mat），没有 Collider。
+        // 依赖 BuildControlsGuide 先建好 ControlsGuideSettings.asset 和 Guide.mat
+        static TutorialGuidePopup BuildTutorialGuidePopup(Transform cameraTransform)
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<ControlsGuideSettings>(GuideSettingsPath);
+            var imageMat = AssetDatabase.LoadAssetAtPath<Material>(GuideMaterialPath);
+            var panelMat = AssetDatabase.LoadAssetAtPath<Material>(GuidePanelMaterialPath);
+            if (panelMat == null)
+            {
+                var shader = Shader.Find("Ghost/GuidePanel");
+                if (shader != null)
+                {
+                    panelMat = new Material(shader);
+                    AssetDatabase.CreateAsset(panelMat, GuidePanelMaterialPath);
+                }
+            }
+            if (settings == null || imageMat == null || panelMat == null)
+            {
+                Debug.LogError("[Flow] 缺少 ControlsGuideSettings / Guide.mat / 着色器 Ghost/GuidePanel，教学弹窗未生成");
+                return null;
+            }
+
+            var go = new GameObject("TutorialGuidePopup");
+            var popup = go.AddComponent<TutorialGuidePopup>();
+            popup.settings = settings;
+            popup.viewCamera = cameraTransform;
+            popup.panel = CreateGuideQuad("Panel", go.transform, panelMat);
+            popup.image = CreateGuideQuad("Image", go.transform, imageMat);
+            return popup;
+        }
+
+        static MeshRenderer CreateGuideQuad(string name, Transform parent, Material mat)
+        {
+            var quadGo = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            quadGo.name = name;
+            quadGo.transform.SetParent(parent, false);
+            Object.DestroyImmediate(quadGo.GetComponent<Collider>());
+            var renderer = quadGo.GetComponent<MeshRenderer>();
+            renderer.sharedMaterial = mat;
+            renderer.shadowCastingMode = ShadowCastingMode.Off;
+            renderer.receiveShadows = false;
+            renderer.enabled = false;
+            return renderer;
+        }
+
+        // Pause/Help 按钮：World Space Canvas，没有底板。左边 #E5FF71 圆 + 三道黑杠，右边黑字 "Pause/Help"。
+        // 只靠 BoxCollider 接射线（不加 GraphicRaycaster，PointerInput 不会把它当 HUD 挡掉点击）
+        static void BuildPauseWorldButton(GameFlow flow, PauseMenu menu, Camera camera)
+        {
+            var settings = AssetDatabase.LoadAssetAtPath<ControlsGuideSettings>(GuideSettingsPath);
+            if (settings == null || menu == null)
+            {
+                Debug.LogError("[Flow] 缺少 ControlsGuideSettings 或 PauseMenu，Pause/Help 按钮未生成");
+                return;
+            }
+            var size = new Vector2(380f, 120f);
+            var canvas = AgentUIStyle.CreateWorldCanvas("PauseHelpButton", null, camera, settings.pauseButtonPosition,
+                size, new Vector2(0.5f, 0.5f));
+            // 暂停中也显示（再点一次回到游戏）：VR 下排在暂停界面（PauseSortingOrder）和它头前幕布的上面，不被压暗
+            canvas.sortingOrder = PauseSortingOrder + 10;
+            var root = (RectTransform)canvas.transform;
+            var group = canvas.gameObject.AddComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            // 圆：左侧，直径 110
+            var circle = AgentUIStyle.CreateAnchored("Circle", root, new Vector2(0f, 0.5f), new Vector2(5f, 0f), new Vector2(110f, 110f));
+            var circleImage = AgentUIStyle.AddSprite(circle, AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatCircleSprite), AgentUIStyle.ChatAvatar);
+            circleImage.raycastTarget = false;
+            for (int i = 0; i < 3; i++)
+            {
+                var bar = AgentUIStyle.CreateAnchored("Bar" + i, circle, new Vector2(0.5f, 0.5f), new Vector2(0f, (1 - i) * 17f), new Vector2(52f, 9f));
+                AgentUIStyle.AddImage(bar, Color.black).raycastTarget = false;
+            }
+
+            var labelRect = AgentUIStyle.CreateAnchored("Label", root, new Vector2(0f, 0.5f), new Vector2(140f, 0f), new Vector2(240f, 110f));
+            AgentUIStyle.AddText(labelRect, "Pause/Help", 44, Color.black, TextAnchor.MiddleLeft, FontStyle.Bold);
+
+            var box = canvas.gameObject.AddComponent<BoxCollider>();
+            box.isTrigger = true;
+            box.size = new Vector3(size.x, size.y, 10f);
+            box.enabled = false;
+
+            var button = canvas.gameObject.AddComponent<PauseWorldButton>();
+            button.menu = menu;
+            button.flow = flow;
+            button.settings = settings;
+            button.viewCamera = camera.transform;
+            button.group = group;
+            button.box = box;
+            button.hoverTarget = circle;
         }
 
         // 阶段面板（占位阶段的提示文字）。【技术债】比赛期间和其他界面一样是 Screen Space HUD，屏幕顶部居中

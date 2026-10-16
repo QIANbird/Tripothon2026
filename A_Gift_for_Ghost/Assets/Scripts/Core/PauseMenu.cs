@@ -24,6 +24,8 @@ namespace Ghost.Core
         public RectTransform diamond;
         [Tooltip("PC 的全屏幕布。VR 下关掉，改用头前的 XRScreenBackdrop")]
         public Graphic dim;
+        [Tooltip("按钮下方的手柄提示（A 确认 / 菜单键返回游戏），只在 VR 显示")]
+        public GameObject xrHints;
         [Tooltip("这些界面（开始 / 结束）可见时不能暂停")]
         public CanvasGroup[] blockingScreens;
         [Tooltip("暂停时一起暂停的视频（Outro）")]
@@ -156,6 +158,7 @@ namespace Ghost.Core
         public void SetWorldLayout(bool world)
         {
             if (dim != null) dim.enabled = !world;
+            if (xrHints != null) xrHints.SetActive(world);
         }
 
         void Restore()

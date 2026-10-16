@@ -15,6 +15,7 @@ namespace Ghost.Stages
     // 通关：4 个困难节点全部浮出 → 播 S1_002–004，弹出询问（S1_005），选 Yes。
     // 进 S2 时这 4 个节点不变成回路姿态，直接从浮出位置飘到 S2 的散落位置（StageContext.HandOffMissingToScatter）。
     // 对白来自台词表：进关 S1_001；左键点亮起的方块时从 S1_P* 随机池挑一句（对白空闲时才播）。
+    // 卡关提示 S1_H01：简单问题全部解决后（只剩 4 个困难问题）、还没有任何节点浮出时，点击超过 hintAfterClicks 次后每 hintEveryClicks 次播一次。
     // 详见 docs/tasks/s1-s2-missing-nodes.md
     public class S1MatrixStage : IssueStage
     {
@@ -56,6 +57,13 @@ namespace Ghost.Stages
         [Tooltip("询问的问题文字（台词表 Agent询问 行）；为空时用 queryQuestion")]
         public DialogueSequence querySequence;
 
+        [Tooltip("卡关提示（S1_H01）：只剩困难问题、还没有节点浮出时，提示玩家右键查看")]
+        public DialogueSequence hintSequence;
+        [Tooltip("只剩困难问题后点击超过这么多次才开始提示")]
+        public int hintAfterClicks = 5;
+        [Tooltip("开始提示后每点击这么多次播一次")]
+        public int hintEveryClicks = 3;
+
         [Header("询问")]
         [Tooltip("querySequence 为空时用的提问")]
         public string queryQuestion = "是否要进一步查看信息？";
@@ -69,6 +77,7 @@ namespace Ghost.Stages
         Coroutine spawnRoutine;
         bool queryShown;
         bool handingOff;
+        int clicksSinceEasyDone; // 简单问题全部解决后的点击次数（卡关提示用）
         DialogueSequence poolRuntime; // 随机池播放用的运行时副本（文本填好随机数）
         readonly List<int> hardIds = new List<int>();
         // 已浮出的困难节点：id → 浮出进度（0–1，PrimeTween 驱动，Update 里每帧按进度叠加姿态覆盖）
@@ -85,6 +94,7 @@ namespace Ghost.Stages
             if (ctx == null) return;
             queryShown = false;
             handingOff = false;
+            clicksSinceEasyDone = 0;
             ClearFloated();
             // 上次 S1 / S2 留下的姿态覆盖、外发光、隐藏的连线（例如从 S2 跳回 S1）
             ctx.ClearMissingNodeVisuals();
@@ -186,6 +196,21 @@ namespace Ghost.Stages
             RefreshAll();
             TryOfferQuery(); // 先判断通关：通关的这一下直接播 S1_002，不先冒一句随机池
             PlayPoolLine();
+        }
+
+        // 卡关提示：只剩困难问题、还没有节点浮出时，点击超过 hintAfterClicks 次后每 hintEveryClicks 次播一次。
+        // 在 OnIssueAttempted 之后调用，可以替换掉这一下刚冒出的随机池台词；进关 / 通关台词不打断
+        protected override void OnNodeTapped(int id)
+        {
+            if (queryShown || hintSequence == null || !SolvableDone() || floatProgress.Count > 0) return;
+            clicksSinceEasyDone++;
+            if (clicksSinceEasyDone <= hintAfterClicks || clicksSinceEasyDone % Mathf.Max(1, hintEveryClicks) != 0) return;
+            if (ctx.dialogue != null && ctx.dialogue.IsPlaying)
+            {
+                var current = ctx.dialogue.CurrentSequence;
+                if (current != poolRuntime && current != hintSequence) return;
+            }
+            ctx.Play(hintSequence);
         }
 
         protected override void OnIssueResolved(NodeIssue issue)

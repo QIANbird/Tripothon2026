@@ -193,6 +193,11 @@ namespace Ghost.Agent
             button.transition = Selectable.Transition.None;
             var yesRect = AgentUIStyle.CreateStretch("Label", buttonRect);
             var yes = AgentUIStyle.AddText(yesRect, q.yesText, 28, q.buttonTextColor, TextAnchor.MiddleCenter, FontStyle.Bold);
+            // YES 后面的 A 键圆标（#E5FF71 圆 + 深色 A），位置由 AgentQueryDialog.LayoutYesContent 排
+            var badge = AgentUIStyle.CreateRect("KeyBadge", buttonRect, Vector2.zero, new Vector2(q.keyBadgeSize, q.keyBadgeSize));
+            AgentUIStyle.AddSprite(badge, circle, AgentUIStyle.ChatAvatar);
+            AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", badge), "A", 22, AgentUIStyle.ChatText,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
 
             q.panel = panel;
             q.headerLabel = header;
@@ -200,6 +205,7 @@ namespace Ghost.Agent
             q.yesButton = button;
             q.yesBackground = buttonImage;
             q.yesLabel = yes;
+            q.yesKeyBadge = badge;
             question.text = "（AI 询问）";
             q.Resize();
             host.SetActive(true);

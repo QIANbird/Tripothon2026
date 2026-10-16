@@ -18,20 +18,22 @@ namespace Ghost.Stages.EditorTools
         public const string TutorialAfterEasyKey = "TUT_004";
         public const string TutorialAfterHardKey = "TUT_008";
         public const string TutorialInspectKey = "TUT_014";
+        public const string TutorialAfterInspectIntroKey = "TUT_013";
         public const string TutorialAfterInspectKey = "TUT_015";
 
         public const string S1IntroKey = "S1_001";
         public const string S1ClickPoolPrefix = "S1_P";
         public const string S1CompleteKey = "S1_002";
         public const string S1QueryKey = "S1_005";
+        public const string S1HintKey = "S1_H01";
 
         public const string S2IntroKey = "S2_001";
-        public const string S2WrongStartKey = "S2_W01"; // 旧玩法（从脉冲源拖线），S2 已不再使用
         public const string S2NoPathKey = "S2_NOPATH";
         public const string S2WrongModuleKey = "S2_WRONG";
         public const string S2PatchedKey = "S2_PATCHED";
-        public const string S2SolvedKey = "S2_006";
-        public const string S2FinishKey = "S2_008";
+        public const string S2HintKey = "S2_H01";
+        public const string S2SolvedKey = "S2_008";
+        public const string S2FinishKey = "S2_010";
 
         public const string S3IntroKey = "S3_001";
         public const string S3FirstMarkedKey = "S3_006";

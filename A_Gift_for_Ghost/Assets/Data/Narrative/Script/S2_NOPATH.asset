@@ -17,7 +17,7 @@ MonoBehaviour:
   - id: S2_NOPATH
     speaker: 3
     channel: 2
-    text: "\u3010\u5360\u4F4D\u3011\u4F9B\u7ED9\u8DEF\u5F84\u4E0D\u5B58\u5728\uFF0C\u65E0\u6CD5\u6267\u884C\u8D44\u6E90\u8C03\u914D\u3002"
+    text: "\u91CD\u542F\u5931\u8D25\u3002\u8BF7\u8865\u5145\u63A8\u7406\u4FE1\u606F\u4EE5\u5B9A\u4F4D\u5F02\u5E38\u8282\u70B9\u3002"
     clip: {fileID: 0}
     durationOverride: 0
     pauseAfter: -1

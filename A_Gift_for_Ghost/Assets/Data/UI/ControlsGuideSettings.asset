@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f4f4d68c0f0115540a20521e2fa5facf, type: 3}
+  m_Name: ControlsGuideSettings
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Core.ControlsGuideSettings
+  s1s2:
+    stages:
+    - S1
+    image: {fileID: 2800000, guid: c7d1d7e13ce9aa74ca947e61f42d6ed3, type: 3}
+    position: {x: 1, y: 1.25, z: -1.5}
+    height: 0.16
+  s2:
+    stages:
+    - S2
+    image: {fileID: 2800000, guid: d4d0cc2e577f40d4d9c806062f82a9c0, type: 3}
+    position: {x: 1, y: 1.25, z: -1.5}
+    height: 0.16
+  s3s4:
+    stages:
+    - S3
+    - S4
+    image: {fileID: 2800000, guid: a7e416bb1c4db6149a4bc6f6a460550b, type: 3}
+    position: {x: -0.62, y: 1.55, z: -1.1}
+    height: 0.24
+  pick:
+    stages:
+    - Pick
+    image: {fileID: 2800000, guid: 011bdd5aa94097e4cb4e3859968b9eaf, type: 3}
+    position: {x: -0.8, y: 1.1, z: 0.6}
+    height: 0.4
+  pauseButtonPosition: {x: 0.93, y: 1.4, z: -1.5}
+  pauseButtonMetersPerPixel: 0.0006
+  pauseButtonStages:
+  - S1
+  - S2
+  - S3
+  - S4
+  tutorialSubmitImage: {fileID: 2800000, guid: a52a237cb1e827c49a493b7f2632597a, type: 3}
+  tutorialDetailsImage: {fileID: 2800000, guid: 5d51d4b6de552d248b1770e0a4511f27, type: 3}
+  tutorialPopupOffset: {x: 0.22, y: 0, z: -0.05}
+  tutorialPopupHeight: 0.16
+  tutorialPopupPadding: 0.07
+  tutorialPopupColor: {r: 0.851, g: 0.851, b: 0.851, a: 0.85}
+  tutorialPopupCornerRadius: 0.08
+  tutorialPopupSlideDistance: 0.1
+  tutorialPopupSlideSeconds: 0.35
+  yawOnly: 1
+  showOnPC: 1
+  fadeSeconds: 0.4
+  opacity: 1
+  previewInEditMode: 0
