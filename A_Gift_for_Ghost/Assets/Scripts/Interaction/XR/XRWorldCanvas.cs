@@ -229,6 +229,19 @@ namespace Ghost.Interaction.XR
 
         // ---- 摆放 ----
 
+        // LazyFollow：立刻挪到头正前方（暂停界面每次打开时调用），之后照常懒跟随。PC 上不做事
+        public void Recenter()
+        {
+            if (!IsWorld || placement != Placement.LazyFollow) return;
+            PlaceInFrontOfHead();
+            if (lazyFollow != null && lazyFollow.enabled)
+            {
+                // snapOnEnable：重新启用时对齐目标，不从旧位置滑过来
+                lazyFollow.enabled = false;
+                lazyFollow.enabled = true;
+            }
+        }
+
         void PlaceInFrontOfHead()
         {
             if (head == null) return;

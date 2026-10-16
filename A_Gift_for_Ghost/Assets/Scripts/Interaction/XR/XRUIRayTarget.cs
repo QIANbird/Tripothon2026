@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Ghost.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
@@ -9,6 +10,8 @@ namespace Ghost.Interaction.XR
     // VR 模式下按 RectTransform 大小开一个 BoxCollider，XRControllerInput 的物理射线就能打到它。
     //   button 不为空：扳机短按 → OnTap → button.onClick（和 PC 上鼠标点同一个 Button）
     //   approveKey 勾上：扳机不点它，改成按 A 确认（开始界面 Awake、询问框 Yes），见 TryApprove
+    //   approveKey + triggerToo：扳机和 A 都能确认（暂停界面"返回开始界面"）
+    //   pauseMenu：暂停界面的目标。暂停中 A 只确认这些、射线只打这些（XRControllerInput 暂停 UI 模式），不暂停时它们不响应 A
     //   button 为空：只挡射线（开始 / 结束界面的黑底、结局视频），后面的节点选不中
     // PC 上、Canvas 不在 World Space、或 CanvasGroup 不挡射线 / 按钮不可点时，Collider 关掉。
     [RequireComponent(typeof(RectTransform))]
@@ -21,6 +24,10 @@ namespace Ghost.Interaction.XR
         public float thickness = 10f;
         [Tooltip("勾上后扳机不点这个按钮，改由 A 键确认（XRControllerInput 按 A 时先调 TryApprove）")]
         public bool approveKey;
+        [Tooltip("approveKey 勾上时扳机也能点（两者都可）。不勾 = 只能按 A")]
+        public bool triggerToo;
+        [Tooltip("属于暂停界面：暂停中只有这些目标响应 A 和射线（询问框等其他界面可能还开着）")]
+        public bool pauseMenu;
 
         // 所有 approveKey 按钮（启用中的）
         static readonly List<XRUIRayTarget> approveTargets = new List<XRUIRayTarget>();
@@ -80,7 +87,7 @@ namespace Ghost.Interaction.XR
 
         public void OnTap()
         {
-            if (approveKey) return; // 只能按 A 确认
+            if (approveKey && !triggerToo) return; // 只能按 A 确认
             if (Clickable) button.onClick.Invoke();
         }
 
@@ -90,7 +97,7 @@ namespace Ghost.Interaction.XR
             for (int i = approveTargets.Count - 1; i >= 0; i--)
             {
                 var t = approveTargets[i];
-                if (t == null || !t.Clickable) continue;
+                if (t == null || !t.Clickable || t.pauseMenu != PauseMenu.IsPaused) continue;
                 t.button.onClick.Invoke();
                 return true;
             }

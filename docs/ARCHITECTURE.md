@@ -4,11 +4,11 @@
 
 | 系统 | 目录 | 职责 |
 |---|---|---|
-| Flow | `Scripts/Core` | `GameFlow` 按顺序运行 `Stage`；进关时触发变形；`StartScreen` / `EndScreen`（继承 `FlowScreen`）是开始和结束界面 |
+| Flow | `Scripts/Core` | `GameFlow` 按顺序运行 `Stage`；进关时触发变形；`StartScreen` / `EndScreen`（继承 `FlowScreen`）是开始和结束界面，`FlowScreen.ReloadToStart()` 复位 timeScale / 音频后重载场景；`PauseMenu`（暂停：静态 `IsPaused` + `PausedChanged`，管 timeScale、音频、视频和 Player / Debug 动作表，不读设备） |
 | Stages | `Scripts/Stages` | 每关的玩法和通关判定；`StageContext` 提供共用引用 |
 | Morph | `Scripts/Morph` | 同一组节点在 5 种形态之间插值渲染（GPU instancing）；逐节点的显示状态；连线；节点外发光圈（`NodeHaloRenderer`）；PlantFit 构图；写实模型交接 |
 | Gameplay | `Scripts/Gameplay` | `NodeIssueSystem`：问题的难度、重试和解决状态 |
-| Interaction | `Scripts/Interaction` | `InteractionSource`（发起方基类，事件契约）、`InteractionRouter`（按平台选发起方并转发，玩法层引用它）、`PointerInput`（PC 发起方）、`XR/XRControllerInput`（VR 右手柄发起方，含选中状态和批准面板 `XRApprovePanel`、射线显示 `XRRayVisual`）、`DialogueAdvanceInput`（PC 端对白推进）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
+| Interaction | `Scripts/Interaction` | `InteractionSource`（发起方基类，事件契约）、`InteractionRouter`（按平台选发起方并转发，玩法层引用它）、`PointerInput`（PC 发起方）、`XR/XRControllerInput`（VR 右手柄发起方，含选中状态和批准面板 `XRApprovePanel`、射线显示 `XRRayVisual`）、`DialogueAdvanceInput`（PC 端对白推进）、`PauseInput`（读 Gameplay/Pause，PC / VR 共用，只调 `PauseMenu.Toggle()`；各发起方 / 对白推进 / 调试跳关在 `PauseMenu.IsPaused` 时不派发，VR 发起方暂停中只用射线点暂停界面的 `XRUIRayTarget.pauseMenu` 目标）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
 | Agent UI | `Scripts/Agent` | 任务面板、详情弹窗、Yes 询问框（PC 为 HUD；VR 由 `Interaction/XR/XRWorldCanvas` 在头显运行时换成 World Space） |
 | Player | `Scripts/Player` | Pick 阶段的第一人称玩家：`FirstPersonMotor`（CharacterController 移动、转头、蹲下）、`PlayerRig`（开关玩家、接管 / 归还主相机）；`Player/PC/` 下是 PC 专用的 `PcCursorLock`、`PcCrosshair`、`PcControlsHint`（订阅 `PickStage.ControlsHintShown/Hidden` 显示键位提示） |
 | Narrative | `Scripts/Narrative` | 对白播放、字幕、Agent 聊天栏（`AgentChatFeed`）、黑屏、节点详情文本表 |
@@ -102,7 +102,7 @@
 ## Input abstraction
 
 - `InputSystem_Actions.inputactions`：
-  - `Gameplay` 表：Point、Select（左键 / 右扳机）、Inspect（右键 / 右握键）、Advance（空格 / 回车）、Approve（右 A）、Rotate（右摇杆）。
+  - `Gameplay` 表：Point、Select（左键 / 右扳机）、Inspect（右键 / 右握键）、Advance（空格 / 回车）、Approve（右 A）、Rotate（右摇杆）、Pause（Esc / 左 menu）。
   - `Debug` 表：NextStage、JumpStage1–9。
   - `Player` 表（Pick 阶段）：Move（WASD）、Look（鼠标 delta）、Crouch（C / 左 Ctrl）、Grab（左键）、Eat（E）。Grab / Eat 还没有使用方。
 - 交互发起方都继承 `InteractionSource`，把输入翻译成同一组手势事件；`InteractionRouter` 在 PC（`PointerInput`）和 VR（`XRControllerInput`，头显运行时）之间选一个并转发，另一个 `InputEnabled = false`：

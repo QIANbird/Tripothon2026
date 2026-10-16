@@ -17,6 +17,7 @@ namespace Ghost.Core.EditorTools
     //   详情弹窗       贴在被查看的节点旁边，在这个节点前方 0.1 m、朝向固定
     //   开始 / 结束    LazyFollow 的 3D 面板，开始界面 Awake、结束界面"返回开始界面"都按 A 确认（扳机不点）；结束界面的彩椒是真 3D 物体，摆在面板前 0.1 m；背后一块跟界面同步淡入淡出的黑幕（XRScreenBackdrop），看不到关卡
     //   结局视频       LazyFollow 的大屏
+    //   暂停界面       LazyFollow，头前 1.5 m，打开时对准视线；头前半透明幕布；"返回开始界面"扳机或 A 确认
     //   黑屏          挂在相机前 0.1 m
     //   阶段面板 / PC 键位提示 / 准星：不参与（占位、或只在 PC 用）
     public static class XRUIBuilder
@@ -98,6 +99,9 @@ namespace Ghost.Core.EditorTools
                 if (screen is EndScreen) BuildEndPepper(w);
             }
 
+            var pause = Object.FindAnyObjectByType<PauseMenu>(FindObjectsInactive.Include);
+            if (pause != null) BuildPauseMenu(pause, head);
+
             var outro = Object.FindAnyObjectByType<Ghost.Stages.OutroVideoStage>(FindObjectsInactive.Include);
             if (outro != null && outro.screen != null)
             {
@@ -135,21 +139,37 @@ namespace Ghost.Core.EditorTools
             UnityEventTools.AddPersistentListener(w.worldModeChanged, placement.SetWorld);
         }
 
+        // 暂停界面（VR）：头前 1.5 m 的 LazyFollow 面板（1920 × 0.0008 = 1.5 m 宽，约 53°），每次打开时重新对准视线；
+        // 面板上的全屏幕布关掉，换成头前的半透明幕布（黑 alpha 0.6，跟面板一起淡入淡出）。
+        // "返回开始界面"扳机和 A 都能确认；暂停中射线只打暂停界面的目标（XRUIRayTarget.pauseMenu）
+        static void BuildPauseMenu(PauseMenu pause, Transform head)
+        {
+            var w = Add(pause.GetComponent<Canvas>(), XRWorldCanvas.Placement.LazyFollow, head, null,
+                new Vector3(0f, 0f, 1.5f), 0.0008f, null);
+            AddLazyFollow(w);
+            UnityEventTools.AddPersistentListener(w.worldModeChanged, pause.SetWorldLayout);
+            UnityEventTools.AddPersistentListener(pause.opened, w.Recenter);
+            AddRayTarget(pause.button.gameObject, pause.button, w, 30f, approveKey: true, triggerToo: true, pauseMenu: true);
+            BuildBackdrop(pause.GetComponent<Canvas>(), pause.group, head, new Color(0f, 0f, 0f, 0.6f));
+        }
+
         // 开始 / 结束界面背后的黑幕（VR）：和黑屏一样挂在相机前 0.1 m 覆盖整个视野，透明度跟界面走，
         // 开场只看到黑底上的 AWAKE 面板，看不到后面的关卡。排序比界面低一档
-        static void BuildScreenBackdrop(FlowScreen screen, Transform head)
+        static void BuildScreenBackdrop(FlowScreen screen, Transform head) =>
+            BuildBackdrop(screen.GetComponent<Canvas>(), screen.group, head, Color.black);
+
+        static void BuildBackdrop(Canvas screenCanvas, CanvasGroup source, Transform head, Color color)
         {
-            var screenCanvas = screen.GetComponent<Canvas>();
-            var canvas = AgentUIStyle.CreateHudCanvas(screen.name + "BackdropXR", null, screenCanvas.sortingOrder - 1);
+            var canvas = AgentUIStyle.CreateHudCanvas(screenCanvas.name + "BackdropXR", null, screenCanvas.sortingOrder - 1);
             Object.DestroyImmediate(canvas.GetComponent<GraphicRaycaster>());
             var group = canvas.gameObject.AddComponent<CanvasGroup>();
             group.alpha = 0f;
             group.interactable = false;
             group.blocksRaycasts = false;
-            AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Fill", canvas.transform), Color.black).raycastTarget = false;
+            AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Fill", canvas.transform), color).raycastTarget = false;
 
             var backdrop = canvas.gameObject.AddComponent<XRScreenBackdrop>();
-            backdrop.source = screen.group;
+            backdrop.source = source;
             backdrop.group = group;
 
             var w = Add(canvas, XRWorldCanvas.Placement.HeadLocked, head, null, new Vector3(0f, 0f, 0.1f), 0.0001f, null);
@@ -191,10 +211,13 @@ namespace Ghost.Core.EditorTools
             w.lazyFollow = follow;
         }
 
-        static void AddRayTarget(GameObject go, Button button, XRWorldCanvas world, float thickness, bool approveKey = false)
+        static void AddRayTarget(GameObject go, Button button, XRWorldCanvas world, float thickness, bool approveKey = false,
+            bool triggerToo = false, bool pauseMenu = false)
         {
             var target = go.AddComponent<XRUIRayTarget>();
             target.approveKey = approveKey;
+            target.triggerToo = triggerToo;
+            target.pauseMenu = pauseMenu;
             target.button = button;
             target.world = world;
             target.thickness = thickness;

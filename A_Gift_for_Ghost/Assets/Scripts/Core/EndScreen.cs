@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-using UnityEngine.SceneManagement;
 
 namespace Ghost.Core
 {
@@ -50,7 +49,7 @@ namespace Ghost.Core
         {
             if (reloading) return;
             reloading = true;
-            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+            ReloadToStart();
         }
     }
 }

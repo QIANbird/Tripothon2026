@@ -318,6 +318,8 @@ namespace Ghost.Core.EditorTools
             XRUIBuilder.Build(new XRUIBuilder.Refs { camera = camera, viewAnchor = rig.viewAnchor, rightAim = rig.rightAim });
             // 场景保存时玩家根物体是停用的，Pick 阶段 Enter 时才打开
             if (pickStage != null)
+            // 暂停界面（docs/tasks/outro02-end-pause-screens.md 第 3 部分）：Esc / 左手柄 menu
+            BuildPauseMenu(flow, actions, pointer.gameObject);
             {
                 // VR：Pick 阶段眼高交给头显，motor 不再加 1.6 m（挂在常驻的 XR Origin 上，PlayerRoot 平时停用）
                 var headTracking = rig.origin.gameObject.AddComponent<XRPlayerHeadTracking>();
@@ -966,6 +968,69 @@ namespace Ghost.Core.EditorTools
             stage.ctx = ctx;
             stage.clip = clip;
             stage.player = player;
+        // 暂停界面：盖住字幕、黑屏、HUD 和结局视频，在开始 / 结束界面之下（VR 幕布再低一档）
+        const int PauseSortingOrder = 280;
+        static readonly Color PauseAccent = new Color(0xE5 / 255f, 0xFF / 255f, 0x71 / 255f);
+
+        // 暂停界面：全屏半透明黑幕布（alpha 0.6）、中央 #E5FF71 菱形（正方形转 45°，PauseMenu 让它缓慢旋转 + 呼吸）、
+        // 底部"返回开始界面"按钮（PC 鼠标点；VR 扳机或 A，见 XRUIBuilder）。暂停键由 Pointer 物体上的 PauseInput 读取。
+        // 第一个子物体是幕布（VR 下关掉，改用头前的 XRScreenBackdrop）
+        static PauseMenu BuildPauseMenu(GameFlow flow, InputActionAsset actions, GameObject inputHost)
+        {
+            var canvas = AgentUIStyle.CreateHudCanvas("PauseMenu", null, PauseSortingOrder);
+            var root = (RectTransform)canvas.transform;
+            var group = canvas.gameObject.AddComponent<CanvasGroup>();
+
+            // 幕布挡住后面的点击（PointerInput 在 HUD 上不派发）
+            var dim = AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Dim", root), new Color(0f, 0f, 0f, 0.6f));
+            dim.raycastTarget = true;
+
+            var diamondRect = AgentUIStyle.CreateAnchored("Diamond", root, new Vector2(0.5f, 0.5f), new Vector2(0f, 40f), new Vector2(150f, 150f));
+            diamondRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            AgentUIStyle.AddImage(diamondRect, PauseAccent);
+
+            var buttonRect = AgentUIStyle.CreateAnchored("Button", root, new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(420f, 70f));
+            var hitArea = AgentUIStyle.AddImage(buttonRect, Color.clear);
+            hitArea.raycastTarget = true;
+            var label = AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", buttonRect), "返回开始界面", 30, Color.white,
+                TextAnchor.MiddleCenter);
+            var button = buttonRect.gameObject.AddComponent<Button>();
+            button.targetGraphic = label;
+            var colors = button.colors;
+            colors.normalColor = Color.white;
+            colors.highlightedColor = PauseAccent;
+            colors.selectedColor = Color.white;
+            colors.pressedColor = new Color(0.65f, 0.65f, 0.65f);
+            button.colors = colors;
+
+            var blocking = new List<CanvasGroup>();
+            foreach (var screen in Object.FindObjectsByType<FlowScreen>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+                if (screen.group != null) blocking.Add(screen.group);
+            var videos = new List<UnityEngine.Video.VideoPlayer>();
+            foreach (var stage in flow.stages)
+                if (stage is OutroVideoStage outro && outro.player != null) videos.Add(outro.player);
+
+            // 先停用再加组件，保证 Awake 时引用已填好
+            canvas.gameObject.SetActive(false);
+            var menu = canvas.gameObject.AddComponent<PauseMenu>();
+            menu.flow = flow;
+            menu.group = group;
+            menu.button = button;
+            menu.diamond = diamondRect;
+            menu.dim = dim;
+            menu.blockingScreens = blocking.ToArray();
+            menu.videos = videos.ToArray();
+            menu.actions = actions;
+            canvas.gameObject.SetActive(true);
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+
+            var input = inputHost.AddComponent<PauseInput>();
+            input.menu = menu;
+            input.actions = actions;
+            return menu;
+        }
             stage.screen = canvas.gameObject;
             stage.image = image;
             stage.fitter = fitter;

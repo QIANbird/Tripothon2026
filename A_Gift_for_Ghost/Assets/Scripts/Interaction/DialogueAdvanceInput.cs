@@ -1,3 +1,4 @@
+using Ghost.Core;
 using Ghost.Narrative;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -51,6 +52,7 @@ namespace Ghost.Interaction
 
         void Update()
         {
+            if (PauseMenu.IsPaused) return; // 暂停中不推进
             if (advanceAction != null && advanceAction.WasPressedThisFrame()) subtitles.Advance();
         }
 
@@ -58,6 +60,7 @@ namespace Ghost.Interaction
         {
             // 阶段关掉指针输入时（例如变形中），点击也不推进
             if (pointer != null && !pointer.InputEnabled) return;
+            if (PauseMenu.IsPaused) return;
             subtitles.Advance();
         }
 

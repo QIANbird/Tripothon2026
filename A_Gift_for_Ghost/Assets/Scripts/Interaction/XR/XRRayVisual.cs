@@ -3,7 +3,7 @@ using UnityEngine;
 namespace Ghost.Interaction.XR
 {
     // 手柄射线的显示，和 XRControllerInput 分开（对应 PC 的 PointerCursor）：LineRenderer 从手柄画到命中点，
-    // 指向节点或可交互物时变亮，否则画一段短的暗线。发起方不在用（PC 模式或阶段关掉输入）时隐藏。
+    // 指向节点或可交互物时变亮，否则画一段短的暗线。发起方不在用（PC 模式或阶段关掉输入）时隐藏；暂停界面打开时照常显示。
     [RequireComponent(typeof(LineRenderer))]
     [DefaultExecutionOrder(100)] // 在发起方 Update 之后读本帧射线
     public class XRRayVisual : MonoBehaviour
@@ -28,7 +28,7 @@ namespace Ghost.Interaction.XR
 
         void LateUpdate()
         {
-            bool active = source != null && source.isActiveAndEnabled && source.InputEnabled;
+            bool active = source != null && source.isActiveAndEnabled && (source.InputEnabled || source.PausedUI);
             if (line.enabled != active) line.enabled = active;
             if (!active) return;
 

@@ -1,3 +1,4 @@
+using Ghost.Core;
 using Ghost.Morph;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -19,6 +20,8 @@ namespace Ghost.Interaction.XR
     //   Inspect（握键）按住     → 有选中：InspectStart(选中节点)；松开 → InspectEnd
     //   Rotate（右摇杆）       → DragEmpty(等效像素增量)，回中 → DragEmptyEnd。只发原始两轴，轴过滤由 Stage / TargetRotator 决定
     // 发 Tap / InspectStart 时 CurrentRay 暂时换成选中那一刻的射线（S4 按射线找叶片背后的虫子，要和选中时一致）。
+    // 暂停中（PauseMenu.IsPaused）：只剩 UI 模式——射线只打 IInteractable（暂停界面的按钮），扳机短按点它，A 走 TryApprove；
+    //   不选节点、不发节点 / 对白 / 旋转事件。和 InputEnabled 无关（Pick 阶段关着节点交互也要能点暂停界面），选中状态保留到继续。
     public class XRControllerInput : InteractionSource
     {
         [Tooltip("射线起点和方向（forward）。为空时用本物体")]
@@ -63,6 +66,8 @@ namespace Ghost.Interaction.XR
 
         public override bool IsDraggingNode => gesture == Gesture.NodeDrag;
         public override bool IsDraggingEmpty => stickActive;
+        // 暂停界面的 UI 模式（头显在运行且暂停中）：射线显示照常开着
+        public bool PausedUI { get; private set; }
 
         enum Gesture { None, Pressed, NodeDrag, Blocked }
 
@@ -131,7 +136,23 @@ namespace Ghost.Interaction.XR
             // 放在 InputEnabled 判断前：这些界面显示时关卡可能关着节点交互
             bool approvePressed = map != null && approveAction != null && approveAction.WasPressedThisFrame();
             if (approvePressed && XRUIRayTarget.TryApprove()) approvePressed = false;
-            if (map == null || !InputEnabled)
+            bool pausedUI = map != null && PauseMenu.IsPaused && UnityEngine.XR.XRSettings.isDeviceActive;
+            if (pausedUI != PausedUI)
+            {
+                PausedUI = pausedUI;
+                if (pausedUI) SuspendGestures();
+                else
+                {
+                    ResetGesture();
+                    SetHover(-1, null);
+                }
+            }
+            if (pausedUI)
+            {
+                UpdatePausedUI();
+                return;
+            }
+            if (map == null || !InputEnabled || PauseMenu.IsPaused)
             {
                 if (approvePanel != null) approvePanel.Hide();
                 return;
@@ -457,6 +478,62 @@ namespace Ghost.Interaction.XR
                 if (IsAlive(previous)) previous.OnHoverExit();
                 if (interactable != null) interactable.OnHoverEnter();
             }
+        }
+
+        // ---- 暂停界面 ----
+
+        // 进入暂停：结束按到一半的手势、摇杆、握键查看，收起批准面板；选中的节点保留
+        void SuspendGestures()
+        {
+            if (gesture == Gesture.NodeDrag) RaiseDragEnd();
+            ResetGesture();
+            EndStick();
+            EndInspect();
+            IsPressed = false;
+            SetHover(-1, null);
+            HoverDistance = float.PositiveInfinity;
+            if (approvePanel != null) approvePanel.Hide();
+        }
+
+        // 射线只找最近的暂停界面目标（XRUIRayTarget.pauseMenu）：场景物体和其他界面（询问框在 0.55 m，比暂停面板近）都不挡
+        void UpdatePausedUI()
+        {
+            Transform a = Aim;
+            Ray ray = new Ray(a.position, a.forward);
+            CurrentRay = ray;
+            IInteractable target = RaycastInteractable(ray, out float distance);
+            HoverDistance = distance;
+            SetHover(-1, target);
+
+            if (selectAction.WasPressedThisFrame())
+            {
+                pressInteractable = target;
+                gesture = Gesture.Pressed;
+            }
+            if (selectAction.WasReleasedThisFrame() && gesture != Gesture.None)
+            {
+                if (pressInteractable != null && ReferenceEquals(target, pressInteractable)) pressInteractable.OnTap();
+                ResetGesture();
+            }
+            IsPressed = gesture != Gesture.None;
+        }
+
+        readonly RaycastHit[] pausedHits = new RaycastHit[16];
+
+        IInteractable RaycastInteractable(Ray ray, out float distance)
+        {
+            distance = float.PositiveInfinity;
+            IInteractable best = null;
+            int n = Physics.RaycastNonAlloc(ray, pausedHits, maxDistance, physicsMask, QueryTriggerInteraction.Collide);
+            for (int i = 0; i < n; i++)
+            {
+                if (pausedHits[i].distance >= distance) continue;
+                var interactable = pausedHits[i].collider.GetComponentInParent<XRUIRayTarget>();
+                if (interactable == null || !interactable.pauseMenu) continue;
+                best = interactable;
+                distance = pausedHits[i].distance;
+            }
+            return best;
         }
 
         // ---- 收尾 ----

@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Ghost.Core
@@ -32,6 +33,15 @@ namespace Ghost.Core
         }
 
         protected abstract void OnButton();
+
+        // 回到开始界面：重新加载当前场景（结束界面、暂停界面共用）。
+        // 重载场景而不是 JumpTo(0)：各系统的运行时状态一次清干净。timeScale / AudioListener.pause 是全局的，重载前先复位
+        public static void ReloadToStart()
+        {
+            Time.timeScale = 1f;
+            AudioListener.pause = false;
+            SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
+        }
 
         protected void SetVisible(bool visible, bool immediate)
         {

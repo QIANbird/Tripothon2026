@@ -52,12 +52,14 @@ namespace Ghost.Core
 
         void OnNext(InputAction.CallbackContext context)
         {
+            if (PauseMenu.IsPaused) return; // 暂停中不跳关（PauseMenu 也会停用 Debug 表，这里再挡一次）
             flow.Next();
         }
 
         // Shift + 1 跳到第 0 关（Intro），Shift + 9 跳到第 8 关
         void OnJump(InputAction.CallbackContext context)
         {
+            if (PauseMenu.IsPaused) return;
             int index = System.Array.IndexOf(jumpActions, context.action);
             if (index >= 0) flow.JumpTo(index);
         }

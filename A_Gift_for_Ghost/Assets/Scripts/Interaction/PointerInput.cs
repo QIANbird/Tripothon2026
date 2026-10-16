@@ -1,3 +1,4 @@
+using Ghost.Core;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -88,6 +89,12 @@ namespace Ghost.Interaction
             if (map == null) return;
             if (!InputEnabled)
             {
+                return;
+            }
+            // 暂停中不派发任何节点交互（暂停界面的按钮走 UGUI EventSystem）；按到一半的手势收尾
+            if (PauseMenu.IsPaused)
+            {
+                CancelGesture();
                 return;
             }
 
