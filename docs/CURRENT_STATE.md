@@ -67,7 +67,7 @@
 - 阶段 Enter 时订阅、Exit 时退订，并调用 `ctx.ResetShared()`，保证跳关可逆。
 - 不重新采样 `pepper_plant`。S1/S2 缺失节点按拓扑挑选，重新采样后结果可能变，但不需要改代码。
 - 【比赛期技术债】UI 是 Screen Space Overlay HUD，赛后改回 World Space（`docs/VR_GUIDELINES.md` 第 5 节）。
-- 不要提交 `Packages/manifest.json`、`packages-lock.json` 里的 `com.tripo3d.unitybridge` 一行（本机路径）。`runInBackground: 1` 已提交（10-08），让编辑器失焦时 Play 模式和 MCP 照常运行。
+- 不要提交 `Packages/manifest.json`、`packages-lock.json` 里的本机 `file:` 路径（例如 `com.tripo3d.unitybridge` 的 Windows `C:/Users/...`）。共享清单已去掉这一行（10-17）；本机仍可自己装 Tripo Bridge，但不要再提交。协作约定见 `docs/protocols/VERSIONING.md`。`runInBackground: 1` 已提交（10-08），让编辑器失焦时 Play 模式和 MCP 照常运行。
 
 ## Next planned milestone
 

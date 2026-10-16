@@ -18,6 +18,7 @@
 - Gameplay logic must not depend directly on keyboard, mouse, camera raycasts, or XR controllers.
 - Keep platform-specific PC / XR code separate from shared gameplay logic.
 - Do not introduce Windows-only APIs or plugins into shared systems.
+- Never commit a machine-local `file:` path (`C:/Users/...`, `/Users/...`) in `Packages/manifest.json` or `packages-lock.json`. Optional local tools (Tripo Bridge, etc.) stay off the shared manifest.
 - Preserve Unity `.meta` files when moving, adding, or deleting assets.
 - Do not make unrelated refactors while implementing or debugging a scoped task.
 - Do not commit or push unless the user explicitly asks.

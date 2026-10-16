@@ -55,14 +55,31 @@ crashlytics-build.properties
 
 # ===== 系统文件 =====
 .DS_Store
+._*
 Thumbs.db
+ehthumbs.db
 Desktop.ini
+
+# ===== Office 锁文件 / 临时文件（Excel 打开时生成 ~$*.xlsx）=====
+~$*
+*.tmp
+*.bak
 
 # ===== 个人本地文件夹（不同步）=====
 /美术参考-Xie/
+/docs/Video/
+
+# ===== 误提交的本机 Git LFS hook 副本（真正的 hook 在 .git/hooks）=====
+/dev/
 
 # ===== AI 工具本机生成的文件（Funplay MCP / Claude Code）=====
 /A_Gift_for_Ghost/CLAUDE.md
 /A_Gift_for_Ghost/.claude/
 /A_Gift_for_Ghost/.funplay/
 .mcp.json
+
+# ===== 本机可选 Unity 包（不要写进共享 manifest）=====
+# Tripo Unity Bridge 等用 file: 本机路径安装的包，只留在这台机器上
+/A_Gift_for_Ghost/Packages/com.tripo3d.*
+/A_Gift_for_Ghost/Packages/manifest.json.user
+/A_Gift_for_Ghost/Packages/packages-lock.json.user

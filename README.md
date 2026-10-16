@@ -89,11 +89,16 @@
 ```bash
 git lfs install
 git clone https://github.com/QIANbird/Tripothon2026.git
+cd Tripothon2026
+git lfs pull
 ```
 
-1. 用 Unity Hub 打开 `A_Gift_for_Ghost/` 文件夹，版本选 6000.3.25f1。
-2. 菜单 **Ghost → Core → Build Main Scene**。主场景 `Assets/Scenes/Main.unity` 由代码生成，这一步保证场景和代码一致。
-3. 打开 `Main.unity`，按 Play，点开始界面上的 **AWAKE**。
+Windows 和 macOS 都打开同一个工程。包依赖必须能在两边解析，不要把本机 `file:` 路径写进 `Packages/manifest.json`。
+
+1. 用 Unity Hub 打开 `A_Gift_for_Ghost/` 文件夹，版本选 **6000.3.25f1**。
+2. 等 Package Manager 解析完、Console 不再报编译错误。
+3. 菜单 **Ghost → Core → Build Main Scene**。主场景 `Assets/Scenes/Main.unity` 由代码生成，这一步保证场景和代码一致。
+4. 打开 `Main.unity`，按 Play，点开始界面上的 **AWAKE**。
 
 ## 技术实现
 
