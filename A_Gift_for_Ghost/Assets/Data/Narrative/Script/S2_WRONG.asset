@@ -1,0 +1,23 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 426166e6124daec4899b884a5cf53037, type: 3}
+  m_Name: S2_WRONG
+  m_EditorClassIdentifier: Assembly-CSharp::Ghost.Narrative.DialogueSequence
+  startDelay: 0
+  lines:
+  - id: S2_WRONG
+    speaker: 3
+    channel: 2
+    text: "\u6B64\u6A21\u5757\u4E0E\u5F53\u524D\u533A\u57DF\u7CFB\u7EDF\u4E0D\u517C\u5BB9\u3002"
+    clip: {fileID: 0}
+    durationOverride: 0
+    pauseAfter: -1

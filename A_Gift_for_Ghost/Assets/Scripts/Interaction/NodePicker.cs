@@ -28,6 +28,60 @@ namespace Ghost.Interaction
 
         public int NodeCount => morpher != null && morpher.CurrentPoses != null ? morpher.CurrentPoses.Length : 0;
 
+        // 替身拾取球：节点 nodeId 在植株本地姿态 pose 处多一个拾取球，命中时 Pick 照常返回 nodeId（同样经过 Filter）。
+        // S2 的缺口用：槽位上没有节点，但要能右键看详情；返回缺失节点自己的 id，交互层不会拿到不存在的节点 id。
+        // 阶段用 HitsAlias 区分射线命中的是替身还是节点本身。没注册时行为和原来完全一样
+        readonly System.Collections.Generic.Dictionary<int, NodePose> aliases = new System.Collections.Generic.Dictionary<int, NodePose>();
+
+        public void SetAlias(int nodeId, NodePose pose)
+        {
+            aliases[nodeId] = pose;
+        }
+
+        public void ClearAlias(int nodeId)
+        {
+            aliases.Remove(nodeId);
+        }
+
+        public void ClearAliases()
+        {
+            aliases.Clear();
+        }
+
+        // 射线对 nodeId 的命中是替身球（比节点本身更近，或只命中替身）
+        public bool HitsAlias(Ray ray, int nodeId)
+        {
+            if (morpher == null || !aliases.TryGetValue(nodeId, out var alias)) return false;
+            var poses = morpher.CurrentPoses;
+            if (poses == null || nodeId < 0 || nodeId >= poses.Length) return false;
+            float aliasHit = HitSphere(ray, alias);
+            if (float.IsPositiveInfinity(aliasHit)) return false;
+            return aliasHit <= HitSphere(ray, poses[nodeId]);
+        }
+
+        // 射线到本地姿态 pose 的拾取球的距离；没命中或节点隐藏时返回 +∞
+        float HitSphere(Ray ray, NodePose pose)
+        {
+            var t = morpher.transform;
+            Vector3 lossy = t.lossyScale;
+            float lossyMax = Mathf.Max(Mathf.Abs(lossy.x), Mathf.Max(Mathf.Abs(lossy.y), Mathf.Abs(lossy.z)));
+            Vector3 s = pose.scale;
+            float size = Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z))) * lossyMax;
+            if (size < hiddenScale) return float.PositiveInfinity;
+
+            float radius = Mathf.Max(size * radiusFactor, minPickRadius);
+            Vector3 oc = t.TransformPoint(pose.position) - ray.origin;
+            Vector3 dir = ray.direction.normalized;
+            float along = Vector3.Dot(oc, dir);
+            float perpSq = oc.sqrMagnitude - along * along;
+            float rSq = radius * radius;
+            if (perpSq > rSq) return float.PositiveInfinity;
+            float hit = along - Mathf.Sqrt(rSq - perpSq);
+            if (hit < 0f) hit = along + Mathf.Sqrt(rSq - perpSq); // 起点在球内
+            return hit < 0f ? float.PositiveInfinity : hit;
+        }
+
+
         // 节点部位；id 无效时返回 null
         public Organ? OrganOf(int id)
         {
@@ -89,6 +143,17 @@ namespace Ghost.Interaction
 
                 distance = hit;
                 best = i;
+            }
+
+            // 替身拾取球（缺口）：和节点一起按距离比较
+            foreach (var kv in aliases)
+            {
+                if (kv.Key < 0 || kv.Key >= poses.Length) continue;
+                float hit = HitSphere(ray, kv.Value);
+                if (hit >= distance) continue;
+                if (filter != null && !filter(kv.Key)) continue;
+                distance = hit;
+                best = kv.Key;
             }
             return best;
         }

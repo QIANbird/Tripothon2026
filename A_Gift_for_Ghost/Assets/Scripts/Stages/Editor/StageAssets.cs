@@ -26,7 +26,10 @@ namespace Ghost.Stages.EditorTools
         public const string S1QueryKey = "S1_005";
 
         public const string S2IntroKey = "S2_001";
-        public const string S2WrongStartKey = "S2_W01";
+        public const string S2WrongStartKey = "S2_W01"; // 旧玩法（从脉冲源拖线），S2 已不再使用
+        public const string S2NoPathKey = "S2_NOPATH";
+        public const string S2WrongModuleKey = "S2_WRONG";
+        public const string S2PatchedKey = "S2_PATCHED";
         public const string S2SolvedKey = "S2_006";
         public const string S2FinishKey = "S2_008";
 

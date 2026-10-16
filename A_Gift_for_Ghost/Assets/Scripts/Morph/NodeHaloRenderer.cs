@@ -8,6 +8,7 @@ namespace Ghost.Morph
     // 两种发光可以叠加：
     //   SetGlow —— 常驻发光，可选按频率呼吸（S2 的脉冲源）；
     //   Flash   —— 瞬间亮起，再按半衰期指数衰减（S2 沿线路依次亮起的脉冲，前一个还没灭后一个就亮，看得出连续）。
+    // 另有不挂在节点上的发光（SetGlowAt / ClearAt）：画在任意本地姿态上、按 key 管理，S2 的缺口（槽位上没有节点）用。
     // 所有发光圈合在一个动态网格里一次绘制，使用和连线相同的顶点色透明材质（Ghost/MorphLine）。只影响显示。
     [RequireComponent(typeof(NodeMorpher))]
     [DefaultExecutionOrder(100)] // 在 NodeMorpher.Update 之后读取本帧姿态
@@ -34,6 +35,17 @@ namespace Ghost.Morph
         readonly List<Vector3> vertices = new List<Vector3>();
         readonly List<Color> colors = new List<Color>();
         readonly List<int> triangles = new List<int>();
+
+        // 任意位置的常驻发光（不受节点可见度影响）
+        struct PoseGlow
+        {
+            public NodePose pose;
+            public Color color;
+            public float intensity;
+            public float frequency;
+            public float start;
+        }
+        readonly Dictionary<int, PoseGlow> poseGlows = new Dictionary<int, PoseGlow>();
 
         // 亮度低于这个值的瞬时发光视为结束
         const float FlashCutoff = 0.02f;
@@ -94,8 +106,31 @@ namespace Ghost.Morph
             flashHalfLife[id] = 0f;
         }
 
+        // 在本地姿态 pose 上画常驻发光，按 key 区分（S2 用缺失节点的 id 当 key）。参数含义同 SetGlow；
+        // 同一 key 重复调用时频率不变则不重置呼吸相位。intensity <= 0 等于 ClearAt
+        public void SetGlowAt(int key, NodePose pose, Color color, float intensity = 1f, float frequency = 0f)
+        {
+            if (intensity <= 0f)
+            {
+                poseGlows.Remove(key);
+                return;
+            }
+            float start = Time.time;
+            if (poseGlows.TryGetValue(key, out var old) && Mathf.Approximately(old.frequency, frequency)) start = old.start;
+            poseGlows[key] = new PoseGlow { pose = pose, color = color, intensity = intensity, frequency = frequency, start = start };
+        }
+
+        public void ClearAt(int key)
+        {
+            poseGlows.Remove(key);
+        }
+
+        public bool HasGlowAt(int key) => poseGlows.ContainsKey(key);
+
+        // 清掉所有节点发光和任意位置发光
         public void ClearAll()
         {
+            poseGlows.Clear();
             if (glowIntensity == null) return;
             for (int i = 0; i < glowIntensity.Length; i++)
             {
@@ -121,6 +156,11 @@ namespace Ghost.Morph
                 if (k <= 0.001f) continue;
                 AddRing(poses[i], color, k);
             }
+            foreach (var g in poseGlows.Values)
+            {
+                float k = Breathe(g.intensity, g.frequency, g.start, now);
+                if (k > 0.001f) AddRing(g.pose, g.color, k);
+            }
             if (vertices.Count == 0) return;
 
             mesh.Clear();
@@ -141,13 +181,7 @@ namespace Ghost.Morph
         float Intensity(int i, float now, out Color color)
         {
             color = glowColors[i];
-            float glow = glowIntensity[i];
-            if (glow > 0f && glowFrequency[i] > 0f)
-            {
-                float t = (now - glowStart[i]) * glowFrequency[i];
-                float wave = 0.5f + 0.5f * Mathf.Cos(t * Mathf.PI * 2f); // 从最亮开始
-                glow *= Mathf.Lerp(breathMin, 1f, wave);
-            }
+            float glow = Breathe(glowIntensity[i], glowFrequency[i], glowStart[i], now);
 
             if (flashHalfLife[i] > 0f)
             {
@@ -160,6 +194,14 @@ namespace Ghost.Morph
                 }
             }
             return glow;
+        }
+
+        float Breathe(float intensity, float frequency, float start, float now)
+        {
+            if (intensity <= 0f || frequency <= 0f) return intensity;
+            float t = (now - start) * frequency;
+            float wave = 0.5f + 0.5f * Mathf.Cos(t * Mathf.PI * 2f); // 从最亮开始
+            return intensity * Mathf.Lerp(breathMin, 1f, wave);
         }
 
         // 节点所在平面上的一圈方框：内边缘不透明，外边缘透明，看起来像外发光

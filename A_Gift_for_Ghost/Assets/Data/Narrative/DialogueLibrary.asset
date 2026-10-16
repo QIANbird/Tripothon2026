@@ -85,6 +85,18 @@ MonoBehaviour:
     section: S2
     trigger: "\u4ECE\u9519\u8BEF\u7684\u8D77\u70B9\u5F00\u59CB\u62D6\u62FD"
     sequence: {fileID: 11400000, guid: 50ccfac576f2b9b46b6dcc4901f5a379, type: 2}
+  - key: S2_NOPATH
+    section: S2
+    trigger: "\u8865\u9F50\u7F3A\u53E3\u524D\u70B9\u51FB\u6216\u62D6\u62FD\u5176\u4ED6\u8282\u70B9"
+    sequence: {fileID: 11400000, guid: e7ebabe5618084a45a57b82e5ad9c355, type: 2}
+  - key: S2_WRONG
+    section: S2
+    trigger: "\u6563\u843D\u8282\u70B9\u653E\u5230\u9519\u8BEF\u7F3A\u53E3\u540E\u677E\u624B"
+    sequence: {fileID: 11400000, guid: 46530a1fab66468459ebb0b8910435de, type: 2}
+  - key: S2_PATCHED
+    section: S2
+    trigger: "4 \u4E2A\u7F3A\u53E3\u5168\u90E8\u8865\u9F50"
+    sequence: {fileID: 11400000, guid: 9332c9b97bcd7854fb558a3d474338a5, type: 2}
   - key: S2_006
     section: S2
     trigger: "\u89E6\u53D1\u901A\u5173\u6761\u4EF6"

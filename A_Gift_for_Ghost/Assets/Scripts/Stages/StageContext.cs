@@ -6,6 +6,7 @@ using Ghost.Gameplay;
 using Ghost.Interaction;
 using Ghost.Morph;
 using Ghost.Narrative;
+using PrimeTween;
 using UnityEngine;
 
 namespace Ghost.Stages
@@ -23,6 +24,12 @@ namespace Ghost.Stages
         [Tooltip("节点外发光圈（S2 脉冲）。留空时 S2 运行时在 morpher 物体上补一个")]
         public NodeHaloRenderer halos;
         public NodeIssueSystem issues;
+        [Tooltip("构图视点来源（ViewerPosition 用）。留空时运行时在场景里找")]
+        public PlantFit plantFit;
+
+        [Header("缺失节点（S1 浮出 / S2 补缺口）")]
+        [Tooltip("可选覆盖，按 Leaf / Stem / Fruit / Root 顺序；某一位 < 0 = 自动挑选（MissingNodePicker）")]
+        public List<int> missingNodeOverrides = new List<int>();
 
         [Header("输入")]
         public InteractionSource pointer;
@@ -57,6 +64,12 @@ namespace Ghost.Stages
         // 右键查看详情：当前阶段提供标题和正文（返回 false = 这个节点不显示详情）。阶段 Enter 时设置，ResetShared 清空
         public delegate bool InspectProvider(int id, out string title, out string body);
         InspectProvider inspectProvider;
+
+        List<int> missingNodes;
+        NodePose[] missingScatter;
+        NodePose[] handoffFrom;
+        Color handoffGlow;
+        Tween missingHandoff;
         // 右键查看了某个节点（S2 "已查看果实"用）
         public event Action<int> Inspected;
 
@@ -132,6 +145,110 @@ namespace Ghost.Stages
         {
             if (picker == null) return;
             picker.Filter = filter == null ? DefaultFilter : id => IsNodeVisible(id) && filter(id);
+        }
+
+        // "玩家所在的方向"统一从这里取（世界坐标）：PlantFit 的构图视点（viewPoint，VR 下是 ViewAnchor，不跟头），
+        // 没有时用它的 viewCamera。玩法里不要直接用 Camera.main
+        public Vector3 ViewerPosition()
+        {
+            if (plantFit == null) plantFit = FindFirstObjectByType<PlantFit>();
+            if (plantFit != null)
+            {
+                if (plantFit.viewPoint != null) return plantFit.viewPoint.position;
+                if (plantFit.viewCamera != null) return plantFit.viewCamera.transform.position;
+            }
+            Debug.LogWarning("[Stage] ViewerPosition：找不到 PlantFit 视点，返回植株前方", this);
+            return morpher != null ? morpher.transform.position - morpher.transform.forward : Vector3.zero;
+        }
+
+        // ViewerPosition 换到植株本地空间（NodePose 所在空间）
+        public Vector3 ViewerPositionLocal()
+        {
+            Vector3 world = ViewerPosition();
+            return morpher != null ? morpher.transform.InverseTransformPoint(world) : world;
+        }
+
+        // S1 / S2 共用的 4 个缺失节点（Leaf / Stem / Fruit / Root），第一次用时挑选并缓存，之后每次一样。
+        // 需要 NodeLinkRenderer 已初始化（Start 之后）；还没好时返回空列表、不缓存
+        public IReadOnlyList<int> MissingNodes()
+        {
+            if (missingNodes != null) return missingNodes;
+            if (morpher == null || morpher.nodeSet == null || links == null || !links.IsReady) return Array.Empty<int>();
+            missingNodes = MissingNodePicker.Pick(morpher.nodeSet, links.HasLink, missingNodeOverrides);
+            missingScatter = MissingNodePicker.ScatterPoses(morpher.nodeSet, missingNodes);
+            return missingNodes;
+        }
+
+        // 缺失节点在 S2 的散落姿态（植株本地空间），找不到时返回 false
+        public bool MissingScatterPose(int id, out NodePose pose)
+        {
+            pose = default;
+            var ids = MissingNodes();
+            for (int i = 0; i < ids.Count; i++)
+            {
+                if (ids[i] != id) continue;
+                pose = missingScatter[i];
+                return true;
+            }
+            return false;
+        }
+
+        // 节点外发光圈：场景里没配时在 morpher 物体上补一个
+        public NodeHaloRenderer EnsureHalos()
+        {
+            if (halos != null) return halos;
+            if (morpher == null) return null;
+            halos = morpher.GetComponent<NodeHaloRenderer>();
+            if (halos == null) halos = morpher.gameObject.AddComponent<NodeHaloRenderer>();
+            return halos;
+        }
+
+        // S1 通关进 S2：缺失节点从当前位置（浮出姿态）缓动到散落位置，外发光同时淡出。
+        // 和 GameFlow 的变形同时进行；姿态覆盖在变形中照常叠加，所以这 4 个节点不会先变成回路姿态。
+        // 散落的姿态覆盖保留到 ClearMissingNodeVisuals（S2 离开 / 重新进 S1）
+        public void HandOffMissingToScatter(float duration, Color glowColor)
+        {
+            missingHandoff.Stop();
+            if (morpher == null || morpher.CurrentPoses == null) return;
+            var ids = MissingNodes();
+            if (ids.Count == 0) return;
+            if (handoffFrom == null || handoffFrom.Length != ids.Count) handoffFrom = new NodePose[ids.Count];
+            for (int i = 0; i < ids.Count; i++) handoffFrom[i] = morpher.CurrentPoses[ids[i]];
+            handoffGlow = glowColor;
+            EnsureHalos();
+            missingHandoff = Tween.Custom(this, 0f, 1f, Mathf.Max(0.01f, duration), (self, t) => self.ApplyHandoff(t), Ease.InOutCubic);
+        }
+
+        // S1 → S2 的交接缓动还在进行（S2 期间不接受拖拽）
+        public bool IsHandingOff => missingHandoff.isAlive;
+
+        void ApplyHandoff(float t)
+        {
+            var ids = MissingNodes();
+            for (int i = 0; i < ids.Count && i < handoffFrom.Length; i++)
+            {
+                morpher.SetPoseOverride(ids[i], NodePose.Lerp(handoffFrom[i], missingScatter[i], t), 1f);
+                if (halos == null) continue;
+                if (t < 1f) halos.SetGlow(ids[i], handoffGlow, 1f - t);
+                else halos.Clear(ids[i]);
+            }
+        }
+
+        // 清掉缺失节点留下的一切：姿态覆盖、节点外发光、缺口发光、隐藏 / 生长中的连线。离开 S1 / S2（非交接）时调用
+        public void ClearMissingNodeVisuals()
+        {
+            missingHandoff.Stop();
+            if (missingNodes == null) return;
+            foreach (int id in missingNodes)
+            {
+                if (morpher != null) morpher.ClearPoseOverride(id);
+                if (halos != null)
+                {
+                    halos.Clear(id);
+                    halos.ClearAt(id);
+                }
+                if (links != null) links.SetNodeLinksGrowth(id, 1f);
+            }
         }
 
         public PlantNode Node(int id)

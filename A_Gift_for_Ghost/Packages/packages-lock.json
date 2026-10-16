@@ -10,6 +10,13 @@
       },
       "hash": "a18dfab3d830fdb0985c88d80e925a2ef5a68c3d"
     },
+    "com.kyrylokuzyk.primetween": {
+      "version": "1.5.0",
+      "depth": 0,
+      "source": "registry",
+      "dependencies": {},
+      "url": "https://registry.npmjs.org"
+    },
     "com.tripo3d.unitybridge": {
       "version": "file:C:/Users/qianc/Downloads/Tripo3d_Unity_Bridge-latest (1)/Tripo3d_Unity_Bridge",
       "depth": 0,

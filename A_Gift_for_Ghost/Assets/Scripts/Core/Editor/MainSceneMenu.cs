@@ -223,7 +223,9 @@ namespace Ghost.Core.EditorTools
                     var s2 = stageGo.AddComponent<S2CircuitStage>();
                     s2.ctx = ctx;
                     s2.introSequence = StageAssets.LoadScript(StageAssets.S2IntroKey);
-                    s2.wrongStartSequence = StageAssets.LoadScript(StageAssets.S2WrongStartKey);
+                    s2.noPathSequence = StageAssets.LoadScript(StageAssets.S2NoPathKey);
+                    s2.wrongModuleSequence = StageAssets.LoadScript(StageAssets.S2WrongModuleKey);
+                    s2.patchedSequence = StageAssets.LoadScript(StageAssets.S2PatchedKey);
                     s2.waterSolvedSequence = StageAssets.LoadScript(StageAssets.S2SolvedKey);
                     s2.finishSequence = StageAssets.LoadScript(StageAssets.S2FinishKey);
                     stage = s2;

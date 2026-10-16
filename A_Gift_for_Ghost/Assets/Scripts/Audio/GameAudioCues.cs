@@ -63,6 +63,9 @@ namespace Ghost.Audio
                 s2.TraceStarted += HandleTraceStarted;
                 s2.TraceEnded += HandleTraceEnded;
                 s2.NodeLinked += HandleNodeLinked;
+                s2.NodePlaced += HandleNodePlaced;
+                s2.PlaceRejected += HandlePlaceRejected;
+                s2.WateringFinished += HandleWateringFinished;
             }
             if (s3 != null) s3.BugMarked += HandleBugMarked;
             if (s4 != null) s4.BugTaken += HandleBugTaken;
@@ -89,6 +92,9 @@ namespace Ghost.Audio
                 s2.TraceStarted -= HandleTraceStarted;
                 s2.TraceEnded -= HandleTraceEnded;
                 s2.NodeLinked -= HandleNodeLinked;
+                s2.NodePlaced -= HandleNodePlaced;
+                s2.PlaceRejected -= HandlePlaceRejected;
+                s2.WateringFinished -= HandleWateringFinished;
             }
             if (s3 != null) s3.BugMarked -= HandleBugMarked;
             if (s4 != null) s4.BugTaken -= HandleBugTaken;
@@ -157,14 +163,20 @@ namespace Ghost.Audio
 
         void HandleTutorialMerge() => audioOut.PlayOneShot("SFX_TUT_TO_MATRIX");
 
+        // S2 拖散落节点（补缺口）
         void HandleTraceStarted() => audioOut.StartLoop("SFX_S2_DRAG");
         void HandleTraceEnded() => audioOut.StopLoop("SFX_S2_DRAG");
 
+        // S2 自动浇水时脉冲推进一层：音高逐层升高
         void HandleNodeLinked(int indexInSegment)
         {
             float pitch = Mathf.Min(linkPitchMax, 1f + linkPitchStep * Mathf.Max(0, indexInSegment - 1));
             audioOut.PlayPitched("SFX_S2_NODE_LINK", pitch);
         }
+
+        void HandleNodePlaced(int id) => audioOut.PlayOneShot("SFX_S2_SEGMENT_DONE");
+        void HandlePlaceRejected(int id) => audioOut.PlayOneShot("SFX_S2_WRONG");
+        void HandleWateringFinished() => audioOut.PlayOneShot("SFX_S2_ALL_FIXED");
 
         void HandleBugMarked() => audioOut.PlayOneShot("SFX_S3_MARK");
         void HandleBugTaken(int removed, int total) => audioOut.PlayOneShot("SFX_S4_REMOVE_BUG");
