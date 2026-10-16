@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="15" result="Passed" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:43Z" duration="12.6519653">
+  <test-suite type="TestSuite" id="1025" name="A_Gift_for_Ghost" fullname="A_Gift_for_Ghost" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:43Z" duration="12.651965" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1018" name="Ghost.VRHandInteraction.PlayModeTests.dll" fullname="/private/tmp/ghost-hand-phase1-validation/Library/ScriptAssemblies/Ghost.VRHandInteraction.PlayModeTests.dll" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:43Z" duration="12.648377" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="52529" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1019" name="Ghost" fullname="Ghost" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:43Z" duration="12.648149" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1020" name="VRHandInteraction" fullname="Ghost.VRHandInteraction" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:43Z" duration="12.647996" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1021" name="Tests" fullname="Ghost.VRHandInteraction.Tests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:43Z" duration="12.647812" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1001" name="HandIntegrationTests" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" testcasecount="13" result="Passed" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:42Z" duration="11.209462" total="13" passed="13" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1008" name="DestroyedCandidateCancelsAndDestroyedHeldObjectCleansUp" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.DestroyedCandidateCancelsAndDestroyedHeldObjectCleansUp" methodname="DestroyedCandidateCancelsAndDestroyedHeldObjectCleansUp" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="239921622" result="Passed" start-time="2026-10-16 02:09:31Z" end-time="2026-10-16 02:09:32Z" duration="0.893516" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="ExitAndReentryCancelPendingAuthorization" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.ExitAndReentryCancelPendingAuthorization" methodname="ExitAndReentryCancelPendingAuthorization" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="729878192" result="Passed" start-time="2026-10-16 02:09:32Z" end-time="2026-10-16 02:09:33Z" duration="0.978245" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1014" name="GeneratedPrefabAnimatesFingerBonesFromTrigger" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.GeneratedPrefabAnimatesFingerBonesFromTrigger" methodname="GeneratedPrefabAnimatesFingerBonesFromTrigger" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="2116899113" result="Passed" start-time="2026-10-16 02:09:33Z" end-time="2026-10-16 02:09:34Z" duration="0.921696" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1013" name="InputSystemTriggerSelectsButGripDoesNot" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.InputSystemTriggerSelectsButGripDoesNot" methodname="InputSystemTriggerSelectsButGripDoesNot" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="1621475331" result="Passed" start-time="2026-10-16 02:09:34Z" end-time="2026-10-16 02:09:34Z" duration="0.882387" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1010" name="LayerMismatchRejectsSelection" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.LayerMismatchRejectsSelection" methodname="LayerMismatchRejectsSelection" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="1440053209" result="Passed" start-time="2026-10-16 02:09:34Z" end-time="2026-10-16 02:09:35Z" duration="0.881551" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="LongPressFollowsPositionRotationAndReleasesWithGravity" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.LongPressFollowsPositionRotationAndReleasesWithGravity" methodname="LongPressFollowsPositionRotationAndReleasesWithGravity" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="228906327" result="Passed" start-time="2026-10-16 02:09:35Z" end-time="2026-10-16 02:09:36Z" duration="0.820930" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1006" name="MultipleCollidersDoNotResetContactOrAllowTwoSelections" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.MultipleCollidersDoNotResetContactOrAllowTwoSelections" methodname="MultipleCollidersDoNotResetContactOrAllowTwoSelections" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="339333512" result="Passed" start-time="2026-10-16 02:09:36Z" end-time="2026-10-16 02:09:37Z" duration="0.620316" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="OutOfRangeCannotSelectAndEntryStartsNewTimer" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.OutOfRangeCannotSelectAndEntryStartsNewTimer" methodname="OutOfRangeCannotSelectAndEntryStartsNewTimer" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="788860940" result="Passed" start-time="2026-10-16 02:09:37Z" end-time="2026-10-16 02:09:38Z" duration="1.060424" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1012" name="ReleaseRestoresOriginallyEnabledGravity" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.ReleaseRestoresOriginallyEnabledGravity" methodname="ReleaseRestoresOriginallyEnabledGravity" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="525738268" result="Passed" start-time="2026-10-16 02:09:38Z" end-time="2026-10-16 02:09:39Z" duration="0.940489" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1002" name="ShortPressDoesNotSelectOrMoveObject" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.ShortPressDoesNotSelectOrMoveObject" methodname="ShortPressDoesNotSelectOrMoveObject" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="1401460222" result="Passed" start-time="2026-10-16 02:09:39Z" end-time="2026-10-16 02:09:39Z" duration="0.680418" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1007" name="TrackingLossAndDisableReleaseWithoutAnimationDelay" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.TrackingLossAndDisableReleaseWithoutAnimationDelay" methodname="TrackingLossAndDisableReleaseWithoutAnimationDelay" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="165316474" result="Passed" start-time="2026-10-16 02:09:39Z" end-time="2026-10-16 02:09:40Z" duration="0.880654" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1009" name="TwoHandsHaveIndependentTimersAndSingleOwnership" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.TwoHandsHaveIndependentTimersAndSingleOwnership" methodname="TwoHandsHaveIndependentTimersAndSingleOwnership" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="1076735861" result="Passed" start-time="2026-10-16 02:09:40Z" end-time="2026-10-16 02:09:41Z" duration="1.120398" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1011" name="VisualClosesAndOpensIndependentlyOfGrabbing" fullname="Ghost.VRHandInteraction.Tests.HandIntegrationTests.VisualClosesAndOpensIndependentlyOfGrabbing" methodname="VisualClosesAndOpensIndependentlyOfGrabbing" classname="Ghost.VRHandInteraction.Tests.HandIntegrationTests" runstate="Runnable" seed="1603709668" result="Passed" start-time="2026-10-16 02:09:41Z" end-time="2026-10-16 02:09:42Z" duration="0.520337" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+            </test-suite>
+            <test-suite type="TestFixture" id="1015" name="HandSceneSmokeTests" fullname="Ghost.VRHandInteraction.Tests.HandSceneSmokeTests" classname="Ghost.VRHandInteraction.Tests.HandSceneSmokeTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-10-16 02:09:42Z" end-time="2026-10-16 02:09:43Z" duration="1.437184" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1017" name="ExistingMainSceneStartsWithoutHandModuleInjection" fullname="Ghost.VRHandInteraction.Tests.HandSceneSmokeTests.ExistingMainSceneStartsWithoutHandModuleInjection" methodname="ExistingMainSceneStartsWithoutHandModuleInjection" classname="Ghost.VRHandInteraction.Tests.HandSceneSmokeTests" runstate="Runnable" seed="1516073182" result="Passed" start-time="2026-10-16 02:09:42Z" end-time="2026-10-16 02:09:43Z" duration="0.578582" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1016" name="GeneratedSceneSimulationMovesRotatesGraspsAndReleases" fullname="Ghost.VRHandInteraction.Tests.HandSceneSmokeTests.GeneratedSceneSimulationMovesRotatesGraspsAndReleases" methodname="GeneratedSceneSimulationMovesRotatesGraspsAndReleases" classname="Ghost.VRHandInteraction.Tests.HandSceneSmokeTests" runstate="Runnable" seed="872423713" result="Passed" start-time="2026-10-16 02:09:43Z" end-time="2026-10-16 02:09:43Z" duration="0.857871" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: <UnityTestResultsPath>
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

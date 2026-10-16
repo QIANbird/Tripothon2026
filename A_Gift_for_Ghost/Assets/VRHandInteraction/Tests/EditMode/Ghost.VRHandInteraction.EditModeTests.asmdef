@@ -1,0 +1,17 @@
+{
+  "name": "Ghost.VRHandInteraction.EditModeTests",
+  "references": [
+    "Ghost.VRHandInteraction",
+    "Unity.InputSystem",
+    "Unity.XR.Interaction.Toolkit"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ],
+  "defineConstraints": [
+    "UNITY_INCLUDE_TESTS"
+  ]
+}

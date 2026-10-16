@@ -60,3 +60,12 @@
 
 ## Next planned milestone
 
+
+## VR Hand Interaction Phase 1（2026-10-16）
+
+- 新增独立 `Assets/VRHandInteraction/` 模块、右手 Prefab、可抓方块和 `Generated/HandInteractionTest.unity`，没有修改 Main、相机、PC Pick 或彩椒资产。
+- Controller Transform 位姿注入；食指 Trigger 驱动 Adaptive Hands Animator；接触与持续按键同时成立满 0.3 秒后才允许 XRI Select，松开立即释放；支持左手独立实例。
+- 原手部 FBX 经 Unity 导入检查无骨骼/BlendShape/动画。当前工作区 OpenXR/Rig 尚未接入；远端 XR 配置没有在本任务中合并。
+- 验证结果及复现步骤以 `A_Gift_for_Ghost/VRHandInteraction_README.md` 和 `docs/testing/vr-hand-phase1/` 测试报告为准。Quest、Windows、Android 及人工完整游戏回归尚未测试。
+- Phase 1 已扩展为独立 VR 彩椒摘取模块：`VRPepperPickable`、`PepperPickingManager`、调试视图和 `Generated/VRPepperPicking_Test.unity`。只有 `pepper_red_picked` / `_picked` 目标可摘，未成熟彩椒显示提示并保持附着；现有 PC Pick 逻辑不变。
+- Phase 2 Edit Mode 组件测试 6/6 Passed；测试场景实际扫描到 5 个独立彩椒目标。Quest 3S、Windows、Android 和完整正式游戏回归尚未测试，等待用户人工检查独立场景。

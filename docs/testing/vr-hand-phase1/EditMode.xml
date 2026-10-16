@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.0235094">
+  <test-suite type="TestSuite" id="1000" name="A_Gift_for_Ghost" fullname="A_Gift_for_Ghost" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.023509" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1007" name="Ghost.VRHandInteraction.EditModeTests.dll" fullname="/private/tmp/ghost-hand-phase1-validation/Library/ScriptAssemblies/Ghost.VRHandInteraction.EditModeTests.dll" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.020299" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="46701" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1008" name="Ghost" fullname="Ghost" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.020128" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1009" name="VRHandInteraction" fullname="Ghost.VRHandInteraction" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.020005" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1010" name="Tests" fullname="Ghost.VRHandInteraction.Tests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.019871" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1002" name="HandUnitTests" fullname="Ghost.VRHandInteraction.Tests.HandUnitTests" classname="Ghost.VRHandInteraction.Tests.HandUnitTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.019441" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1006" name="ControllerBindingsUseIndexTriggerForBothHands" fullname="Ghost.VRHandInteraction.Tests.HandUnitTests.ControllerBindingsUseIndexTriggerForBothHands" methodname="ControllerBindingsUseIndexTriggerForBothHands" classname="Ghost.VRHandInteraction.Tests.HandUnitTests" runstate="Runnable" seed="1143221532" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.009191" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1005" name="OffsetUsesControllerRotationButNotItsScale" fullname="Ghost.VRHandInteraction.Tests.HandUnitTests.OffsetUsesControllerRotationButNotItsScale" methodname="OffsetUsesControllerRotationButNotItsScale" classname="Ghost.VRHandInteraction.Tests.HandUnitTests" runstate="Runnable" seed="17889238" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.002720" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1004" name="SwitchingCandidateNeverTransfersElapsedTime" fullname="Ghost.VRHandInteraction.Tests.HandUnitTests.SwitchingCandidateNeverTransfersElapsedTime" methodname="SwitchingCandidateNeverTransfersElapsedTime" classname="Ghost.VRHandInteraction.Tests.HandUnitTests" runstate="Runnable" seed="589270137" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.000287" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1003" name="TimingRequiresBothConditionsAndResetsOnReleaseOrExit" fullname="Ghost.VRHandInteraction.Tests.HandUnitTests.TimingRequiresBothConditionsAndResetsOnReleaseOrExit" methodname="TimingRequiresBothConditionsAndResetsOnReleaseOrExit" classname="Ghost.VRHandInteraction.Tests.HandUnitTests" runstate="Runnable" seed="1068052787" result="Passed" start-time="2026-10-16 01:59:42Z" end-time="2026-10-16 01:59:42Z" duration="0.000118" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: <UnityTestResultsPath>
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

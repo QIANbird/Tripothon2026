@@ -1,0 +1,8 @@
+{
+  "name": "Ghost.VRHandInteraction",
+  "references": [
+    "Unity.InputSystem",
+    "Unity.XR.Interaction.Toolkit"
+  ],
+  "includePlatforms": []
+}

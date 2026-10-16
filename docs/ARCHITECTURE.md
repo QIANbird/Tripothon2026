@@ -134,3 +134,7 @@
 - **新增对白或文本**：在 `StageAssets` / `NarrativeAssets` 里加 `Ensure*`，生成 ScriptableObject。
 - **新增布局形态**：修改 `LayoutGenerator`，只重算 poses，保持节点 id 不变。
 - **构图规则**：调 `PlantFit` 的参数，或改它按形态计算包围体的逻辑。
+
+## 独立 VR Hand Interaction（Phase 1）
+
+`A_Gift_for_Ghost/Assets/VRHandInteraction/`，命名空间 `Ghost.VRHandInteraction`。不接入 Core/Stage/Pick，不依赖 Camera：`HandPoseFollower` 接收上游 Controller Transform 和追踪有效状态；`HandTriggerInput` 将 Input Action 或注入值转为 Trigger 值；`HandGraspVisual` 单独驱动 Animator；`HoldAuthorization` 维护连续接触候选的长按计时；`TimedDirectInteractor` 在授权后交由 XRI Select 和 XRGrabInteractable 执行持有/释放。实际刚体状态归 XRI 所有。`VRPepperPickable` 只在 XRI Select Enter 后从树上分离并在 Select Exit 后释放；`PepperPickingManager` 注册成熟目标、统计摘取和转发事件；`PepperPickingDebugView` 仅用于独立测试场景。测试模拟器、场景和相机只在模块测试资产中。完整配置、接口、验证限制见项目根目录 `VRHandInteraction_README.md` 和 `docs/tasks/vr-hand-phase2.md`。

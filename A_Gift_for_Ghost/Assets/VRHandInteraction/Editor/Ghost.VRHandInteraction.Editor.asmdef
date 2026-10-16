@@ -1,0 +1,11 @@
+{
+  "name": "Ghost.VRHandInteraction.Editor",
+  "references": [
+    "Ghost.VRHandInteraction",
+    "Unity.InputSystem",
+    "Unity.XR.Interaction.Toolkit"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}
