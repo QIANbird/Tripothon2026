@@ -18,6 +18,7 @@ using UnityEngine;
 using UnityEngine.Animations.Rigging;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.UI;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Inputs.Readers;
@@ -37,8 +38,8 @@ namespace Ghost.Core.EditorTools
         const string BugModelPath = "Assets/3D_Objects/bug/tripo_convert_cbdef70f-0cb3-4f3b-8ed2-3e0794432c86.fbx";
         // Pick：前臂 + 手的模型（Tripo 生成，静态网格，没有骨骼）
         const string ArmModelPath = "Assets/3D_Objects/hand/tripo_convert_07d6ebfa-74e6-4ae4-a1a9-7c87fa196291.fbx";
-        // Outro：结局视频（策划手动放入）
-        const string OutroVideoPath = "Assets/Video/Outro.mp4";
+        // Outro：结局视频（策划手动放入）。10-16 换成 Outro_02（旧 Outro.mp4 先保留）
+        const string OutroVideoPath = "Assets/Video/Outro_02.mp4";
 
         // 阶段配置：名字、是否变形、形态、占位文字。加阶段时在这里加一行，再执行菜单
         struct StageSpec
@@ -74,7 +75,7 @@ namespace Ghost.Core.EditorTools
             new StageSpec("Transition", true, MorphForm.Real, ""),
             // Pick：第一人称走到写实植株前（PickStage，docs/tasks/pick-stage.md）
             new StageSpec("Pick", true, MorphForm.Real, ""),
-            // Outro：全屏播放结局视频 Assets/Video/Outro.mp4，播完进入结束界面（OutroVideoStage）
+            // Outro：全屏播放结局视频 Assets/Video/Outro_02.mp4，播完进入结束界面（OutroVideoStage）
             new StageSpec("Outro", true, MorphForm.Real, ""),
         };
 
@@ -312,7 +313,7 @@ namespace Ghost.Core.EditorTools
 
             BuildStagePanel(flow, cameraGo.transform);
             // 开始 / 结束界面（docs/tasks/start-restart-screens.md）
-            BuildFlowScreens(flow);
+            BuildFlowScreens(flow, actions, set.sourceModel, pickStage != null ? pickStage.fruitObjectName : "pepper_red_picked", camera);
             // VR 第 4 步：HUD 在头显运行时换成 World Space（PC 不变）
             XRUIBuilder.Build(new XRUIBuilder.Refs { camera = camera, viewAnchor = rig.viewAnchor, rightAim = rig.rightAim });
             // 场景保存时玩家根物体是停用的，Pick 阶段 Enter 时才打开
@@ -971,13 +972,13 @@ namespace Ghost.Core.EditorTools
             return stage;
         }
 
-        // 开始界面（标题 + 开始）和结束界面（感谢游玩 + 重新开始）：全屏黑底，内容居中。
+        // 开始界面（策划底图 + AWAKE）和结束界面（黑底 + 旋转彩椒 + "感谢游玩" + 底部"按下A返回开始界面"）。
         // 【技术债】Screen Space HUD，赛后改 World Space；布局只用锚点居中，不依赖屏幕像素
-        static void BuildFlowScreens(GameFlow flow)
+        static void BuildFlowScreens(GameFlow flow, InputActionAsset actions, GameObject plantModel, string fruitName, Camera mainCamera)
         {
             var start = BuildStartScreen(flow);
             start.group.alpha = 1f;
-            var end = BuildFlowScreen<EndScreen>("EndScreen", flow, "感谢游玩", "重新开始");
+            var end = BuildEndScreen(flow, actions, plantModel, fruitName, mainCamera);
             end.group.alpha = 0f;
             end.group.interactable = false;
             end.group.blocksRaycasts = false;
@@ -1091,48 +1092,242 @@ namespace Ghost.Core.EditorTools
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
-        static T BuildFlowScreen<T>(string name, GameFlow flow, string title, string buttonText) where T : FlowScreen
+        // 结束界面（docs/tasks/outro02-end-pause-screens.md 第 2 部分）：纯黑底；中央偏左是彩椒展示，右侧一行白字"感谢游玩"；
+        // 底部居中"按下A返回开始界面"（字号同字幕），这行字本身就是 FlowScreen.button。
+        // 彩椒：PC 上由专用相机渲到 RT、RawImage 显示（EndPepperShowcase）；VR 由 XRUIBuilder 把彩椒挪到面板前（XREndPepperPlacement）
+        static EndScreen BuildEndScreen(GameFlow flow, InputActionAsset actions, GameObject plantModel, string fruitName, Camera mainCamera)
         {
-            var canvas = AgentUIStyle.CreateHudCanvas(name, null, FlowScreenSortingOrder);
+            var canvas = AgentUIStyle.CreateHudCanvas("EndScreen", null, FlowScreenSortingOrder);
             var root = (RectTransform)canvas.transform;
             var group = canvas.gameObject.AddComponent<CanvasGroup>();
 
-            // 黑底挡住植株，也挡住对节点的点击（PointerInput 在 HUD 上不派发）
+            // 黑底挡住植株，也挡住对节点的点击（PointerInput 在 HUD 上不派发）。必须是第一个子物体（XRUIBuilder 按它挡射线）
             var background = AgentUIStyle.AddImage(AgentUIStyle.CreateStretch("Background", root), Color.black);
             background.raycastTarget = true;
 
             var center = new Vector2(0.5f, 0.5f);
-            var titleRect = AgentUIStyle.CreateAnchored("Title", root, center, new Vector2(0f, 0f), new Vector2(1200f, 120f));
-            titleRect.pivot = new Vector2(0.5f, 0f);
-            titleRect.anchoredPosition = new Vector2(0f, 40f);
-            AgentUIStyle.AddText(titleRect, title, 72, new Color(0.92f, 0.92f, 0.93f), TextAnchor.MiddleCenter);
+            var viewRect = AgentUIStyle.CreateAnchored("Pepper", root, center, new Vector2(-260f, 30f), new Vector2(640f, 640f));
+            var view = viewRect.gameObject.AddComponent<RawImage>();
+            view.raycastTarget = false;
+            view.enabled = false;
 
-            var buttonRect = AgentUIStyle.CreateAnchored("Button", root, center, Vector2.zero, new Vector2(280f, 80f));
-            buttonRect.pivot = new Vector2(0.5f, 1f);
-            buttonRect.anchoredPosition = new Vector2(0f, -40f);
-            var buttonImage = AgentUIStyle.AddImage(buttonRect, new Color(0.92f, 0.92f, 0.93f));
-            buttonImage.raycastTarget = true;
+            var titleRect = AgentUIStyle.CreateAnchored("Title", root, center, new Vector2(330f, 30f), new Vector2(560f, 120f));
+            AgentUIStyle.AddText(titleRect, "感谢游玩", 72, Color.white, TextAnchor.MiddleLeft);
+
+            // 底部提示 = 按钮：透明点击区 + 白字，悬停 / 按下时字变暗一点
+            var buttonRect = AgentUIStyle.CreateAnchored("Button", root, new Vector2(0.5f, 0f), new Vector2(0f, 70f), new Vector2(520f, 70f));
+            var hitArea = AgentUIStyle.AddImage(buttonRect, Color.clear);
+            hitArea.raycastTarget = true;
+            var label = AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", buttonRect), "按下A返回开始界面", 30, Color.white,
+                TextAnchor.MiddleCenter);
             var button = buttonRect.gameObject.AddComponent<Button>();
-            button.targetGraphic = buttonImage;
+            button.targetGraphic = label;
             var colors = button.colors;
-            colors.highlightedColor = new Color(0.8f, 0.82f, 0.86f);
-            colors.pressedColor = new Color(0.65f, 0.68f, 0.72f);
+            colors.normalColor = Color.white;
+            colors.highlightedColor = new Color(0.85f, 0.85f, 0.85f);
+            colors.selectedColor = Color.white;
+            colors.pressedColor = new Color(0.65f, 0.65f, 0.65f);
             button.colors = colors;
-            AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", buttonRect), buttonText, 34, AgentUIStyle.Ink,
-                TextAnchor.MiddleCenter, FontStyle.Bold);
 
             // 先停用再加组件，保证 Awake 时引用已填好
             canvas.gameObject.SetActive(false);
-            var screen = canvas.gameObject.AddComponent<T>();
+            var screen = canvas.gameObject.AddComponent<EndScreen>();
             screen.flow = flow;
             screen.group = group;
             screen.button = button;
             canvas.gameObject.SetActive(true);
             return screen;
+            screen.actions = actions;
+            BuildEndPepperShowcase(group, view, plantModel, fruitName, mainCamera);
         }
 
         // 重新开始要靠 SceneManager.LoadScene，Main.unity 必须在 Build Settings 里，放在第 0 个
         static void EnsureMainSceneInBuild()
+        const string EndShowcaseLayerName = "EndShowcase";
+        const string EndPepperMaterialPath = "Assets/Art/Pick/EndPepper.mat";
+        // 展示区放在场景下方很远处，专用相机只拍 EndShowcase 层，主相机不拍这一层
+        static readonly Vector3 EndShowcasePosition = new Vector3(0f, -50f, 0f);
+
+        // 彩椒展示：从写实模型 prefab 里取果实的网格和材质，生成独立的 EndPepper（不复用运行时果实）。
+        // 网格按"最长边 = 1"归一化、中心对齐到原点，EndPepperSpin 绕它转
+        static EndPepperShowcase BuildEndPepperShowcase(CanvasGroup source, RawImage view, GameObject plantModel,
+            string fruitName, Camera mainCamera)
+        {
+            int layer = EnsureLayer(EndShowcaseLayerName);
+            var rootGo = new GameObject("EndShowcase");
+            rootGo.transform.position = EndShowcasePosition;
+
+            var pepper = BuildEndPepper(plantModel, fruitName, rootGo.transform);
+            if (pepper != null && layer >= 0) SetLayerRecursive(pepper.transform, layer);
+
+            // 专用相机：正对彩椒，视野高约 1.45（彩椒最长边 1 + 转动和浮动余量），黑底
+            var camGo = new GameObject("EndPepperCamera");
+            camGo.transform.SetParent(rootGo.transform, false);
+            camGo.transform.localPosition = new Vector3(0f, 0f, -2.7f);
+            var cam = camGo.AddComponent<Camera>();
+            cam.clearFlags = CameraClearFlags.SolidColor;
+            cam.backgroundColor = Color.black;
+            cam.fieldOfView = 30f;
+            cam.nearClipPlane = 0.5f;
+            cam.farClipPlane = 6f;
+            cam.depth = -10f;
+            cam.stereoTargetEye = StereoTargetEyeMask.None;
+            cam.cullingMask = layer >= 0 ? 1 << layer : 0;
+            cam.enabled = false;
+            var camData = camGo.AddComponent<UniversalAdditionalCameraData>();
+            camData.renderPostProcessing = false;
+            camData.renderShadows = false;
+            camData.requiresDepthOption = CameraOverrideOption.Off;
+            camData.requiresColorOption = CameraOverrideOption.Off;
+            if (layer >= 0 && mainCamera != null) mainCamera.cullingMask &= ~(1 << layer);
+
+            // 先停用再加组件，保证 Awake 时引用已填好
+            rootGo.SetActive(false);
+            var showcase = rootGo.AddComponent<EndPepperShowcase>();
+            showcase.source = source;
+            showcase.view = view;
+            showcase.pepper = pepper;
+            showcase.viewCamera = cam;
+            showcase.hideFeatures = FindVignetteFeatures();
+            rootGo.SetActive(true);
+            return showcase;
+        }
+
+        static GameObject BuildEndPepper(GameObject plantModel, string fruitName, Transform parent)
+        {
+            Transform fruit = plantModel != null ? FindChildRecursive(plantModel.transform, fruitName) : null;
+            var filter = fruit != null ? fruit.GetComponent<MeshFilter>() : null;
+            var source = fruit != null ? fruit.GetComponent<MeshRenderer>() : null;
+            if (filter == null || filter.sharedMesh == null || source == null)
+            {
+                Debug.LogWarning($"[Flow] 写实模型里找不到果实网格 '{fruitName}'，结束界面不显示彩椒");
+                return null;
+            }
+
+            var pepperGo = new GameObject("EndPepper");
+            pepperGo.transform.SetParent(parent, false);
+            var spinGo = new GameObject("Spin");
+            spinGo.transform.SetParent(pepperGo.transform, false);
+            spinGo.AddComponent<EndPepperSpin>();
+
+            // 网格保留它在模型里的朝向（相对模型根），按旋转后的包围盒归一化到最长边 = 1、中心在原点
+            var meshGo = new GameObject("Mesh");
+            meshGo.transform.SetParent(spinGo.transform, false);
+            var modelRoot = plantModel.transform;
+            Quaternion rotation = Quaternion.Inverse(modelRoot.rotation) * fruit.rotation;
+            Vector3 rootScale = modelRoot.lossyScale;
+            Vector3 scale = new Vector3(fruit.lossyScale.x / Mathf.Max(rootScale.x, 1e-6f),
+                fruit.lossyScale.y / Mathf.Max(rootScale.y, 1e-6f), fruit.lossyScale.z / Mathf.Max(rootScale.z, 1e-6f));
+            Bounds b = filter.sharedMesh.bounds;
+            var rotated = new Bounds(rotation * Vector3.Scale(b.center, scale), Vector3.zero);
+            for (int i = 0; i < 8; i++)
+            {
+                var corner = b.center + Vector3.Scale(b.extents,
+                    new Vector3((i & 1) == 0 ? -1f : 1f, (i & 2) == 0 ? -1f : 1f, (i & 4) == 0 ? -1f : 1f));
+                rotated.Encapsulate(rotation * Vector3.Scale(corner, scale));
+            }
+            float longest = Mathf.Max(rotated.size.x, Mathf.Max(rotated.size.y, rotated.size.z));
+            float k = longest > 1e-6f ? 1f / longest : 1f;
+            meshGo.transform.localRotation = rotation;
+            meshGo.transform.localScale = scale * k;
+            meshGo.transform.localPosition = -rotated.center * k;
+            meshGo.AddComponent<MeshFilter>().sharedMesh = filter.sharedMesh;
+            var rend = meshGo.AddComponent<MeshRenderer>();
+            rend.sharedMaterial = EnsureEndPepperMaterial(source.sharedMaterial);
+            rend.shadowCastingMode = ShadowCastingMode.Off;
+            rend.receiveShadows = false;
+            rend.lightProbeUsage = LightProbeUsage.Off;
+            rend.reflectionProbeUsage = ReflectionProbeUsage.Off;
+            return pepperGo;
+        }
+
+        static readonly int EndBaseMapId = Shader.PropertyToID("_BaseMap");
+        static readonly int EndBaseColorId = Shader.PropertyToID("_BaseColor");
+
+        // 和摘的那颗外观一致：贴图和底色取自果实原材质，着色器换成 Ghost/ShowcaseLit（固定光照、画在最上层）
+        static Material EnsureEndPepperMaterial(Material source)
+        {
+            var shader = Shader.Find("Ghost/ShowcaseLit");
+            if (shader == null)
+            {
+                Debug.LogError("[Flow] 找不到着色器 Ghost/ShowcaseLit");
+                return source;
+            }
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(EndPepperMaterialPath);
+            bool created = mat == null;
+            if (created)
+            {
+                if (!AssetDatabase.IsValidFolder(PickArtFolder)) AssetDatabase.CreateFolder("Assets/Art", "Pick");
+                mat = new Material(shader);
+            }
+            else mat.shader = shader;
+            if (source != null)
+            {
+                Texture tex = source.HasProperty(EndBaseMapId) ? source.GetTexture(EndBaseMapId) : source.mainTexture;
+                mat.SetTexture(EndBaseMapId, tex);
+                if (source.HasProperty(EndBaseMapId))
+                {
+                    mat.SetTextureScale(EndBaseMapId, source.GetTextureScale(EndBaseMapId));
+                    mat.SetTextureOffset(EndBaseMapId, source.GetTextureOffset(EndBaseMapId));
+                }
+                if (source.HasProperty(EndBaseColorId)) mat.SetColor(EndBaseColorId, source.GetColor(EndBaseColorId));
+            }
+            if (created) AssetDatabase.CreateAsset(mat, EndPepperMaterialPath);
+            else EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        // 专用相机渲染时临时关掉屏幕压暗边，否则 RT 四周也会多一圈暗边 / 发白
+        static ScriptableRendererFeature[] FindVignetteFeatures()
+        {
+            var list = new List<ScriptableRendererFeature>();
+            foreach (var path in new[] { "Assets/Settings/PC_Renderer.asset", "Assets/Settings/Mobile_Renderer.asset" })
+            {
+                var data = AssetDatabase.LoadAssetAtPath<UniversalRendererData>(path);
+                if (data == null) continue;
+                foreach (var f in data.rendererFeatures)
+                    if (f != null && f.name == "EdgeVignette") list.Add(f);
+            }
+            return list.ToArray();
+        }
+
+        // 在 TagManager 里找或加一个用户层（8–31 第一个空位）。返回 -1 = 没有空位
+        static int EnsureLayer(string name)
+        {
+            int existing = LayerMask.NameToLayer(name);
+            if (existing >= 0) return existing;
+            var tagManager = new SerializedObject(AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset")[0]);
+            var layers = tagManager.FindProperty("layers");
+            for (int i = 8; i < layers.arraySize; i++)
+            {
+                var element = layers.GetArrayElementAtIndex(i);
+                if (!string.IsNullOrEmpty(element.stringValue)) continue;
+                element.stringValue = name;
+                tagManager.ApplyModifiedProperties();
+                Debug.Log($"[Flow] 新增 Layer {i} = {name}");
+                return i;
+            }
+            Debug.LogWarning($"[Flow] 没有空的 Layer 可用，{name} 没建；结束界面彩椒相机不渲染");
+            return -1;
+        }
+
+        static void SetLayerRecursive(Transform t, int layer)
+        {
+            t.gameObject.layer = layer;
+            for (int i = 0; i < t.childCount; i++) SetLayerRecursive(t.GetChild(i), layer);
+        }
+
+        static Transform FindChildRecursive(Transform root, string name)
+        {
+            if (root.name == name) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var found = FindChildRecursive(root.GetChild(i), name);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         {
             var scenes = new List<EditorBuildSettingsScene>(EditorBuildSettings.scenes);
             scenes.RemoveAll(s => s.path == MainScenePath);

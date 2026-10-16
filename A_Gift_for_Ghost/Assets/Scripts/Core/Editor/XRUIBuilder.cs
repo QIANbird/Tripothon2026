@@ -15,7 +15,7 @@ namespace Ghost.Core.EditorTools
     //   Agent 聊天栏   跟右手柄（左上方，和"是否批准"卡片错开），只有头像和气泡，没有底板
     //   询问框（YES）  视野正中、头前 0.55 m（比矩阵近），跟头、面向玩家，Yes 按 A 确认（XRUIRayTarget.approveKey，扳机不点）
     //   详情弹窗       贴在被查看的节点旁边，在这个节点前方 0.1 m、朝向固定
-    //   开始 / 结束    LazyFollow 的 3D 面板，开始界面 Awake 按 A 确认，结束界面按钮走手柄射线 + 扳机；背后一块跟界面同步淡入淡出的黑幕（XRScreenBackdrop），看不到关卡
+    //   开始 / 结束    LazyFollow 的 3D 面板，开始界面 Awake、结束界面"返回开始界面"都按 A 确认（扳机不点）；结束界面的彩椒是真 3D 物体，摆在面板前 0.1 m；背后一块跟界面同步淡入淡出的黑幕（XRScreenBackdrop），看不到关卡
     //   结局视频       LazyFollow 的大屏
     //   黑屏          挂在相机前 0.1 m
     //   阶段面板 / PC 键位提示 / 准星：不参与（占位、或只在 PC 用）
@@ -91,10 +91,11 @@ namespace Ghost.Core.EditorTools
                 var w = Add(screen.GetComponent<Canvas>(), XRWorldCanvas.Placement.LazyFollow, head, null,
                     new Vector3(0f, 0f, 2f), 0.0012f, null);
                 AddLazyFollow(w);
-                AddRayTarget(screen.button.gameObject, screen.button, w, 30f, approveKey: screen is StartScreen);
+                AddRayTarget(screen.button.gameObject, screen.button, w, 30f, approveKey: true);
                 // 整块黑底挡射线：按在界面上不会选中后面的节点（第一个子物体就是 Background）
                 if (screen.transform.childCount > 0) AddRayTarget(screen.transform.GetChild(0).gameObject, null, w, 10f);
                 BuildScreenBackdrop(screen, head);
+                if (screen is EndScreen) BuildEndPepper(w);
             }
 
             var outro = Object.FindAnyObjectByType<Ghost.Stages.OutroVideoStage>(FindObjectsInactive.Include);
@@ -116,6 +117,22 @@ namespace Ghost.Core.EditorTools
             var w = Add(canvas, XRWorldCanvas.Placement.Controller, head, rightAim,
                 new Vector3(-0.05f, 0.11f, 0.14f), 0.0005f, feed.feedRoot);
             w.contentPivot = new Vector2(1f, 0f);
+        }
+
+        // 结束界面的彩椒（VR）：不开 RT 相机，进入 World Space 时把彩椒挂到面板上 RawImage 的位置前方 0.1 m
+        static void BuildEndPepper(XRWorldCanvas w)
+        {
+            var showcase = Object.FindAnyObjectByType<EndPepperShowcase>(FindObjectsInactive.Include);
+            if (showcase == null || showcase.view == null)
+            {
+                Debug.LogWarning("[XR UI] 场景里没有结束界面彩椒展示，VR 结束界面不显示彩椒");
+                return;
+            }
+            var placement = w.gameObject.AddComponent<XREndPepperPlacement>();
+            placement.showcase = showcase;
+            placement.anchor = showcase.view.rectTransform;
+            placement.forward = 0.1f;
+            UnityEventTools.AddPersistentListener(w.worldModeChanged, placement.SetWorld);
         }
 
         // 开始 / 结束界面背后的黑幕（VR）：和黑屏一样挂在相机前 0.1 m 覆盖整个视野，透明度跟界面走，
