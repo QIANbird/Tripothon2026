@@ -438,23 +438,55 @@ namespace Ghost.Core.EditorTools
             return router;
         }
 
-        // "是否批准"面板：World Space 小卡片。1000 px = 1 m，再乘 0.7 缩到原来的 70%（约 17 × 7 cm）。
+        // "是否批准"面板：World Space 小卡片。1000 px = 1 m，再乘 0.7 缩到原来的 70%（约 17 × 10 cm）。
+        // 样式按 10-16 参考图：顶部 #E5FF71 圆角标题条 "Item selected"，下面半透明灰底，左 Submit（A 圆钮）、右 Details（按键标签）。
         // 由 XRApprovePanel 放在手柄射线下方，朝向头部
         static XRApprovePanel BuildApprovePanel(Camera camera)
         {
+            const float w = 240f, h = 148f, headerH = 52f;
             var panelGo = new GameObject("XR Approve Panel");
             var panel = panelGo.AddComponent<XRApprovePanel>();
             var canvas = AgentUIStyle.CreateWorldCanvas("Canvas", panelGo.transform, camera, Vector3.zero,
-                new Vector2(240f, 104f), new Vector2(0.5f, 1f)); // 上沿中点贴着摆放点，面板往下展开
+                new Vector2(w, h), new Vector2(0.5f, 1f)); // 上沿中点贴着摆放点，面板往下展开
             canvas.transform.localPosition = Vector3.zero;
             canvas.transform.localRotation = Quaternion.identity;
             canvas.transform.localScale = Vector3.one * (AgentUIStyle.CanvasScale * 0.7f);
             var root = (RectTransform)canvas.transform;
-            var fill = AgentUIStyle.AddFramedBackground(root, AgentUIStyle.CautionBody, AgentUIStyle.PanelBorder, 2f);
-            var title = AgentUIStyle.CreateRect("Title", fill, new Vector2(14f, -10f), new Vector2(212f, 40f));
-            AgentUIStyle.AddText(title, "是否批准？", 28, AgentUIStyle.Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
-            var hint = AgentUIStyle.CreateRect("Hint", fill, new Vector2(14f, -54f), new Vector2(212f, 36f));
-            AgentUIStyle.AddText(hint, "A 批准   握键 详情", 20, AgentUIStyle.Gray, TextAnchor.MiddleLeft);
+
+            var round = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatRoundSprite);
+            var circle = AgentUIStyle.LoadChatSprite(AgentUIStyle.ChatCircleSprite);
+            Color accent = AgentUIStyle.ChatAvatar;   // #E5FF71
+            Color body = AgentUIStyle.ChatBubble;     // 半透明灰
+
+            // 圆角素材半径 24 px，卡片小，用 pixelsPerUnitMultiplier 把圆角缩到约 15 px
+            var bg = AgentUIStyle.CreateStretch("Body", root);
+            AgentUIStyle.AddSprite(bg, round, body, sliced: true).pixelsPerUnitMultiplier = 1.6f;
+
+            var header = AgentUIStyle.CreateRect("Header", root, Vector2.zero, new Vector2(w, headerH));
+            AgentUIStyle.AddSprite(header, round, accent, sliced: true).pixelsPerUnitMultiplier = 1.6f;
+            AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Title", header), "Item selected", 22,
+                AgentUIStyle.ChatText, TextAnchor.MiddleCenter, FontStyle.Bold);
+
+            const float colW = w * 0.5f, labelY = -headerH - 12f, keyY = labelY - 26f;
+            // 左列：Submit + A 圆钮
+            var submit = AgentUIStyle.CreateRect("SubmitLabel", root, new Vector2(0f, labelY), new Vector2(colW, 22f));
+            AgentUIStyle.AddText(submit, "Submit", 14, AgentUIStyle.ChatText, TextAnchor.MiddleCenter);
+            const float aSize = 40f;
+            var aKey = AgentUIStyle.CreateRect("SubmitKey", root, new Vector2((colW - aSize) * 0.5f, keyY), new Vector2(aSize, aSize));
+            AgentUIStyle.AddSprite(aKey, circle, accent);
+            AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", aKey), "A", 20, AgentUIStyle.ChatText,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+
+            // 右列：Details + 按键标签（Inspect 绑定的是右手握键）
+            var details = AgentUIStyle.CreateRect("DetailsLabel", root, new Vector2(colW, labelY), new Vector2(colW, 22f));
+            AgentUIStyle.AddText(details, "Details", 14, AgentUIStyle.ChatText, TextAnchor.MiddleCenter);
+            const float chipW = 70f, chipH = 28f;
+            var chip = AgentUIStyle.CreateRect("DetailsKey", root,
+                new Vector2(colW + (colW - chipW) * 0.5f, keyY - (aSize - chipH) * 0.5f), new Vector2(chipW, chipH));
+            AgentUIStyle.AddSprite(chip, round, accent, sliced: true).pixelsPerUnitMultiplier = 3f;
+            AgentUIStyle.AddText(AgentUIStyle.CreateStretch("Label", chip), "Grip", 12, AgentUIStyle.ChatText,
+                TextAnchor.MiddleCenter, FontStyle.Bold);
+
             panel.root = canvas.gameObject;
             canvas.gameObject.SetActive(false);
             return panel;
