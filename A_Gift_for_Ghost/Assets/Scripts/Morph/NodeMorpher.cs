@@ -149,6 +149,11 @@ namespace Ghost.Morph
                 currentPoses[id] = NodePose.Lerp(nodeSet.nodes[id].GetPose(CurrentForm), pose, overrideWeights[id]);
         }
 
+        public bool HasPoseOverride(int id)
+        {
+            return overrideWeights != null && id >= 0 && id < overrideWeights.Length && overrideWeights[id] > 0f;
+        }
+
         public void ClearPoseOverride(int id)
         {
             if (overrideWeights == null || id < 0 || id >= overrideWeights.Length) return;

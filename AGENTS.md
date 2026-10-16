@@ -8,7 +8,7 @@
 - Unity project: `A_Gift_for_Ghost/`
 - Unity version: **6000.3.25f1**
 - Render pipeline: **URP**
-- Current development target is PC, but the same project will later target **Meta Quest 2 VR**.
+- Current development target is PC, but the same project will later target **Meta Quest 3 VR**.
 - Prefer implementations that keep gameplay logic independent from the input device.
 
 ## Non-negotiable engineering rules
@@ -28,7 +28,7 @@ Read only the documents relevant to the current task:
 
 - Current implemented state → `docs/CURRENT_STATE.md`
 - System ownership, interfaces and data flow → `docs/ARCHITECTURE.md`
-- VR-migration rules (camera, scale, UI, Quest 2 performance budget) → `docs/VR_GUIDELINES.md` — read before adding scenes, cameras, UI, art assets, shaders or lighting
+- VR-migration rules (camera, scale, UI, Quest performance budget) → `docs/VR_GUIDELINES.md` — read before adding scenes, cameras, UI, art assets, shaders or lighting
 - `docs/PROJECT_SUMMARY.md` is a human-facing design document. Agents do not maintain it.
 
 Workflow protocols:

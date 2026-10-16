@@ -2,6 +2,7 @@
 using Ghost.Agent;
 using Ghost.Gameplay;
 using Ghost.Interaction;
+using Ghost.Interaction.XR;
 using Ghost.Morph;
 using Ghost.Morph.EditorTools;
 using Ghost.Narrative.EditorTools;
@@ -104,16 +105,11 @@ namespace Ghost.Core.EditorTools
             RenderSettings.ambientMode = AmbientMode.Flat;
             RenderSettings.ambientLight = background;
 
-            // 固定相机：眼高 1.6 m，水平正视 +Z（不俯仰，docs/VR_GUIDELINES.md 第 3 节）。植株的大小和位置由 PlantFit 按形态适配
-            var cameraGo = new GameObject("Main Camera") { tag = "MainCamera" };
-            var camera = cameraGo.AddComponent<Camera>();
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = background;
-            camera.fieldOfView = 60f;
-            camera.nearClipPlane = 0.05f;
-            cameraGo.AddComponent<AudioListener>();
-            cameraGo.transform.position = new Vector3(0f, 1.6f, -1.9f);
-            cameraGo.transform.rotation = Quaternion.identity;
+            // 视角：XR Origin（docs/tasks/vr-migration.md 第 2 步）。原固定机位 (0, 1.6, -1.9) 水平正视 +Z = Origin 位置 + 眼高；
+            // PC 上相机就停在这个机位，Quest 上眼高和朝向交给头显（docs/VR_GUIDELINES.md 第 3 节）。植株的大小和位置由 PlantFit 按形态适配
+            var rig = XROriginBuilder.Build(new Vector3(0f, 1.6f, -1.9f), background);
+            var camera = rig.camera;
+            var cameraGo = camera.gameObject;
 
             // PlantFit：植株的适配根（缩放 + 平移），Plant 是它的子物体、本地变换为单位变换
             var fitGo = new GameObject("PlantFit");
@@ -141,6 +137,7 @@ namespace Ghost.Core.EditorTools
             var fit = fitGo.AddComponent<PlantFit>();
             fit.morpher = morpher;
             fit.viewCamera = camera;
+            fit.viewPoint = rig.viewAnchor;
             // 植株居中；立体形态用包围球，S3 旋转后仍全部入画。Play 时 Start 会按实际屏幕比例再算一次
             fit.hudLeftFraction = 0f;
             fit.rightMarginFraction = 0f;
@@ -149,19 +146,20 @@ namespace Ghost.Core.EditorTools
             fit.ClearCache();
             fitGo.transform.localScale = Vector3.one;
 
-            // G2：指针输入（节点拾取 + IInteractable 射线）和光标
+            // G2：指针输入（节点拾取 + IInteractable 射线）和光标；VR 第 3 步：右手柄发起方，路由器按平台选一个
             var pointer = BuildPointer(camera, morpher, actions);
+            var router = BuildInteractionRouter(pointer, rig, camera, actions);
             // G8：旋转植株（S3 / S4 共用），绕布局中心转，挂在 Plant 上
             var rotator = plantGo.AddComponent<TargetRotator>();
             rotator.target = plantGo.transform;
-            rotator.pointer = pointer;
+            rotator.pointer = router;
             rotator.viewCamera = camera;
             rotator.localPivot = new LayoutGenerator.Settings().center;
             // G5：对白播放器和字幕 / Agent 剧情弹窗（先建：详情弹窗要排在 Agent 剧情弹窗下方）
             var dialogue = NarrativeSceneBuilder.EnsureDialogue(cameraGo.transform);
             // 对白推进：点击空白处或空格 / 回车（节点优先）
             var advance = dialogue.gameObject.AddComponent<DialogueAdvanceInput>();
-            advance.pointer = pointer;
+            advance.pointer = router;
             advance.subtitles = Object.FindAnyObjectByType<Ghost.Narrative.SubtitlePanel>(FindObjectsInactive.Include);
             advance.actions = actions;
             // G4：Agent 任务面板、节点详情弹窗、AI 询问框（HUD），以及 EventSystem
@@ -179,7 +177,7 @@ namespace Ghost.Core.EditorTools
             ctx.links = links;
             ctx.halos = halos;
             ctx.issues = issues;
-            ctx.pointer = pointer;
+            ctx.pointer = router;
             ctx.picker = pointer.picker;
             ctx.taskPanel = agentUI.taskPanel;
             ctx.detailPopup = agentUI.detailPopup;
@@ -188,6 +186,8 @@ namespace Ghost.Core.EditorTools
             ctx.subtitles = Object.FindAnyObjectByType<Ghost.Narrative.SubtitlePanel>();
             ctx.detailTable = NarrativeAssets.EnsureNodeDetails();
             ctx.rotator = rotator;
+            // VR：旋转开着时（S3/S4）扳机按住不进节点拖拽
+            ((XRControllerInput)router.xr).rotator = rotator;
             // 任务面板在进入真实阶段时才显示
             agentUI.taskPanel.Hide();
             // 旧对白资产里"点击查看"的占位台词改成右键（不覆盖策划改过的句子）
@@ -373,6 +373,59 @@ namespace Ghost.Core.EditorTools
             logger.logEvents = false;
             pointerGo.SetActive(true);
             return pointer;
+        }
+
+        // VR 第 3 步：Pointer 物体上再挂 InteractionRouter（玩法层引用它），右手柄 Right Aim 上挂 XRControllerInput + 射线显示，
+        // 手柄旁的"是否批准"面板。PC 上路由器选 PointerInput，头显在运行时选 XRControllerInput
+        static InteractionRouter BuildInteractionRouter(PointerInput pc, XROriginBuilder.Rig rig, Camera camera,
+            InputActionAsset actions)
+        {
+            var aimGo = rig.rightAim.gameObject;
+            aimGo.SetActive(false);
+            var xr = aimGo.AddComponent<XRControllerInput>();
+            xr.aim = aimGo.transform;
+            xr.head = camera.transform;
+            xr.picker = pc.picker;
+            xr.actions = actions;
+            xr.approvePanel = BuildApprovePanel(camera);
+
+            var line = aimGo.AddComponent<LineRenderer>();
+            line.sharedMaterial = MorphMenu.EnsureLineMaterial();
+            line.widthMultiplier = 0.004f;
+            line.numCapVertices = 2;
+            line.shadowCastingMode = ShadowCastingMode.Off;
+            line.receiveShadows = false;
+            var visual = aimGo.AddComponent<XRRayVisual>();
+            visual.source = xr;
+            aimGo.SetActive(true);
+
+            var pointerGo = pc.gameObject;
+            pointerGo.SetActive(false);
+            var router = pointerGo.AddComponent<InteractionRouter>();
+            router.pc = pc;
+            router.xr = xr;
+            pointerGo.SetActive(true);
+            return router;
+        }
+
+        // "是否批准"面板：World Space 小卡片（1000 px = 1 m），由 XRApprovePanel 放在手柄右上方、朝向头部
+        static XRApprovePanel BuildApprovePanel(Camera camera)
+        {
+            var panelGo = new GameObject("XR Approve Panel");
+            var panel = panelGo.AddComponent<XRApprovePanel>();
+            var canvas = AgentUIStyle.CreateWorldCanvas("Canvas", panelGo.transform, camera, Vector3.zero,
+                new Vector2(240f, 104f), new Vector2(0.5f, 0f));
+            canvas.transform.localPosition = Vector3.zero;
+            canvas.transform.localRotation = Quaternion.identity;
+            var root = (RectTransform)canvas.transform;
+            var fill = AgentUIStyle.AddFramedBackground(root, AgentUIStyle.CautionBody, AgentUIStyle.PanelBorder, 2f);
+            var title = AgentUIStyle.CreateRect("Title", fill, new Vector2(14f, -10f), new Vector2(212f, 40f));
+            AgentUIStyle.AddText(title, "是否批准？", 28, AgentUIStyle.Ink, TextAnchor.MiddleLeft, FontStyle.Bold);
+            var hint = AgentUIStyle.CreateRect("Hint", fill, new Vector2(14f, -54f), new Vector2(212f, 36f));
+            AgentUIStyle.AddText(hint, "A 批准   握键 详情", 20, AgentUIStyle.Gray, TextAnchor.MiddleLeft);
+            panel.root = canvas.gameObject;
+            canvas.gameObject.SetActive(false);
+            return panel;
         }
 
         // ---- Pick 阶段 ----

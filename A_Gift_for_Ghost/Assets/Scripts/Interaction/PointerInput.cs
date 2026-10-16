@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -7,7 +6,7 @@ namespace Ghost.Interaction
 {
     // PC 端的交互发起方：读 Gameplay 动作表的 Point（指针位置）和 Select（按下），
     // 从指定相机发射线，同时测试节点（NodePicker）和普通物体（Physics + IInteractable），谁近算谁。
-    // 只发事件，不包含任何玩法逻辑。以后 VR 版用手柄射线发起方替换这个组件，事件保持一致。
+    // 只发事件，不包含任何玩法逻辑。VR 版的发起方是 XR/XRControllerInput，两者都继承 InteractionSource，由 InteractionRouter 选一个。
     //
     // 手势：
     //   按下和松开都在同一个节点上，且移动不超过 dragThreshold 像素 → Tap(nodeId)
@@ -16,7 +15,7 @@ namespace Ghost.Interaction
     //   按下和松开都在同一个 IInteractable 上 → 调它的 OnTap()，并发 InteractableTapped
     //   按下和松开都在空白处（没有节点、物体和 HUD） → TapEmpty()（推进对白用；节点优先）
     //   Inspect（右键）按下时指针下有节点 → InspectStart(nodeId)；松开 → InspectEnd()（查看详情用，和左键手势互不影响）
-    public class PointerInput : MonoBehaviour
+    public class PointerInput : InteractionSource
     {
         [Tooltip("发射线的相机（固定相机）。交互物体本身不做射线检测")]
         public Camera rayCamera;
@@ -27,10 +26,6 @@ namespace Ghost.Interaction
 
         [Tooltip("按下后移动超过这么多像素算拖拽，否则算点击")]
         public float dragThreshold = 8f;
-        [Tooltip("允许从节点出发拖拽（S2）。关掉时从节点出发的拖拽什么也不发")]
-        public bool allowNodeDrag = true;
-        [Tooltip("允许在空白处拖拽（S3/S4 旋转物体）")]
-        public bool allowEmptyDrag = true;
         [Tooltip("拖拽经过节点时按这个像素步长细分采样，鼠标移动快时也不会漏掉节点")]
         public float dragSampleStep = 6f;
 
@@ -41,50 +36,17 @@ namespace Ghost.Interaction
         [Tooltip("指针在 UGUI（HUD）上时不拾取节点、不开始手势（比赛期间的 Screen Space HUD，见 PROJECT_SUMMARY 技术债）")]
         public bool blockWhenOverUI = true;
 
-        // ---- 事件 ----
-        public event Action<int> Tap;
-        public event Action<int> DragStart;
-        public event Action<int> DragOver;
-        public event Action DragEnd;
-        public event Action<Vector2> DragEmpty;
-        public event Action DragEmptyEnd;
-        // 指针下的节点变化（-1 = 没有节点）。只用于高亮
-        public event Action<int> HoverChanged;
-        public event Action<IInteractable> InteractableTapped;
-        // 在空白处点击（按下和松开都没有命中节点 / 物体，也不在 HUD 上）
-        public event Action TapEmpty;
-        // 右键（Inspect 动作）在节点上按下 / 松开。InspectEnd 只在之前发过 InspectStart 时发出
-        public event Action<int> InspectStart;
-        public event Action InspectEnd;
+        // 事件和状态属性声明在 InteractionSource
+        public override bool IsDraggingNode => gesture == Gesture.NodeDrag;
+        public override bool IsDraggingEmpty => gesture == Gesture.EmptyDrag;
 
-        // ---- 状态 ----
-        public Vector2 PointerPosition { get; private set; }
-        public Ray CurrentRay { get; private set; }
-        public int HoveredNode { get; private set; } = -1;
-        public IInteractable HoveredInteractable { get; private set; }
-        // 指针下最近命中点的距离（没有命中时为无穷大），供光标组件把标记放到物体表面
-        public float HoverDistance { get; private set; } = float.PositiveInfinity;
-        public bool IsPressed { get; private set; }
-        public bool IsDraggingNode => gesture == Gesture.NodeDrag;
-        public bool IsDraggingEmpty => gesture == Gesture.EmptyDrag;
-        // 正在右键查看的节点（-1 = 没有）
-        public int InspectingNode { get; private set; } = -1;
-
-        // 阶段用来整体开关指针输入。关闭时会结束正在进行的拖拽（发出 DragEnd / DragEmptyEnd）并清掉悬停
-        public bool InputEnabled
+        protected override void OnInputEnabledChanged(bool enabled)
         {
-            get => inputEnabled;
-            set
-            {
-                if (inputEnabled == value) return;
-                inputEnabled = value;
-                if (!value) CancelGesture();
-            }
+            if (!enabled) CancelGesture();
         }
 
         enum Gesture { None, Pressed, NodeDrag, EmptyDrag, Blocked }
 
-        bool inputEnabled = true;
         InputActionMap map;
         InputAction pointAction;
         InputAction selectAction;
@@ -124,7 +86,7 @@ namespace Ghost.Interaction
         void Update()
         {
             if (map == null) return;
-            if (!inputEnabled)
+            if (!InputEnabled)
             {
                 return;
             }
@@ -155,29 +117,9 @@ namespace Ghost.Interaction
             lastPosition = position;
         }
 
-        // 射线同时测节点和物体，返回较近的那个。物体更近时 nodeId = -1（被挡住）
         void Raycast(Ray ray, out int nodeId, out IInteractable interactable, out float distance)
         {
-            nodeId = -1;
-            interactable = null;
-            distance = float.PositiveInfinity;
-
-            float nodeDistance = float.PositiveInfinity;
-            int node = picker != null ? picker.Pick(ray, out nodeDistance) : -1;
-            if (node >= 0 && nodeDistance > maxDistance) node = -1;
-
-            if (Physics.Raycast(ray, out RaycastHit hit, maxDistance, physicsMask, QueryTriggerInteraction.Collide)
-                && (node < 0 || hit.distance < nodeDistance))
-            {
-                interactable = hit.collider.GetComponentInParent<IInteractable>();
-                distance = hit.distance;
-                return;
-            }
-            if (node >= 0)
-            {
-                nodeId = node;
-                distance = nodeDistance;
-            }
+            RaycastTargets(picker, ray, physicsMask, maxDistance, out nodeId, out interactable, out distance);
         }
 
         void BeginPress(Vector2 position)
@@ -200,7 +142,7 @@ namespace Ghost.Interaction
                     {
                         gesture = Gesture.NodeDrag;
                         lastDragNode = pressNode;
-                        DragStart?.Invoke(pressNode);
+                        RaiseDragStart(pressNode);
                         SampleDrag(pressPosition, position);
                     }
                     else gesture = Gesture.Blocked;
@@ -209,7 +151,7 @@ namespace Ghost.Interaction
                 {
                     gesture = Gesture.EmptyDrag;
                     // 第一帧补上从按下点到现在的位移
-                    DragEmpty?.Invoke(position - pressPosition);
+                    RaiseDragEmpty(position - pressPosition);
                 }
                 else gesture = Gesture.Blocked; // 从按钮上拖开：不点击也不旋转
                 return;
@@ -222,7 +164,7 @@ namespace Ghost.Interaction
             else if (gesture == Gesture.EmptyDrag)
             {
                 Vector2 delta = position - lastPosition;
-                if (delta.sqrMagnitude > 0f) DragEmpty?.Invoke(delta);
+                if (delta.sqrMagnitude > 0f) RaiseDragEmpty(delta);
             }
         }
 
@@ -238,7 +180,7 @@ namespace Ghost.Interaction
                 int node = picker.Pick(rayCamera.ScreenPointToRay(p), out float d);
                 if (node < 0 || d > maxDistance || node == lastDragNode) continue;
                 lastDragNode = node;
-                DragOver?.Invoke(node);
+                RaiseDragOver(node);
             }
         }
 
@@ -249,20 +191,20 @@ namespace Ghost.Interaction
                 case Gesture.Pressed:
                     // 松开时再测一次，按下和松开在同一个目标上才算点击
                     Raycast(rayCamera.ScreenPointToRay(position), out int node, out IInteractable target, out _);
-                    if (pressNode >= 0 && node == pressNode) Tap?.Invoke(node);
+                    if (pressNode >= 0 && node == pressNode) RaiseTap(node);
                     else if (pressInteractable != null && target == pressInteractable)
                     {
                         pressInteractable.OnTap();
-                        InteractableTapped?.Invoke(pressInteractable);
+                        RaiseInteractableTapped(pressInteractable);
                     }
                     else if (pressNode < 0 && pressInteractable == null && node < 0 && target == null)
-                        TapEmpty?.Invoke();
+                        RaiseTapEmpty();
                     break;
                 case Gesture.NodeDrag:
-                    DragEnd?.Invoke();
+                    RaiseDragEnd();
                     break;
                 case Gesture.EmptyDrag:
-                    DragEmptyEnd?.Invoke();
+                    RaiseDragEmptyEnd();
                     break;
             }
             ResetGesture();
@@ -284,7 +226,7 @@ namespace Ghost.Interaction
                 if (node >= 0)
                 {
                     InspectingNode = node;
-                    InspectStart?.Invoke(node);
+                    RaiseInspectStart(node);
                 }
             }
             if (inspectAction.WasReleasedThisFrame()) EndInspect();
@@ -294,7 +236,7 @@ namespace Ghost.Interaction
         {
             if (InspectingNode < 0) return;
             InspectingNode = -1;
-            InspectEnd?.Invoke();
+            RaiseInspectEnd();
         }
 
         void UpdateHover()
@@ -312,7 +254,7 @@ namespace Ghost.Interaction
             if (node != HoveredNode)
             {
                 HoveredNode = node;
-                HoverChanged?.Invoke(node);
+                RaiseHoverChanged(node);
             }
             if (!ReferenceEquals(interactable, HoveredInteractable))
             {
@@ -323,17 +265,11 @@ namespace Ghost.Interaction
             }
         }
 
-        // 被销毁的 MonoBehaviour 不再回调
-        static bool IsAlive(IInteractable interactable)
-        {
-            if (interactable == null) return false;
-            return !(interactable is UnityEngine.Object obj) || obj != null;
-        }
 
         void CancelGesture()
         {
-            if (gesture == Gesture.NodeDrag) DragEnd?.Invoke();
-            else if (gesture == Gesture.EmptyDrag) DragEmptyEnd?.Invoke();
+            if (gesture == Gesture.NodeDrag) RaiseDragEnd();
+            else if (gesture == Gesture.EmptyDrag) RaiseDragEmptyEnd();
             EndInspect();
             ResetGesture();
             IsPressed = false;

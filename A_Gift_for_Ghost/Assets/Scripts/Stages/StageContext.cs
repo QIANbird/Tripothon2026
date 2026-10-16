@@ -25,7 +25,7 @@ namespace Ghost.Stages
         public NodeIssueSystem issues;
 
         [Header("输入")]
-        public PointerInput pointer;
+        public InteractionSource pointer;
         public NodePicker picker;
         [Tooltip("G8：旋转植株（S3 / S4 共用）")]
         public TargetRotator rotator;

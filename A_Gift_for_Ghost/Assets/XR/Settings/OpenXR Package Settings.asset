@@ -111,7 +111,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: feeef8d85de8db242bdda70cc7ff5acd, type: 3}
   m_Name: OculusTouchControllerProfile Standalone
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.Interactions.OculusTouchControllerProfile
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Oculus Touch Controller Profile
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.oculustouch
@@ -133,7 +133,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2b7365b139f7aec43b23d26b7a48b5a6, type: 3}
   m_Name: MetaQuestTouchPlusControllerProfile Standalone
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.Features.Interactions.MetaQuestTouchPlusControllerProfile
-  m_enabled: 0
+  m_enabled: 1
   nameUi: Meta Quest Touch Plus Controller Profile
   version: 0.0.1
   featureIdInternal: com.unity.openxr.feature.input.metaquestplus
@@ -295,7 +295,7 @@ MonoBehaviour:
   - {fileID: -849504277581631615}
   customLoaderName: 
   m_renderMode: 1
-  m_latencyOptimization: 0
+  m_latencyOptimization: 1
   m_autoColorSubmissionMode: 1
   m_colorSubmissionModes:
     m_List: 00000000
@@ -402,27 +402,27 @@ MonoBehaviour:
   m_Name: Standalone
   m_EditorClassIdentifier: Unity.XR.OpenXR::UnityEngine.XR.OpenXR.OpenXRSettings
   features:
-  - {fileID: -8848007563393600846}
-  - {fileID: 1695741853522349759}
+  - {fileID: -8508425270734463426}
   - {fileID: 369253232993062914}
-  - {fileID: 8401347082352971827}
+  - {fileID: 3808446385635889933}
+  - {fileID: 351614492667061013}
+  - {fileID: 6591828464406078435}
   - {fileID: 6450112155422692522}
   - {fileID: -3891599079073772958}
   - {fileID: -1342213295950684197}
-  - {fileID: -8508425270734463426}
-  - {fileID: 351614492667061013}
   - {fileID: 3616836412851875851}
   - {fileID: -5799294847354514357}
-  - {fileID: 2260936345924175023}
-  - {fileID: -5733741742034395969}
-  - {fileID: 7871932672643669312}
-  - {fileID: -5191721746537642327}
-  - {fileID: 6591828464406078435}
-  - {fileID: 3808446385635889933}
-  - {fileID: -6970582240602563897}
-  - {fileID: -6714848015712773646}
   - {fileID: -2868552536836217644}
+  - {fileID: -6714848015712773646}
+  - {fileID: 7871932672643669312}
+  - {fileID: -5733741742034395969}
   - {fileID: 7031550826873656560}
+  - {fileID: 1695741853522349759}
+  - {fileID: -6970582240602563897}
+  - {fileID: 2260936345924175023}
+  - {fileID: -8848007563393600846}
+  - {fileID: -5191721746537642327}
+  - {fileID: 8401347082352971827}
   customLoaderName: 
   m_renderMode: 1
   m_latencyOptimization: 0

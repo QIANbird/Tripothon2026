@@ -8,7 +8,7 @@
 | Stages | `Scripts/Stages` | 每关的玩法和通关判定；`StageContext` 提供共用引用 |
 | Morph | `Scripts/Morph` | 同一组节点在 5 种形态之间插值渲染（GPU instancing）；逐节点的显示状态；连线；节点外发光圈（`NodeHaloRenderer`）；PlantFit 构图；写实模型交接 |
 | Gameplay | `Scripts/Gameplay` | `NodeIssueSystem`：问题的难度、重试和解决状态 |
-| Interaction | `Scripts/Interaction` | `PointerInput`（交互发起方）、`DialogueAdvanceInput`（PC 端对白推进）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
+| Interaction | `Scripts/Interaction` | `InteractionSource`（发起方基类，事件契约）、`InteractionRouter`（按平台选发起方并转发，玩法层引用它）、`PointerInput`（PC 发起方）、`XR/XRControllerInput`（VR 右手柄发起方，含选中状态和批准面板 `XRApprovePanel`、射线显示 `XRRayVisual`）、`DialogueAdvanceInput`（PC 端对白推进）、`NodePicker`（射线测节点）、`TargetRotator`、`IInteractable` |
 | Agent UI | `Scripts/Agent` | 任务面板、详情弹窗、Yes 询问框（HUD） |
 | Player | `Scripts/Player` | Pick 阶段的第一人称玩家：`FirstPersonMotor`（CharacterController 移动、转头、蹲下）、`PlayerRig`（开关玩家、接管 / 归还主相机）；`Player/PC/` 下是 PC 专用的 `PcCursorLock`、`PcCrosshair`、`PcControlsHint`（订阅 `PickStage.ControlsHintShown/Hidden` 显示键位提示） |
 | Narrative | `Scripts/Narrative` | 对白播放、字幕、Agent 聊天栏（`AgentChatFeed`）、黑屏、节点详情文本表 |
@@ -20,14 +20,14 @@
 - 当前形态和逐节点的显示（闪烁、高亮、着色、脉冲、隐藏、写实度）：`NodeMorpher`。其他系统只调它的接口，不缓存颜色。
 - 问题状态（剩余点击次数、尝试次数、是否解决）：`NodeIssueSystem`。
 - 关卡内的玩法状态（已找到的虫子、S2 的路径、是否已查看果实）：各 Stage 自己，Exit 时清掉。
-- 主相机的父物体：平时在场景根（固定机位）；Pick 阶段由 `PlayerRig` 挂到 `PlayerRoot/CameraPivot` 下，离开时还原。
+- 主相机的父物体：平时在 `XR Origin/Camera Offset` 下（PC = 固定机位，Quest = Tracked Pose Driver 跟头显）；Pick 阶段由 `PlayerRig` 挂到 `PlayerRoot/CameraPivot` 下，离开时还原。
 - 植株的世界缩放和位置：`PlantFit`（Pick 阶段 `Hold` 住真实尺寸，自动适配暂停）。旋转：`TargetRotator`，在 PlantFit 的父空间里转。
 - 静态数据：`PlantNodeSet`（节点和布局）、`DialogueSequence`、`DialogueLibrary`（台词表索引）、`NodeDetailTable`，都是 ScriptableObject，运行时只读。
 
 ## Communication between systems
 
 - 全部用 C# 事件，单向调用：
-  - 上层订阅下层：Stage 订阅 `PointerInput`、`NodeIssueSystem`、`DialoguePlayer`。
+  - 上层订阅下层：Stage 订阅 `InteractionRouter`（经 `StageContext.pointer`，类型 `InteractionSource`）、`NodeIssueSystem`、`DialoguePlayer`。
   - 下层不认识上层：`NodeMorpher` 不知道有 Stage 存在。
 - `GameFlow` → `Stage.Enter/Exit` + `NodeMorpher.MorphTo`；`Stage.Completed` → `GameFlow.Next`。
 - `NodeMorpher.MorphStarted` → `PlantFit`（构图过渡和变形同步）。
@@ -44,10 +44,10 @@
 | `IssueStage : Stage`（抽象） | — | 钩子：`OnNodeTapped(id)`、`OnIssueAttempted(issue, solved)`、`OnIssueResolved(issue)`、`PopupTitle/PopupBody(id)`、`Describe(id, …)` |
 | `GameFlow` | `StageEntered(Stage)`、`StageExited(Stage)`、`FlowFinished` | `Begin()`、`Next()`（未开始时等于 `Begin`，最后一关时结束流程）、`JumpTo(index)`（结束后无效）、`CurrentIndex`、`HasStarted`、`IsFinished`、`autoStart`、`FormAt(index)` |
 | `StageContext` | `Inspected(id)` | 共用引用（morpher、links、issues、pointer、picker、rotator、taskPanel、detailPopup、query、dialogue、detailTable）；`SetInspectProvider`、`RefreshInspect`、`SetPickFilter`、`DefaultFilter`、`IsNodeVisible`、`Node(id)`、`Play(sequence, onComplete)`、`ShowTaskPanel`、`ResetShared()`、`NearestNodeInLayout` |
-| `PointerInput` | `Tap(id)`、`DragStart(id)`、`DragOver(id)`、`DragEnd`、`DragEmpty(Vector2)`、`DragEmptyEnd`、`HoverChanged(id)`、`InteractableTapped(IInteractable)`、`TapEmpty`、`InspectStart(id)`、`InspectEnd` | — |
+| `InteractionSource`（`PointerInput` / `XRControllerInput` / `InteractionRouter`） | `Tap(id)`、`DragStart(id)`、`DragOver(id)`、`DragEnd`、`DragEmpty(Vector2)`、`DragEmptyEnd`、`HoverChanged(id)`、`InteractableTapped(IInteractable)`、`TapEmpty`、`InspectStart(id)`、`InspectEnd` | — |
 | `IInteractable` | — | `OnTap()`、`OnHoverEnter()`、`OnHoverExit()` |
 | `NodePicker` | — | `Pick(ray[, filter], out distance)`（-1 = 未命中）、`Filter`、`OrganOf(id)`、`TryGetNodeWorldPosition` |
-| `TargetRotator` | — | `Enable/Disable`、`AddRotation(yaw, pitch)`、`ResetRotation(smooth)`、`CaptureRestPose` |
+| `TargetRotator` | — | `Enable/Disable`、`allowPitch`（S3 关掉）、`AddRotation(yaw, pitch)`、`ResetRotation(smooth)`、`CaptureRestPose` |
 | `NodeMorpher`（partial，含 `NodeMorpherStates`） | `MorphStarted(MorphForm)`、`MorphCompleted(MorphForm)` | 形态：`MorphTo`、`SnapTo`、`CurrentForm`、`IsMorphing`。单节点姿态覆盖：`SetPoseOverride(id, pose, weight)`、`ClearPoseOverride`（教学用来放大演示方块再插值回槽位）。逐节点显示：`SetBlink`、`SetHighlight`、`SetTint`、`Pulse`、`Restore`、`RestoreAll`、`GetState`、`Hide/Show/SetVisible`、`ShowAll`、`IsHidden`、`GetNodeVisibility`、`TryGetNodeWorldSphere`。写实度：`Realness`、`ClearRealness`、`SetRealnessImmediate`、`RealReveal`（由 `RealModelHandoff` 写） |
 | `PlantFit` | `Fitted` | `TransitionTo(form, seconds)`、`SnapTo(form)`、`Hold(localPos, scale, seconds)`、`Release(seconds)`、`IsHeld`、`GetFormBounds`、`ClearCache` |
 | `PlayerRig` | — | `Activate()`（对齐当前相机姿态、接管相机、打开玩家）、`Deactivate()`、`IsActive` |
@@ -80,7 +80,7 @@
 
 - `Stage` 生命周期契约：`Enter/Exit/Complete/Completed`，Enter 订阅、Exit 退订并 `ResetShared()`。
 - `IssueStage` 的虚方法钩子。
-- `PointerInput` 的事件集合与签名：VR 迁移时用新的发起方替换它，**签名必须保持不变**。
+- `InteractionSource` 的事件集合与签名（PC / VR 发起方共用），**改签名前先和团队确认**。
 - `IInteractable`。
 - `NodeMorpher` 的逐节点显示接口和 `MorphTo/MorphStarted`；`NodeIssueSystem` 的事件和查询方法。
 - `DialoguePlayer.Play/Enqueue` + 事件；`NodeDetailTable.Get/Format`。
@@ -99,24 +99,24 @@
 ## Input abstraction
 
 - `InputSystem_Actions.inputactions`：
-  - `Gameplay` 表：Point、Select（左键）、Inspect（右键）。
+  - `Gameplay` 表：Point、Select（左键 / 右扳机）、Inspect（右键 / 右握键）、Advance（空格 / 回车）、Approve（右 A）、Rotate（右摇杆）。
   - `Debug` 表：NextStage、JumpStage1–9。
   - `Player` 表（Pick 阶段）：Move（WASD）、Look（鼠标 delta）、Crouch（C / 左 Ctrl）、Grab（左键）、Eat（E）。Grab / Eat 还没有使用方。
-- `PointerInput` 是 PC 端唯一的交互发起方，把输入翻译成手势事件：
+- 交互发起方都继承 `InteractionSource`，把输入翻译成同一组手势事件；`InteractionRouter` 在 PC（`PointerInput`）和 VR（`XRControllerInput`，头显运行时）之间选一个并转发，另一个 `InputEnabled = false`：
   - `Tap`
   - `DragStart`、`DragOver`、`DragEnd`
   - `DragEmpty`（在空白处拖动，用于旋转）
   - `InspectStart`、`InspectEnd`
   - 指针在 HUD 上时不往节点派发任何事件。
 - 被交互物不读输入：节点通过 `NodePicker` 被选中；普通物体实现 `IInteractable`；HUD 按钮走 UGUI 的 EventSystem 和 InputSystemUIInputModule。
-- VR 迁移：给同一组 Action 加 XR 绑定，用手柄射线发起方替换 `PointerInput`，保持事件签名不变。
+- VR 发起方的选中状态只在 `XRControllerInput` 内部：扳机选中 / 取消 / 切换（`NodeMorpher.SetPoseOverride` 放大突起），A → `Tap` 或 `TapEmpty`，握键 → `InspectStart/End`，摇杆 → `DragEmpty`（原始两轴，轴过滤在 `TargetRotator.allowPitch`）。发 `Tap` / `InspectStart` 时 `CurrentRay` 是选中那一刻的射线。
 
 ## Scene/stage lifecycle
 
 1. 菜单 Build Main Scene 生成 `Main.unity`：
-   - 相机
+   - XR Origin（Camera Offset → Main Camera；ViewAnchor = PlantFit 构图用的名义眼位）
    - PlantFit / Plant（NodeMorpher、Links、Issues、Rotator、Handoff）
-   - Pointer
+   - Pointer（NodePicker、PointerInput、InteractionRouter）；XR Origin/Camera Offset/Right Aim（XRControllerInput、射线显示）；XR Approve Panel
    - HUD
    - Dialogue
    - GameFlow（挂所有 Stage 和 StageContext）
@@ -130,7 +130,7 @@
 
 - **新增关卡**：写一个 `Stage` 子类（处理点击问题的参考 `IssueStage`，自定义手势的参考 `S2CircuitStage`），然后在 `MainSceneMenu.Stages` 加一行，并在构建分支里挂上组件。
 - **新增节点表现**：在 `NodeMorpherStates` 里加状态或叠加效果（参考 `Pulse`）。
-- **新增手势或输入**：先在 `.inputactions` 里加 Action，再给 `PointerInput` 加事件。
+- **新增手势或输入**：先在 `.inputactions` 里加 Action，再给 `InteractionSource` 加事件，PC 和 VR 发起方各自实现。
 - **新增对白或文本**：在 `StageAssets` / `NarrativeAssets` 里加 `Ensure*`，生成 ScriptableObject。
 - **新增布局形态**：修改 `LayoutGenerator`，只重算 poses，保持节点 id 不变。
 - **构图规则**：调 `PlantFit` 的参数，或改它按形态计算包围体的逻辑。

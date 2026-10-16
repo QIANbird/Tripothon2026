@@ -9,7 +9,7 @@ namespace Ghost.Interaction
     // 以后 VR 版另写一个发起方，调用同一个 SubtitlePanel.Advance()。
     public class DialogueAdvanceInput : MonoBehaviour
     {
-        public PointerInput pointer;
+        public InteractionSource pointer;
         public SubtitlePanel subtitles;
         [Tooltip("InputSystem_Actions.inputactions 资产")]
         public InputActionAsset actions;

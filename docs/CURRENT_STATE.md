@@ -24,7 +24,9 @@
 - 配音：`Assets/Audio/VO/` 下名为 `<台词ID>` 或 `VO_<台词ID>` 的音频自动挂到 `Script/` 里同 ID 台词的 `clip`（`VoiceClipBinder`，导入/替换音频时自动执行，也可用菜单 Ghost/Narrative/Bind Voice Clips）；导入设置强制单声道 + Vorbis。有 clip 的台词按音频时长播放。重新导入 CSV 会保留已挂的 clip。音频被删掉时自动清掉丢失的引用。已换成 `最终配音` 交付的 38 句 `VO_*.wav`，全部挂上（10-10，未 Play 验收）。
 - 音效 / 音乐 / 环境音（10-10，**未经编译和 Play 验收**）：文件放 `Assets/Audio/SFX|BGM|AMB/`，文件名 = 05_audio_list 编号，变体加 `_01/_02`；`AudioLibraryBuilder` 自动生成 `Assets/Data/Audio/AudioLibrary.asset`（菜单 Ghost/Audio/Rebuild Audio Library）。BGM / AMB 导入为 Streaming，SFX 加载时解压。`GameAudio`（场景里由 Build Main Scene 生成）进关时按 `stageAudio` 表交叉淡入切换音乐 / 环境音（Intro 起播 BGM_DIGITAL，开场动画音效包含在里面）；还没交付的编号跳过、保持上一首。BGM：一首 BGM_DIGITAL 从 Intro 贯穿到 Outro 之前，进 Outro 淡出；AMB_BALCONY 从 Transition 起（还没交付）。音效由 `GameAudioCues` 订阅玩法事件播放（不改玩法逻辑）：点节点授权（TUT/S1）、Agent 弹窗出现（S1 随机池改为数据念白）、Agent 打字循环、询问框（S3 为高风险警告）、TUT 方块融入矩阵、每次变形（`SFX_MORPH_01–04` 按目标形态）、S2 拖拽循环 + 连上节点（音高逐个升高）、S3 标记虫子、S4 摘虫 + 拖拽旋转时叶子沙沙、Pick 摘下果实、咬一口。为此给 Tutorial / S2 / S3 / S4 / `AgentQueryDialog` / `AgentChatFeed` 加了只发不收的事件，`TargetRotator` 加了 `IsDragging`。已编译通过（10-10），**`Main.unity` 还没有重建，场景里还没有 `GameAudio`，未经 Play 验收**。
 - 对白推进：左键点空白处或按空格 / 回车，打字中先补全整句，再点进入下一句；点中节点时只算点节点（全黑屏时除外）。
-- PlantFit：相机固定（眼高 1.6 m、水平正视），按形态缩放、居中植株。
+- PlantFit：按 `XR Origin/ViewAnchor`（名义眼位，眼高 1.6 m、水平正视，不跟头动）缩放、居中植株。
+- 视角 rig（`docs/tasks/vr-migration.md` 第 1–2 步，10-15，**只做过编译检查，`Main.unity` 未重建、未 Play / 实机验收**）：Build Main Scene 生成 `XR Origin`（地面点 (0, 0, -1.9)，Floor 模式）→ `Camera Offset`（y = 1.6）→ `Main Camera`（Tracked Pose Driver 跟 `<XRHMD>`）。PC 没有 XR Loader，相机停在原固定机位 (0, 1.6, -1.9)；Quest 上眼高和朝向来自头显。XR：Android 用 OpenXR + Meta Quest Support（目标设备 Quest 3，同时勾着 Quest 2 / Pro / 3S；Touch / Touch Plus / Touch Pro 控制器配置），Vulkan、IL2CPP、ARM64、单通道立体，Android 默认画质 Mobile；Standalone 不加载 XR。打包用 Build Profile `Assets/Settings/Build Profiles/Meta Quest.asset`。
+- VR 交互发起方（`docs/tasks/vr-migration.md` 第 3 步，10-15，**只做过编译检查，`Main.unity` 未重建、未 Play / 实机验收**）：玩法层引用 `InteractionRouter`（`Pointer` 物体上），头显在运行时选右手柄的 `XRControllerInput`（`XR Origin/Camera Offset/Right Aim`，跟手柄 aim pose），否则选 `PointerInput`。VR 手势：射线指节点只高亮射线；扳机短按节点 = 选中（放大 1.25 倍并朝玩家突起 4 cm，手柄右上方出现"是否批准？"卡片），再按同一个 = 取消，按另一个 = 切换，按空白 = 取消；选中时 A = `Tap`（每按一次算一次），没选中时 A = 推进对白；选中时按住握键 = 查看详情；S2 从节点按住扳机扫过 = 拖拽连线；右摇杆 = 旋转（S3 只偏航，`TargetRotator.allowPitch` 由 S3 关掉，S4 偏航 + 俯仰）。S3/S4 里扳机按住不进节点拖拽（PC 那两关的节点拖拽只用来转物体）。`Gameplay` 表加了 `Approve`、`Rotate` 和右手柄 XR 绑定（扳机 / 握键 / A / 摇杆）。批准卡片和 HUD 仍是旧样式，UI 改 World Space 在第 4 步。
 - Pick：进关时 PlayerRig 接管主相机（画面不跳），光标锁定，屏幕中心准星；WASD 约 2 m/s，鼠标转头（俯仰 -75°…70°），C / 左 Ctrl 切换蹲下（眼高 1.6 → 1.0 m）。植株按真实尺寸（约 0.7 m 高）固定在前方 2.5 m 的矮台上，不能转；有地面、四面不可见边界和植株挡板。离开时相机回固定机位、光标解锁、PlantFit 恢复适配。
 - Pick 摘和吃：头上的 `XRRayInteractor`（屏幕中心，左键 = `Player/Grab`）对准 `pepper_red_picked`（运行时加 SphereCollider + `XRSimpleInteractable`），眼睛到果实 ≤ 0.7 m 才可摘，悬停时果实提亮、准星变色；左键后手臂（Two Bone IK）伸过去，果实挂到掌心收回。E 举到嘴边，之后每次 E 咬一口缩小一档，发 `EatSequence.BiteTaken`。离关时果实回到植株上。
 - 画面压暗边（`docs/tasks/screen-edge-vignette.md`，10-10）：PC / Mobile 渲染器上的 Full Screen Pass（`EdgeVignette`）+ `Ghost/EdgeVignette` 着色器，四周不规则、缓慢流动的暗边，亮背景压黑、暗背景微微发白；PC 材质带边缘虚化，Mobile 关闭。Screen Space Overlay UI 不受影响。菜单 Ghost/PostFX/Setup Edge Vignette 可重新挂载；在渲染器上取消勾选该 Feature 即关闭。参数只做过截图检查，未完整 Play 验收。
@@ -49,7 +51,7 @@
 
 ## Architectural invariants
 
-- 相机永远不动，Pick 阶段除外（由 `PlayerRig` 接管，离开时还原）。其他阶段构图靠 PlantFit 缩放和平移植株（`docs/VR_GUIDELINES.md` 第 3 节）；Pick 阶段用 `PlantFit.Hold` 固定真实尺寸，`Release` 恢复。
+- 相机不由代码移动（VR 下只跟头显），Pick 阶段除外（由 `PlayerRig` 接管，离开时还原）。其他阶段构图靠 PlantFit（按 ViewAnchor，不按跟头的相机） 缩放和平移植株（`docs/VR_GUIDELINES.md` 第 3 节）；Pick 阶段用 `PlantFit.Hold` 固定真实尺寸，`Release` 恢复。
 - 输入只读 Input Action（`Gameplay` / `Debug` / `Player` 表），不读设备。PC 专用代码（光标锁定、准星）只放在 `Scripts/Player/PC/`。
 - 节点不是 GameObject：拾取走 `NodePicker`，显示走 `NodeMorpher` 的状态接口，不要给节点加 Collider。
 - 场景由代码生成，不要手动改 `Main.unity`；改场景就改 `MainSceneMenu` 再跑菜单。

@@ -1,6 +1,6 @@
 # VR Guidelines
 
-当前开发目标是 PC，但同一个项目之后要迁移到 Meta Quest 2。写代码、搭场景、做 UI 和美术资源时按本文件执行，降低迁移成本。全局硬性规则见 [AGENTS.md](../AGENTS.md)，输入抽象和交互发起方的具体实现见 [ARCHITECTURE.md](ARCHITECTURE.md)。
+当前开发目标是 PC，但同一个项目之后要迁移到 Meta Quest 3。写代码、搭场景、做 UI 和美术资源时按本文件执行，降低迁移成本。全局硬性规则见 [AGENTS.md](../AGENTS.md)，输入抽象和交互发起方的具体实现见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 判断标准：每个实现都问一句"换成 VR 时这里要不要重写？"。成本相同时，选 VR 友好的方案。
 
@@ -39,7 +39,9 @@
 - 准星、交互提示可以暂时放在屏幕中心，但要做成独立组件，以后替换为手柄射线指示。
 - 【比赛期技术债】当前 HUD 是 Screen Space Overlay，赛后改回 World Space。新增 UI 不要再加深对 Screen Space 的依赖（例如不要写依赖屏幕像素坐标的布局逻辑）。
 
-## 6. 性能预算（按 Quest 2）
+## 6. 性能预算（Quest 3 实机，数字按 Quest 2 保守取）
+
+Quest 3 的 GPU 约为 Quest 2 的两倍，但单眼分辨率也更高（2064×2208），填充率仍是主要瓶颈。下面的数字保持不变，留出余量。
 
 PC demo 可以在此基础上提高画质，但核心资源必须能降回这个预算：
 

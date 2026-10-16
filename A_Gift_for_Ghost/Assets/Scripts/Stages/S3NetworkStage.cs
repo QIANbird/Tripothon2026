@@ -54,6 +54,7 @@ namespace Ghost.Stages
         public event System.Action BugMarked;
         bool savedAllowEmptyDrag = true;
         bool savedAllowNodeDrag = true;
+        bool savedAllowPitch = true;
 
         public override void Enter()
         {
@@ -77,7 +78,13 @@ namespace Ghost.Stages
                 ctx.pointer.allowNodeDrag = true;
                 ctx.pointer.Tap += HandleTap;
             }
-            if (rotator != null) rotator.Enable();
+            if (rotator != null)
+            {
+                // 本关只转偏航（docs/tasks/vr-migration.md：S3 只取左右）
+                savedAllowPitch = rotator.allowPitch;
+                rotator.allowPitch = false;
+                rotator.Enable();
+            }
 
             CollectBugs();
             ApplyColors();
@@ -107,6 +114,7 @@ namespace Ghost.Stages
             if (rotator != null)
             {
                 rotator.Disable();
+                rotator.allowPitch = savedAllowPitch;
                 rotator.ResetRotation(true);
             }
             base.Exit();

@@ -13,6 +13,8 @@ namespace Ghost.Morph
     {
         public NodeMorpher morpher;
         public Camera viewCamera;
+        [Tooltip("构图用的名义眼位（XR Origin 下的 ViewAnchor，不跟头动）。为空时用相机本身")]
+        public Transform viewPoint;
 
         [Header("适配")]
         [Tooltip("主体占竖直视野的比例（略留边，避免贴边被裁）")]
@@ -162,7 +164,8 @@ namespace Ghost.Morph
         void Compute(MorphForm form, out float scale, out Vector3 localPos)
         {
             var b = BoundsOf(form);
-            var cam = viewCamera.transform;
+            // VR 下相机跟着头显动，按固定的名义眼位构图，植株不追着头跑
+            var cam = viewPoint != null ? viewPoint : viewCamera.transform;
             Vector3 center = b.Center;
             Vector3 size = Vector3.Max(b.Size, Vector3.one * 0.01f);
 

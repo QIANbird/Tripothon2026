@@ -10,7 +10,7 @@ namespace Ghost.Agent
         public AgentTaskPanel taskPanel;
         public NodeDetailPopup detailPopup;
         public AgentQueryDialog query;
-        public PointerInput pointer;
+        public InteractionSource pointer;
         public NodePicker picker;
 
         [Tooltip("开局为这个节点打开一次详情弹窗（随后按 lingerSeconds 淡出）")]

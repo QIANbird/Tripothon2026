@@ -1,6 +1,6 @@
 # Goal
 
-同一个工程可以打包到 Meta Quest 2 运行：S1–S4 的交互改成手柄操作，UI 全部在头显里可见。PC 版继续可玩。Pick 阶段不在本任务内。
+同一个工程可以打包到 Meta Quest 3 运行：S1–S4 的交互改成手柄操作，UI 全部在头显里可见。PC 版继续可玩。Pick 阶段不在本任务内。
 
 # Interaction spec (VR)
 
@@ -31,7 +31,7 @@
 3. VR 交互发起方（与 `PointerInput` 并列，事件签名相同），选中状态和"是否批准"面板放在发起方内部；`.inputactions` 加 XR 绑定。
 4. UI 改 World Space（字幕 → 聊天栏 → 询问框 → 详情 → 开始 / 结束界面）。
 5. `EdgeVignette` 补 XR 宏或在 Mobile 渲染器上关闭。
-6. Quest 2 实机性能检查（目标 72 Hz）。
+6. Quest 3 实机性能检查（目标 72 Hz，稳定后可试 90 Hz）。
 
 # Existing reference
 
@@ -50,7 +50,7 @@
 
 # Acceptance criteria
 
-- Quest 2 上能从开始界面一路玩到 S4 通关，没有报错。
+- Quest 3 上能从开始界面一路玩到 S4 通关，没有报错。
 - trigger 选中 / 取消 / 切换，A 批准，grip 查看详情，摇杆旋转，都按上面的规格工作。
 - 字幕在任何朝向都能看到；聊天栏在矩阵前方，有磨砂效果。
 - PC 版（键鼠）S1–S4 的交互仍正常。

@@ -19,7 +19,7 @@ namespace Ghost.Interaction
     {
         [Tooltip("被旋转的物体（Main 场景里是 Plant，即 NodeMorpher 所在物体）")]
         public Transform target;
-        public PointerInput pointer;
+        public InteractionSource pointer;
         [Tooltip("决定俯仰轴的视角（固定相机）。为空时用 Camera.main，再没有就用世界 X 轴")]
         public Camera viewCamera;
         [Tooltip("枢轴点，target 静止姿态下的本地坐标。植株所有形态共用中心 (0, 0.32, 0)")]
@@ -36,6 +36,8 @@ namespace Ghost.Interaction
         public float maxAngularSpeed = 90f;
         [Tooltip("松手后惯性：按松手前的拖拽速度再多转这么多秒")]
         public float inertiaSeconds = 0.18f;
+        [Tooltip("允许俯仰。阶段决定轴：S3 只转偏航（Enter 时关掉，Exit 恢复），S4 偏航 + 俯仰")]
+        public bool allowPitch = true;
         [Tooltip("从节点上按下拖动也旋转（PointerInput.allowNodeDrag 需为 true，且这一关不用节点拖拽）")]
         public bool rotateOnNodeDrag = true;
 
@@ -147,7 +149,7 @@ namespace Ghost.Interaction
         {
             // 向右拖：朝向相机的一面往右走（绕 +Y 负方向转）；向上拖：朝向相机的一面往上翻
             float dYaw = -deltaPixels.x * degreesPerPixel;
-            float dPitch = deltaPixels.y * degreesPerPixel;
+            float dPitch = allowPitch ? deltaPixels.y * degreesPerPixel : 0f;
             AddRotation(dYaw, dPitch);
             float dt = Mathf.Max(Time.unscaledDeltaTime, 1e-4f);
             dragVelocity = Vector2.Lerp(dragVelocity, new Vector2(dYaw, dPitch) / dt, 0.5f);

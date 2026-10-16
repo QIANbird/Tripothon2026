@@ -7,7 +7,7 @@ namespace Ghost.Interaction
     // 正式流程里取消勾选 logEvents 或者禁用这个组件即可（G6 起建议关掉）。
     public class PointerDebugLogger : MonoBehaviour
     {
-        public PointerInput pointer;
+        public InteractionSource pointer;
         public NodePicker picker;
         public bool logEvents = true;
         [Tooltip("空白拖拽时每帧打印位移（量大，默认只在结束时打印总量）")]
