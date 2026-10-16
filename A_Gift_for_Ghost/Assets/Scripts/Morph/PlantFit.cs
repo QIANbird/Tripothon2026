@@ -26,13 +26,37 @@ namespace Ghost.Morph
         [Tooltip("右侧边距占屏幕宽度的比例")]
         [Range(0f, 0.3f)] public float rightMarginFraction = 0f;
         [Tooltip("植株中心在竖直方向的画面位置（0.5 = 正中）。略高于中线，给下方字幕留空间")]
-        [Range(0.3f, 0.7f)] public float verticalCenter = 0.52f;
+        [Range(0.3f, 0.7f)] public float verticalCenter = 0.6f;
         [Tooltip("离近裁剪面至少留多远（米）")]
         public float nearClearance = 0.05f;
         [Tooltip("植株中心离相机的距离（米）")]
         public float fitDistance = 0.75f;
         [Tooltip("在算出的缩放上再除以这个系数，>1 让整株略小、四周留白")]
         [Range(1f, 1.4f)] public float padding = 1.08f;
+        [Tooltip("构图用的竖直视野上限（度）。PC 相机是 60°，不受影响；头显视野约 96°，按满视野构图植株会大到要抬头低头看，这里限制住")]
+        [Range(30f, 120f)] public float maxFitFov = 60f;
+
+        [System.Serializable]
+        public struct FormFit
+        {
+            public MorphForm form;
+            [Tooltip("这个形态的植株中心离眼睛的距离（米），<= 0 时用 fitDistance")]
+            public float distance;
+            [Tooltip("这个形态占竖直视野的比例，<= 0 时用 fillHeight")]
+            [Range(0f, 1f)] public float fillHeight;
+        }
+
+        [Tooltip("按形态覆盖距离 / 占比。S2（Circuit）是正对玩家的大平面，放远一点")]
+        public FormFit[] formOverrides =
+        {
+            new FormFit { form = MorphForm.Circuit, distance = 1.2f, fillHeight = 0f },
+        };
+
+        [Header("视点变化")]
+        [Tooltip("viewPoint 移动超过这么多米（或转过 0.5°）时重新适配，例如 VR 里按头显实际眼高调整了 ViewAnchor")]
+        public float refitThreshold = 0.01f;
+        [Tooltip("视点变化后重新适配的过渡时长（秒）")]
+        public float refitSeconds = 0.8f;
 
         [Header("主体包围盒")]
         [Tooltip("丢掉最低这么多比例的离群节点。0 = 全部入画")]
@@ -64,6 +88,8 @@ namespace Ghost.Morph
         Vector3 fromPos, toPos;
         float t0, duration;
         int lastScreenW, lastScreenH;
+        Vector3 lastViewPos;
+        Quaternion lastViewRot = Quaternion.identity;
 
         void Awake()
         {
@@ -82,7 +108,37 @@ namespace Ghost.Morph
 
         void Start()
         {
+            RememberViewPoint();
             if (morpher != null) SnapTo(morpher.CurrentForm);
+        }
+
+        // Play 时在 Inspector 里改参数，立刻按当前形态重新适配（手动调构图用；退出 Play 后改动会丢）
+        void OnValidate()
+        {
+            if (!Application.isPlaying || !isActiveAndEnabled || morpher == null || viewCamera == null || IsHeld) return;
+            ClearCache();
+            TransitionTo(morpher.CurrentForm, 0.2f);
+        }
+
+        Transform ViewTransform => viewPoint != null ? viewPoint : (viewCamera != null ? viewCamera.transform : null);
+
+        void RememberViewPoint()
+        {
+            var v = ViewTransform;
+            if (v == null) return;
+            lastViewPos = v.position;
+            lastViewRot = v.rotation;
+        }
+
+        // 视点（ViewAnchor）被移动 / 转动后返回 true，并记下新姿态
+        bool ViewPointChanged()
+        {
+            var v = ViewTransform;
+            if (v == null) return false;
+            if ((v.position - lastViewPos).sqrMagnitude < refitThreshold * refitThreshold
+                && Quaternion.Angle(v.rotation, lastViewRot) < 0.5f) return false;
+            RememberViewPoint();
+            return true;
         }
 
         void HandleMorphStarted(MorphForm form)
@@ -145,6 +201,12 @@ namespace Ghost.Morph
                 if (!IsTransitioning) { SnapTo(morpher.CurrentForm); return; }
                 Compute(morpher.CurrentForm, out toScale, out toPos);
             }
+            // 视点变了：正在过渡就只改终点，否则平滑过渡过去
+            if (ViewPointChanged() && !IsHeld)
+            {
+                if (IsTransitioning) Compute(morpher.CurrentForm, out toScale, out toPos);
+                else TransitionTo(morpher.CurrentForm, refitSeconds);
+            }
             if (!IsTransitioning) return;
             float k = Mathf.Clamp01((Time.time - t0) / duration);
             float e = k * k * (3f - 2f * k);
@@ -159,7 +221,7 @@ namespace Ghost.Morph
             Fitted?.Invoke();
         }
 
-        // 适配计算（相机水平正视）。约定：PlantFit 在场景根，Plant 是它的子物体、静止时本地变换为单位变换
+        // 适配计算（视点接近水平正视；VR 下 ViewAnchor 会略微低头，十度以内平面形态的误差可以忽略）。约定：PlantFit 在场景根，Plant 是它的子物体、静止时本地变换为单位变换
         // （TargetRotator 只在 Plant 的父空间里转，静止时归零）。
         void Compute(MorphForm form, out float scale, out Vector3 localPos)
         {
@@ -169,17 +231,18 @@ namespace Ghost.Morph
             Vector3 center = b.Center;
             Vector3 size = Vector3.Max(b.Size, Vector3.one * 0.01f);
 
-            float tanV = Mathf.Tan(viewCamera.fieldOfView * 0.5f * Mathf.Deg2Rad);
+            float tanV = Mathf.Tan(Mathf.Min(viewCamera.fieldOfView, maxFitFov) * 0.5f * Mathf.Deg2Rad);
             float aspect = Mathf.Max(0.1f, viewCamera.aspect);
             float tanH = tanV * aspect;
             float usableW = Mathf.Max(0.2f, 1f - hudLeftFraction - rightMarginFraction);
-            float D = Mathf.Max(0.2f, fitDistance);
+            FormSettings(form, out float distance, out float fill);
+            float D = Mathf.Max(0.2f, distance);
             float pad = Mathf.Max(1f, padding);
 
             if (UsesBoundingSphere(form))
             {
                 float radius = Mathf.Max(0.01f, RadiusOf(form));
-                float maxRv = D * tanV * fillHeight;
+                float maxRv = D * tanV * fill;
                 float maxRh = D * tanH * usableW * fillWidth;
                 scale = Mathf.Max(0.01f, Mathf.Min(maxRv, maxRh) / (radius * pad));
 
@@ -190,7 +253,7 @@ namespace Ghost.Morph
             else
             {
                 float halfDepth = size.z * 0.5f;
-                float fv = 2f * tanV * fillHeight;
+                float fv = 2f * tanV * fill;
                 float sV = fv * D / (size.y * pad + fv * halfDepth);
                 float fh = 2f * tanH * usableW * fillWidth;
                 float sH = fh * D / (size.x * pad + fh * halfDepth);
@@ -210,6 +273,20 @@ namespace Ghost.Morph
             Transform parent = transform.parent;
             Vector3 targetLocal = parent != null ? parent.InverseTransformPoint(targetCenterWorld) : targetCenterWorld;
             localPos = targetLocal - center * scale;
+        }
+
+        void FormSettings(MorphForm form, out float distance, out float fill)
+        {
+            distance = fitDistance;
+            fill = fillHeight;
+            if (formOverrides == null) return;
+            foreach (var o in formOverrides)
+            {
+                if (o.form != form) continue;
+                if (o.distance > 0f) distance = o.distance;
+                if (o.fillHeight > 0f) fill = o.fillHeight;
+                return;
+            }
         }
 
         static bool UsesBoundingSphere(MorphForm form)

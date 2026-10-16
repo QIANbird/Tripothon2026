@@ -9,6 +9,7 @@ using Ghost.Narrative.EditorTools;
 using Ghost.Pick;
 using Ghost.Player;
 using Ghost.Player.PC;
+using Ghost.Player.XR;
 using Ghost.Stages;
 using Ghost.Stages.EditorTools;
 using UnityEditor;
@@ -138,6 +139,10 @@ namespace Ghost.Core.EditorTools
             fit.morpher = morpher;
             fit.viewCamera = camera;
             fit.viewPoint = rig.viewAnchor;
+            // VR：ViewAnchor 跟实际眼高 + 略低头，S1–S4 的植株落在视线正前方（PC 不变）
+            var calibration = rig.origin.gameObject.AddComponent<XRViewCalibration>();
+            calibration.viewAnchor = rig.viewAnchor;
+            calibration.head = camera.transform;
             // 植株居中；立体形态用包围球，S3 旋转后仍全部入画。Play 时 Start 会按实际屏幕比例再算一次
             fit.hudLeftFraction = 0f;
             fit.rightMarginFraction = 0f;
@@ -176,6 +181,7 @@ namespace Ghost.Core.EditorTools
             ctx.morpher = morpher;
             ctx.links = links;
             ctx.halos = halos;
+            ctx.plantFit = fit;
             ctx.issues = issues;
             ctx.pointer = router;
             ctx.picker = pointer.picker;
@@ -301,8 +307,18 @@ namespace Ghost.Core.EditorTools
             BuildStagePanel(flow, cameraGo.transform);
             // 开始 / 结束界面（docs/tasks/start-restart-screens.md）
             BuildFlowScreens(flow);
+            // VR 第 4 步：HUD 在头显运行时换成 World Space（PC 不变）
+            XRUIBuilder.Build(new XRUIBuilder.Refs { camera = camera, viewAnchor = rig.viewAnchor, rightAim = rig.rightAim });
             // 场景保存时玩家根物体是停用的，Pick 阶段 Enter 时才打开
-            if (pickStage != null) pickStage.player.gameObject.SetActive(false);
+            if (pickStage != null)
+            {
+                // VR：Pick 阶段眼高交给头显，motor 不再加 1.6 m（挂在常驻的 XR Origin 上，PlayerRoot 平时停用）
+                var headTracking = rig.origin.gameObject.AddComponent<XRPlayerHeadTracking>();
+                headTracking.motor = pickStage.player.motor;
+                headTracking.head = camera.transform;
+                headTracking.cameraOffset = rig.origin.CameraFloorOffsetObject.transform;
+                pickStage.player.gameObject.SetActive(false);
+            }
 
             EditorSceneManager.SaveScene(scene, MainScenePath);
             EnsureMainSceneInBuild();
@@ -397,6 +413,9 @@ namespace Ghost.Core.EditorTools
             line.numCapVertices = 2;
             line.shadowCastingMode = ShadowCastingMode.Off;
             line.receiveShadows = false;
+            // 排在开始 / 结束界面（300）和它背后的 VR 黑幕之后：黑幕贴在眼前 0.1 m，否则会把射线盖住，点不准 AWAKE。
+            // 射线材质不写深度、照常做深度测试，被植株挡住的部分仍然看不见
+            line.sortingOrder = FlowScreenSortingOrder + 10;
             var visual = aimGo.AddComponent<XRRayVisual>();
             visual.source = xr;
             aimGo.SetActive(true);
@@ -410,15 +429,17 @@ namespace Ghost.Core.EditorTools
             return router;
         }
 
-        // "是否批准"面板：World Space 小卡片（1000 px = 1 m），由 XRApprovePanel 放在手柄右上方、朝向头部
+        // "是否批准"面板：World Space 小卡片。1000 px = 1 m，再乘 0.7 缩到原来的 70%（约 17 × 7 cm）。
+        // 由 XRApprovePanel 放在手柄射线下方，朝向头部
         static XRApprovePanel BuildApprovePanel(Camera camera)
         {
             var panelGo = new GameObject("XR Approve Panel");
             var panel = panelGo.AddComponent<XRApprovePanel>();
             var canvas = AgentUIStyle.CreateWorldCanvas("Canvas", panelGo.transform, camera, Vector3.zero,
-                new Vector2(240f, 104f), new Vector2(0.5f, 0f));
+                new Vector2(240f, 104f), new Vector2(0.5f, 1f)); // 上沿中点贴着摆放点，面板往下展开
             canvas.transform.localPosition = Vector3.zero;
             canvas.transform.localRotation = Quaternion.identity;
+            canvas.transform.localScale = Vector3.one * (AgentUIStyle.CanvasScale * 0.7f);
             var root = (RectTransform)canvas.transform;
             var fill = AgentUIStyle.AddFramedBackground(root, AgentUIStyle.CautionBody, AgentUIStyle.PanelBorder, 2f);
             var title = AgentUIStyle.CreateRect("Title", fill, new Vector2(14f, -10f), new Vector2(212f, 40f));

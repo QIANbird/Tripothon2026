@@ -45,6 +45,16 @@ namespace Ghost.Player
         [Tooltip("蹲下是按住（true）还是切换（false）")]
         public bool holdToCrouch = false;
 
+        // VR：头由头显跟踪时（XR/XRPlayerHeadTracking 每帧写入）。相机挂点放在脚下，实际眼高和低头抬头都交给头显，
+        // 不再加 standEyeHeight、不做 Look 俯仰和蹲下（真人蹲下就是蹲下）。PC 上始终为 false
+        [HideInInspector] public bool headTracked;
+        [HideInInspector] public float trackedEyeHeight = 1.6f;
+        // Device 跟踪模式下头显姿态以 CameraYOffset 为原点，挂点要抬这么高；Floor 模式为 0
+        [HideInInspector] public float trackedFloorOffset;
+        // 头显相对挂点的本地姿态，PlaceAt 用来抵消，进关时画面不跳
+        [HideInInspector] public Vector3 trackedHeadLocalPosition;
+        [HideInInspector] public Quaternion trackedHeadLocalRotation = Quaternion.identity;
+
         public bool IsCrouching { get; private set; }
         public float Pitch => pitch;
         public float EyeHeight => eyeHeight;
@@ -92,9 +102,24 @@ namespace Ghost.Player
         // 俯仰按 min/max 截断，滚转丢弃
         public void PlaceAt(Vector3 eyePosition, Quaternion viewRotation, bool crouched = false)
         {
-            IsCrouching = crouched;
-            eyeHeight = crouched ? crouchEyeHeight : standEyeHeight;
+            IsCrouching = crouched && !headTracked;
+            eyeHeight = headTracked ? trackedEyeHeight : crouched ? crouchEyeHeight : standEyeHeight;
             eyeVel = 0f;
+            if (headTracked)
+            {
+                // 头显的偏航和水平偏移是叠加在身体上的：身体 = 当前相机姿态减去头显的本地姿态
+                Vector3 fwd = Vector3.ProjectOnPlane(viewRotation * Vector3.forward, Vector3.up);
+                Vector3 localFwd = Vector3.ProjectOnPlane(trackedHeadLocalRotation * Vector3.forward, Vector3.up);
+                float bodyYaw = (fwd.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(fwd).eulerAngles.y : 0f)
+                                - (localFwd.sqrMagnitude > 1e-6f ? Quaternion.LookRotation(localFwd).eulerAngles.y : 0f);
+                Quaternion body = Quaternion.Euler(0f, bodyYaw, 0f);
+                Vector3 local = trackedHeadLocalPosition;
+                // 挂点高度 + 头显本地高度 = 眼高（ApplyHeight 里挂点放在 trackedFloorOffset）
+                Vector3 feet = eyePosition - body * new Vector3(local.x, 0f, local.z);
+                feet.y = eyePosition.y - eyeHeight;
+                viewRotation = body;
+                eyePosition = feet + Vector3.up * eyeHeight;
+            }
             Vector3 euler = viewRotation.eulerAngles;
             pitch = Mathf.Clamp(Mathf.DeltaAngle(0f, -euler.x), minPitch, maxPitch);
             planarVelocity = planarAccel = Vector3.zero;
@@ -118,19 +143,27 @@ namespace Ghost.Player
             // 转头：偏航转身体，俯仰转头
             Vector2 look = lookAction.ReadValue<Vector2>() * lookSensitivity;
             transform.Rotate(0f, look.x, 0f, Space.World);
-            pitch = Mathf.Clamp(pitch + look.y, minPitch, maxPitch);
+            if (!headTracked) pitch = Mathf.Clamp(pitch + look.y, minPitch, maxPitch);
             ApplyPitch();
 
             // 蹲下
-            if (crouchAction != null)
+            if (headTracked)
+            {
+                IsCrouching = false;
+                eyeHeight = trackedEyeHeight;
+            }
+            else if (crouchAction != null)
             {
                 if (holdToCrouch) IsCrouching = crouchAction.IsPressed();
                 else if (crouchAction.WasPressedThisFrame()) IsCrouching = !IsCrouching;
             }
-            float targetEye = IsCrouching ? crouchEyeHeight : standEyeHeight;
-            // 站起来时头顶有东西就保持蹲着
-            if (!IsCrouching && eyeHeight < standEyeHeight - 0.01f && HeadBlocked(standEyeHeight)) targetEye = eyeHeight;
-            eyeHeight = Mathf.SmoothDamp(eyeHeight, targetEye, ref eyeVel, crouchSmoothTime);
+            if (!headTracked)
+            {
+                float targetEye = IsCrouching ? crouchEyeHeight : standEyeHeight;
+                // 站起来时头顶有东西就保持蹲着
+                if (!IsCrouching && eyeHeight < standEyeHeight - 0.01f && HeadBlocked(standEyeHeight)) targetEye = eyeHeight;
+                eyeHeight = Mathf.SmoothDamp(eyeHeight, targetEye, ref eyeVel, crouchSmoothTime);
+            }
             ApplyHeight();
 
             // 走路：相对身体朝向，平滑加减速
@@ -146,7 +179,7 @@ namespace Ghost.Player
 
         void ApplyPitch()
         {
-            cameraPivot.localRotation = Quaternion.Euler(-pitch, 0f, 0f);
+            cameraPivot.localRotation = headTracked ? Quaternion.identity : Quaternion.Euler(-pitch, 0f, 0f);
         }
 
         // 胶囊体高度跟眼高走，底部贴地
@@ -155,8 +188,9 @@ namespace Ghost.Player
             float height = Mathf.Max(controller.radius * 2f, eyeHeight + headClearance);
             controller.height = height;
             controller.center = Vector3.up * (height * 0.5f);
-            // CharacterController 停在离地 skinWidth 的高度，眼高从地面算，减掉这段，进关时画面不跳
-            cameraPivot.localPosition = Vector3.up * (eyeHeight - controller.skinWidth);
+            // CharacterController 停在离地 skinWidth 的高度，眼高从地面算，减掉这段，进关时画面不跳。
+            // VR：挂点在地面，头显的本地高度就是眼高
+            cameraPivot.localPosition = Vector3.up * ((headTracked ? trackedFloorOffset : eyeHeight) - controller.skinWidth);
         }
 
         bool HeadBlocked(float toEyeHeight)

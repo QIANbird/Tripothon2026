@@ -43,6 +43,15 @@ namespace Ghost.Agent
         public bool Held { get; private set; }
 
         float releaseAt = -1f;
+        // VR：面板挂在手柄旁（XRWorldCanvas 摆放），不排在聊天栏下方
+        bool worldLayout;
+
+        // XRWorldCanvas.worldModeChanged 回调
+        public void SetWorldLayout(bool world)
+        {
+            worldLayout = world;
+            if (Visible) Place();
+        }
 
         void Awake()
         {
@@ -108,6 +117,11 @@ namespace Ghost.Agent
         // 左上角；Agent 聊天栏里有消息时放到它下方（栏高度随消息变化，每帧跟随）
         void Place()
         {
+            if (worldLayout)
+            {
+                panel.anchoredPosition = Vector2.zero;
+                return;
+            }
             Vector2 pos = topLeft;
             if (stackBelow != null && stackBelow.gameObject.activeInHierarchy && stackBelow.rect.height > 0.5f)
                 pos.y = stackBelow.anchoredPosition.y - stackBelow.rect.height - stackGap;

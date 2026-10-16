@@ -54,7 +54,7 @@ namespace Ghost.Narrative.EditorTools
         public const int BlackoutSortingOrder = 100;
         public const int DialogueSortingOrder = 200;
 
-        // 【技术债】比赛期间改为 Screen Space Overlay HUD（1920×1080 参考），赛后改回 World Space（docs/VR_GUIDELINES.md 第 5 节）。
+        // PC：Screen Space Overlay HUD（1920×1080 参考）；VR：XRUIBuilder 加的 XRWorldCanvas 在头显运行时换成 World Space。
         // 字幕：屏幕下方居中，一行小字（30 px），宽 1400 px，长句折两行；没有深色底板。
         // Agent 聊天栏：屏幕左侧（HudFeedTopLeft），聊天气泡 / Caution 卡向下堆叠（docs/tasks/agent-chat-bubbles.md）
         // 字幕文字带白色描边 + 外发光（SubtitlePanel 运行时补齐），被画面挡住时也看得清
@@ -84,8 +84,11 @@ namespace Ghost.Narrative.EditorTools
             body.lineSpacing = 1.05f;
 
             // ---- Agent 聊天栏（左上锚定，消息向下堆叠，AgentChatFeed）----
+            // 单独一块 Canvas：VR 下字幕跟头、聊天栏固定在矩阵前方，摆放方式不同（XRUIBuilder）
+            var feedCanvas = AgentUIStyle.CreateHudCanvas("AgentFeedHUD", null, DialogueSortingOrder);
+            Object.DestroyImmediate(feedCanvas.GetComponent<GraphicRaycaster>());
             float w = AgentUIStyle.HudFeedWidth;
-            var feedRoot = AgentUIStyle.CreateAnchored("AgentFeed", canvasRect, new Vector2(0f, 1f),
+            var feedRoot = AgentUIStyle.CreateAnchored("AgentFeed", feedCanvas.transform, new Vector2(0f, 1f),
                 AgentUIStyle.HudFeedTopLeft, new Vector2(w, 0f));
             var feed = feedRoot.gameObject.AddComponent<AgentChatFeed>();
             feed.feedRoot = feedRoot;
