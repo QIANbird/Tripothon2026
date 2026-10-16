@@ -16,7 +16,7 @@ namespace Ghost.Interaction.XR
     //   Fixed       固定世界位置：reference（ViewAnchor，名义眼位）+ offset，朝向 reference。聊天栏、询问框
     //   HeadLocked  挂在头上：相机正前方 offset.z 米。黑屏
     //   Controller  跟手柄：reference（右手柄）+ offset（按头的水平朝向算），朝向头。Agent 聊天栏
-    //   Node        贴着 nodeSource 最近查看的节点右侧，平面在矩阵（最近的节点）前方 planeGap 米、朝向固定（不近大远小、不转）。详情弹窗
+    //   Node        贴着 nodeSource 最近查看的节点右侧，平面在这个节点正面前方 planeGap 米、朝向固定（不转）。详情弹窗
     //
     // content：Canvas 里锚在屏幕边上的那块内容（比如左上角的聊天栏）。VR 下把它的锚点收到自己的 pivot 上、位置归零，
     //          Canvas 的 pivot 也换成它的 pivot，于是"摆放点" = 这块内容的 pivot。为空时整块 Canvas 按 sizePx 当一块屏幕摆。
@@ -53,12 +53,10 @@ namespace Ghost.Interaction.XR
         public XRControllerInput nodeSource;
         [Tooltip("Node：面板离节点边缘的间隙（米，在面板平面上往右）")]
         public float nodeGap = 0.015f;
-        [Tooltip("Node：面板平面在矩阵前方多远（米）。矩阵深度 = 离眼睛最近的节点表面（S1/S2 = 平面矩阵，S3/S4 = 最近的节点），每次打开详情时取一次")]
+        [Tooltip("Node：面板平面在当前选中节点正面前方多远（米）")]
         public float planeGap = 0.1f;
         [Tooltip("Node：面板平面离 reference 至少这么远（米），避免贴到脸上")]
         public float minPlaneDepth = 0.25f;
-        [Tooltip("Node：取不到节点时的平面深度（米）")]
-        public float planeDepth = 0.65f;
         [Tooltip("LazyFollow 模式用的组件（构建时加好，PC 上关着）")]
         public LazyFollow lazyFollow;
         [Tooltip("调试：不连头显也按 VR 摆放")]
@@ -73,9 +71,6 @@ namespace Ghost.Interaction.XR
         readonly List<Graphic> graphics = new List<Graphic>();
         int sweptHierarchyCount = -1;
         Vector3 followVelocity;
-        // Node：本次详情用的平面深度，和取深度时的 InspectSerial
-        int depthSerial = -1;
-        float currentDepth = 0.65f;
 
         // PC 状态（切回时还原）
         RenderMode savedMode;
@@ -265,23 +260,17 @@ namespace Ghost.Interaction.XR
             transform.rotation = Facing(transform.position, eye);
         }
 
-        // 面板在一个平面上：和 reference（ViewAnchor）的朝向平行，在矩阵前方 planeGap 米。
-        // 矩阵深度 = 离眼睛最近的节点表面，每次打开详情时取一次，之后不变（S3/S4 旋转时面板不跟着前后跑）。
-        // 位置 = 从眼睛看向节点的视线和这个平面的交点，再往右让出节点的投影半径：看上去紧挨着节点，
-        // 但节点前后移动时面板不跟着变远变近、也不转向。节点不可用时停在原处
+        // 面板在一个平面上：和 reference（ViewAnchor）的朝向平行，在当前查看的节点（含选中突起）正面前方 planeGap 米，每帧跟着节点。
+        // 位置 = 从眼睛看向节点的视线和这个平面的交点，再往右让出节点的投影半径：看上去紧挨着节点，朝向固定不转。
+        // 节点不可用时停在原处
         void PlaceAtNode()
         {
             if (nodeSource == null || head == null || reference == null) return;
             if (!nodeSource.TryGetNodeSphere(nodeSource.LastInspectedNode, out Vector3 center, out float radius)) return;
             Vector3 normal = reference.forward;
-            if (nodeSource.InspectSerial != depthSerial)
-            {
-                depthSerial = nodeSource.InspectSerial;
-                if (nodeSource.TryGetNearestNodeDepth(reference.position, normal, out float nearest))
-                    currentDepth = Mathf.Max(minPlaneDepth, nearest - planeGap);
-                else currentDepth = planeDepth;
-            }
-            Vector3 planePoint = reference.position + normal * currentDepth;
+            float nodeDepth = Vector3.Dot(center - reference.position, normal) - radius;
+            float depth = Mathf.Max(minPlaneDepth, nodeDepth - planeGap);
+            Vector3 planePoint = reference.position + normal * depth;
             Vector3 eye = head.position;
             Vector3 dir = center - eye;
             float denom = Vector3.Dot(dir, normal);

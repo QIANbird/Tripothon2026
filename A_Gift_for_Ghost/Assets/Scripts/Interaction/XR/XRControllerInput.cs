@@ -158,27 +158,6 @@ namespace Ghost.Interaction.XR
         // 详情面板（XRWorldCanvas Node 模式）的摆放点：最近一次握键查看的节点（松开后面板还要停留一会，所以不随取消选中清掉）
         public int LastInspectedNode { get; private set; } = -1;
 
-        // 每次握键开始查看 +1，详情面板据此在每次打开时重新取一次深度
-        public int InspectSerial { get; private set; }
-
-        // 离 origin 最近的节点表面沿 normal 的深度（米）：S1/S2 = 平面矩阵的正面，S3/S4 = 当前离眼睛最近的那个节点。
-        // 跳过有姿态覆盖的节点（选中突起、S1 漂浮），按矩阵本身的位置算
-        public bool TryGetNearestNodeDepth(Vector3 origin, Vector3 normal, out float depth)
-        {
-            depth = float.PositiveInfinity;
-            var morpher = Morpher;
-            if (morpher == null || morpher.nodeSet == null) return false;
-            int count = morpher.nodeSet.Count;
-            for (int i = 0; i < count; i++)
-            {
-                if (morpher.HasPoseOverride(i)) continue;
-                if (!morpher.TryGetNodeWorldSphere(i, out Vector3 c, out float r)) continue;
-                float d = Vector3.Dot(c - origin, normal) - r;
-                if (d > 0f && d < depth) depth = d;
-            }
-            return !float.IsInfinity(depth);
-        }
-
         public bool TryGetNodeSphere(int id, out Vector3 center, out float radius)
         {
             center = Vector3.zero;
@@ -404,7 +383,6 @@ namespace Ghost.Interaction.XR
                 int id = selected;
                 InspectingNode = id;
                 LastInspectedNode = id;
-                InspectSerial++;
                 approveDismissed = true; // 握键看详情时收起批准面板
                 WithSelectRay(() => RaiseInspectStart(id));
             }

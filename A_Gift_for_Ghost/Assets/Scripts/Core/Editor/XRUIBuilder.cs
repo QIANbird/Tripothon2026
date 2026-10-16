@@ -14,7 +14,7 @@ namespace Ghost.Core.EditorTools
     //   字幕          LazyFollow，头前 1.5 m、视野下方
     //   Agent 聊天栏   跟右手柄（左上方，和"是否批准"卡片错开），只有头像和气泡，没有底板
     //   询问框（YES）  视野正中、头前 0.55 m（比矩阵近），跟头、面向玩家，Yes 走手柄射线（XRUIRayTarget）
-    //   详情弹窗       贴在被查看的节点旁边，平面在矩阵（最近的节点）前方 0.1 m、朝向固定
+    //   详情弹窗       贴在被查看的节点旁边，在这个节点前方 0.1 m、朝向固定
     //   开始 / 结束    LazyFollow 的 3D 面板，按钮走手柄射线；背后一块跟界面同步淡入淡出的黑幕（XRScreenBackdrop），看不到关卡
     //   结局视频       LazyFollow 的大屏
     //   黑屏          挂在相机前 0.1 m
@@ -36,10 +36,10 @@ namespace Ghost.Core.EditorTools
             var subtitles = Object.FindAnyObjectByType<SubtitlePanel>(FindObjectsInactive.Include);
             if (subtitles != null)
             {
-                // 字幕：视野下方（头前 1.5 m、低 0.8 m ≈ 视线下 28°，10-16 实机调整），不挡中间的植株。
+                // 字幕：视野下方（头前 1.5 m、低 0.4 m ≈ 视线下 15°，10-16 实机调整），不挡中间的植株。
                 // VR 下宽 900 px（0.9 m @ 1.5 m ≈ 33°），字号不变（30 px = 3 cm，约 1.1°）
                 var w = Add(subtitles.GetComponent<Canvas>(), XRWorldCanvas.Placement.LazyFollow, head, null,
-                    new Vector3(0f, -0.8f, 1.5f), 0.001f, subtitles.root.GetComponent<RectTransform>());
+                    new Vector3(0f, -0.4f, 1.5f), 0.001f, subtitles.root.GetComponent<RectTransform>());
                 w.contentSizePx = new Vector2(900f, 0f);
                 AddLazyFollow(w);
                 BuildChatFeed(subtitles.agentFeed, head, refs.rightAim);
@@ -75,8 +75,7 @@ namespace Ghost.Core.EditorTools
             var xrInput = Object.FindAnyObjectByType<XRControllerInput>(FindObjectsInactive.Include);
             if (detail != null)
             {
-                // 详情：贴在被查看节点的右侧，平面在矩阵前方 0.1 m（S1/S2 = 平面矩阵，S3/S4 = 离眼睛最近的节点，每次打开时取一次），
-                // 朝向固定，不随节点深度近大远小。1 mm/px（470 px 宽 ≈ 47 cm）
+                // 详情：贴在被查看节点的右侧，平面在这个节点（含选中突起）正面前方 0.1 m、跟着节点，朝向固定。1 mm/px（470 px 宽 ≈ 47 cm）
                 var w = Add(detail.GetComponentInChildren<Canvas>(true), XRWorldCanvas.Placement.Node, head, refs.viewAnchor,
                     Vector3.zero, 0.001f, detail.panel);
                 w.planeGap = 0.1f;
