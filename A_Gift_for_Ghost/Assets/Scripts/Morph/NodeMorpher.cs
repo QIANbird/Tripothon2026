@@ -250,6 +250,43 @@ namespace Ghost.Morph
             foreach (var batch in shapeBatches) Submit(batch);
         }
 
+        // 给单个节点画一圈实体描边（NodeOutlineRenderer 用）：同一网格按本帧姿态每边外扩 worldThickness 米，
+        // 由 outlineMaterial（Ghost/MorphOutline，只画背面）画出来。立方体 / 部位形状过渡和 Draw 一致
+        public void DrawOutline(int id, Material outlineMaterial, float worldThickness)
+        {
+            if (!IsValid(id) || outlineMaterial == null || RealReveal >= 1f) return;
+            var pose = currentPoses[id];
+            pose.scale *= DisplayScale(id);
+            if (pose.scale.sqrMagnitude < 1e-12f) return;
+
+            // 世界厚度换算到本地：PlantFit 是均匀缩放
+            float local = worldThickness / Mathf.Max(Mathf.Abs(transform.lossyScale.x), 1e-4f);
+            int shape = shapeOf[id];
+            float w = shape < 0 ? 0f : currentShapes[id];
+            float cubeK = 1f - w * w;
+            float shapeK = 1f - (1f - w) * (1f - w);
+            if (cubeK > 0.001f) DrawExpanded(mesh, pose, cubeK, local, outlineMaterial);
+            if (shape >= 0 && shapeK > 0.001f) DrawExpanded(shapeBatches[shape].mesh, pose, shapeK, local, outlineMaterial);
+        }
+
+        void DrawExpanded(Mesh shapeMesh, NodePose pose, float k, float localThickness, Material outlineMaterial)
+        {
+            if (shapeMesh == null) return;
+            Vector3 s = pose.scale * k;
+            // 按轴加固定厚度（不是按比例放大），扁平的叶片四周描边一样粗
+            pose.scale = new Vector3(
+                s.x + Mathf.Sign(s.x) * 2f * localThickness,
+                s.y + Mathf.Sign(s.y) * 2f * localThickness,
+                s.z + Mathf.Sign(s.z) * 2f * localThickness);
+            var rp = new RenderParams(outlineMaterial)
+            {
+                shadowCastingMode = ShadowCastingMode.Off,
+                receiveShadows = false,
+                layer = gameObject.layer,
+            };
+            Graphics.RenderMesh(rp, shapeMesh, 0, transform.localToWorldMatrix * pose.ToMatrix());
+        }
+
         void BuildBatches()
         {
             shapeOf = new int[Count];

@@ -127,6 +127,23 @@ namespace Ghost.Morph.EditorTools
             return EnsureMaterial(LineMaterialPath, "Ghost/MorphLine");
         }
 
+        const string OutlineMaterialPath = "Assets/Art/Morph/MorphOutline.mat";
+
+        // 悬停描边材质：Ghost/MorphOutline，颜色 #E5FF71
+        [MenuItem("Ghost/Morph/Create Outline Material")]
+        public static Material EnsureOutlineMaterial()
+        {
+            bool created = AssetDatabase.LoadAssetAtPath<Material>(OutlineMaterialPath) == null;
+            var mat = EnsureMaterial(OutlineMaterialPath, "Ghost/MorphOutline");
+            if (mat != null && created)
+            {
+                mat.SetColor("_BaseColor", new Color32(0xE5, 0xFF, 0x71, 0xFF));
+                EditorUtility.SetDirty(mat);
+                AssetDatabase.SaveAssets();
+            }
+            return mat;
+        }
+
         static Material EnsureMaterial(string path, string shaderName)
         {
             var mat = AssetDatabase.LoadAssetAtPath<Material>(path);

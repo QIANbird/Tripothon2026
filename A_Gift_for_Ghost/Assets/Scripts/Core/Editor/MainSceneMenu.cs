@@ -154,6 +154,11 @@ namespace Ghost.Core.EditorTools
             // G2：指针输入（节点拾取 + IInteractable 射线）和光标；VR 第 3 步：右手柄发起方，路由器按平台选一个
             var pointer = BuildPointer(camera, morpher, actions);
             var router = BuildInteractionRouter(pointer, rig, camera, actions);
+            // 悬停描边：鼠标 / 手柄射线指着的节点（VR 选中的节点也算）外面一圈 #E5FF71 实体描边
+            var outline = pointer.gameObject.AddComponent<NodeHoverOutline>();
+            outline.source = router;
+            outline.morpher = morpher;
+            outline.material = MorphMenu.EnsureOutlineMaterial();
             // G8：旋转植株（S3 / S4 共用），绕布局中心转，挂在 Plant 上
             var rotator = plantGo.AddComponent<TargetRotator>();
             rotator.target = plantGo.transform;
@@ -192,6 +197,7 @@ namespace Ghost.Core.EditorTools
             ctx.subtitles = Object.FindAnyObjectByType<Ghost.Narrative.SubtitlePanel>();
             ctx.detailTable = NarrativeAssets.EnsureNodeDetails();
             ctx.rotator = rotator;
+            ctx.hoverOutline = outline;
             // VR：旋转开着时（S3/S4）扳机按住不进节点拖拽
             ((XRControllerInput)router.xr).rotator = rotator;
             // 任务面板在进入真实阶段时才显示

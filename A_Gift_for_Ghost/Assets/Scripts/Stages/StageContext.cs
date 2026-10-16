@@ -36,6 +36,8 @@ namespace Ghost.Stages
         public NodePicker picker;
         [Tooltip("G8：旋转植株（S3 / S4 共用）")]
         public TargetRotator rotator;
+        [Tooltip("悬停描边（阶段可以改写描边目标，离开时 ResetShared 恢复）")]
+        public NodeHoverOutline hoverOutline;
 
         [Header("Agent 界面（G4）")]
         [Tooltip("任务面板暂不使用：false 时各阶段调 ShowTaskPanel() 不会显示（代码保留，以后再开）")]
@@ -281,7 +283,13 @@ namespace Ghost.Stages
                 taskPanel.ClearMetrics();
                 taskPanel.Hide();
             }
-            if (picker != null) picker.Filter = DefaultFilter;
+            if (picker != null)
+            {
+                picker.Filter = DefaultFilter;
+                picker.Resolver = null;
+                picker.ClearMinRadii();
+            }
+            if (hoverOutline != null) hoverOutline.ClearOverrides();
             inspectProvider = null;
         }
 

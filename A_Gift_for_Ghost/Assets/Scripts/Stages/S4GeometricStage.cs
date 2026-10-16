@@ -55,6 +55,8 @@ namespace Ghost.Stages
         [Range(-1f, 1f)] public float bugFacingThreshold = 0f;
         [Tooltip("别的节点比虫子近多少米才算挡住虫子（拾取球偏大，留一点余量）")]
         public float occluderMargin = 0.02f;
+        [Tooltip("虫子的检测半径（米，世界空间）：射线离虫子这么近就算指到，悬停时虫子模型描边高亮")]
+        public float bugPickRadius = 0.03f;
 
         [Header("通关")]
         [Tooltip("摘完最后一只后等多久进入下一关（秒），让最后一档写实度过渡完")]
@@ -141,6 +143,14 @@ namespace Ghost.Stages
             if (rotator != null) rotator.Enable();
 
             ctx.SetInspectProvider(ProvideInspect);
+            // 虫子太小：放大检测范围；"叶片下面的虫子优先"的修正放在拾取层（NodePicker.Resolver），
+            // 悬停描边、点击、右键、VR 选中判定完全一致。描边画在虫子模型上
+            if (ctx.picker != null)
+            {
+                foreach (int id in bugNodes) ctx.picker.SetMinRadius(id, bugPickRadius);
+                ctx.picker.Resolver = ResolveBugHit;
+            }
+            if (ctx.hoverOutline != null) ctx.hoverOutline.CustomDraw = DrawBugOutline;
             SetupTaskPanel();
             ctx.Play(introSequence);
         }
@@ -223,7 +233,6 @@ namespace Ghost.Stages
         void HandleTap(int id)
         {
             if (!IsActive || ctx.morpher == null || ctx.morpher.IsMorphing) return;
-            id = ResolveBugTap(id);
             var node = ctx.Node(id);
             if (node == null) return;
 
@@ -235,12 +244,19 @@ namespace Ghost.Stages
             }
         }
 
-        // 右键查看详情；叶片下面的虫子同样按 ResolveBugTap 优先
+        bool DrawBugOutline(int id)
+        {
+            var node = ctx.Node(id);
+            if (node == null || node.organ != Organ.Bug || bugModels == null || ctx.hoverOutline == null) return false;
+            return bugModels.DrawOutline(id, ctx.hoverOutline.ModelMaterial);
+        }
+
+        // 右键查看详情（id 已经过 ResolveBugHit 修正）
         bool ProvideInspect(int id, out string title, out string body)
         {
             title = body = null;
             if (ctx.morpher != null && ctx.morpher.IsMorphing) return false;
-            var node = ctx.Node(ResolveBugTap(id));
+            var node = ctx.Node(id);
             if (node == null) return false;
             title = BugStageUtil.Title(ctx.detailTable, node, NameKind.Real);
             body = BugStageUtil.PhysicalBody(ctx.detailTable, node);
@@ -248,24 +264,24 @@ namespace Ghost.Stages
         }
 
         // Geometric 形态下叶片很大，叶片的拾取球（半径约 6 cm）把贴在它上面的虫子（距叶心 1–2 cm）整个包住，
-        // NodePicker 总是先命中叶片，虫子永远点不到。这里在本关内修正：点到的不是虫子时，沿同一条射线只找虫子，
+        // NodePicker 总是先命中叶片，虫子永远点不到。这里在本关内修正（NodePicker.Resolver）：命中的不是虫子（或什么都没命中）时，沿同一条射线只找虫子，
         // 满足下面两条就算点到虫子：
         //   ① 虫背朝向相机（虫子在叶背，背 = 节点 up；要把叶背转过来才点得到）；
         //   ② 射线上没有别的节点（除了它所在的叶片）明显挡在前面。
-        int ResolveBugTap(int tappedId)
+        int ResolveBugHit(Ray ray, int tappedId)
         {
+            if (!IsActive || ctx.picker == null || ctx.morpher == null || ctx.morpher.IsMorphing) return tappedId;
             var tapped = ctx.Node(tappedId);
-            if (tapped == null || tapped.organ == Organ.Bug || ctx.picker == null || ctx.pointer == null) return tappedId;
+            if (tapped != null && tapped.organ == Organ.Bug) return tappedId;
             var morpher = ctx.morpher;
             var poses = morpher.CurrentPoses;
             var set = morpher.nodeSet;
             if (poses == null || set == null) return tappedId;
-            Ray ray = ctx.pointer.CurrentRay;
             Transform t = morpher.transform;
 
             int bug = ctx.picker.Pick(ray, i =>
             {
-                if (set.nodes[i].organ != Organ.Bug || removed.Contains(i)) return false;
+                if (set.nodes[i].organ != Organ.Bug || removed.Contains(i) || !ctx.IsNodeVisible(i)) return false;
                 Vector3 up = t.rotation * (poses[i].rotation * Vector3.up);
                 Vector3 toEye = ray.origin - t.TransformPoint(poses[i].position);
                 return Vector3.Dot(up, toEye.normalized) >= bugFacingThreshold;

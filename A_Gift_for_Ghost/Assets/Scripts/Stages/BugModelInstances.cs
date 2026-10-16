@@ -29,6 +29,8 @@ namespace Ghost.Stages
             public int nodeId;
             public Transform transform;
             public float baseScale;
+            public MeshFilter[] meshes;
+            public SkinnedMeshRenderer[] skinned;
         }
 
         readonly List<Instance> instances = new List<Instance>();
@@ -65,10 +67,45 @@ namespace Ghost.Stages
                 // 不挡 PointerInput 的 Physics 射线
                 foreach (var c in go.GetComponentsInChildren<Collider>()) Destroy(c);
                 go.transform.localScale = Vector3.zero;
-                instances.Add(new Instance { nodeId = id, transform = go.transform, baseScale = lengthMeters / modelLength });
+                instances.Add(new Instance
+                {
+                    nodeId = id, transform = go.transform, baseScale = lengthMeters / modelLength,
+                    meshes = go.GetComponentsInChildren<MeshFilter>(),
+                    skinned = go.GetComponentsInChildren<SkinnedMeshRenderer>(),
+                });
             }
             grow = 0f;
             LateUpdate();
+        }
+
+        // 在虫子模型外面画一圈描边（NodeHoverOutline 的模型材质，沿法线外扩）。模型没显示时返回 false
+        public bool DrawOutline(int nodeId, Material outlineMaterial)
+        {
+            if (outlineMaterial == null) return false;
+            var inst = instances.Find(x => x.nodeId == nodeId);
+            if (inst == null || inst.transform == null || !inst.transform.gameObject.activeInHierarchy) return false;
+            var rp = new RenderParams(outlineMaterial)
+            {
+                shadowCastingMode = ShadowCastingMode.Off,
+                receiveShadows = false,
+                layer = inst.transform.gameObject.layer,
+            };
+            bool drawn = false;
+            foreach (var mf in inst.meshes)
+            {
+                if (mf == null || mf.sharedMesh == null) continue;
+                for (int sub = 0; sub < mf.sharedMesh.subMeshCount; sub++)
+                    Graphics.RenderMesh(rp, mf.sharedMesh, sub, mf.transform.localToWorldMatrix);
+                drawn = true;
+            }
+            foreach (var sm in inst.skinned)
+            {
+                if (sm == null || sm.sharedMesh == null) continue;
+                for (int sub = 0; sub < sm.sharedMesh.subMeshCount; sub++)
+                    Graphics.RenderMesh(rp, sm.sharedMesh, sub, sm.localToWorldMatrix);
+                drawn = true;
+            }
+            return drawn;
         }
 
         public void Clear()

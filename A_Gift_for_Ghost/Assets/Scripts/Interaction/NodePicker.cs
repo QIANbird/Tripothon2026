@@ -26,12 +26,35 @@ namespace Ghost.Interaction
         // 为 null 时所有可见节点都参与
         public Func<int, bool> Filter { get; set; }
 
+        // 命中后的修正（阶段用）：参数是射线和按 Filter 命中的节点（可能是 -1），返回实际算命中的节点。
+        // 只作用于 Pick(ray, out distance)，悬停、点击、右键、VR 选中都走这里，判定一致。
+        // S4：叶片的拾取球把虫子包住，射线够得着虫子时改成虫子。为 null 时不修正
+        public Func<Ray, int, int> Resolver { get; set; }
+
         public int NodeCount => morpher != null && morpher.CurrentPoses != null ? morpher.CurrentPoses.Length : 0;
 
         // 替身拾取球：节点 nodeId 在植株本地姿态 pose 处多一个拾取球，命中时 Pick 照常返回 nodeId（同样经过 Filter）。
         // S2 的缺口用：槽位上没有节点，但要能右键看详情；返回缺失节点自己的 id，交互层不会拿到不存在的节点 id。
         // 阶段用 HitsAlias 区分射线命中的是替身还是节点本身。没注册时行为和原来完全一样
         readonly System.Collections.Generic.Dictionary<int, NodePose> aliases = new System.Collections.Generic.Dictionary<int, NodePose>();
+
+        // 单个节点的最小拾取半径（米，世界空间），覆盖 minPickRadius。S4 的虫子很小，用它放大检测范围
+        readonly System.Collections.Generic.Dictionary<int, float> minRadii = new System.Collections.Generic.Dictionary<int, float>();
+
+        public void SetMinRadius(int nodeId, float radius)
+        {
+            minRadii[nodeId] = radius;
+        }
+
+        public void ClearMinRadii()
+        {
+            minRadii.Clear();
+        }
+
+        float MinRadius(int nodeId)
+        {
+            return minRadii.Count > 0 && minRadii.TryGetValue(nodeId, out float r) ? Mathf.Max(r, minPickRadius) : minPickRadius;
+        }
 
         public void SetAlias(int nodeId, NodePose pose)
         {
@@ -54,13 +77,13 @@ namespace Ghost.Interaction
             if (morpher == null || !aliases.TryGetValue(nodeId, out var alias)) return false;
             var poses = morpher.CurrentPoses;
             if (poses == null || nodeId < 0 || nodeId >= poses.Length) return false;
-            float aliasHit = HitSphere(ray, alias);
+            float aliasHit = HitSphere(ray, alias, minPickRadius);
             if (float.IsPositiveInfinity(aliasHit)) return false;
-            return aliasHit <= HitSphere(ray, poses[nodeId]);
+            return aliasHit <= HitSphere(ray, poses[nodeId], MinRadius(nodeId));
         }
 
         // 射线到本地姿态 pose 的拾取球的距离；没命中或节点隐藏时返回 +∞
-        float HitSphere(Ray ray, NodePose pose)
+        float HitSphere(Ray ray, NodePose pose, float minRadius)
         {
             var t = morpher.transform;
             Vector3 lossy = t.lossyScale;
@@ -69,7 +92,7 @@ namespace Ghost.Interaction
             float size = Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z))) * lossyMax;
             if (size < hiddenScale) return float.PositiveInfinity;
 
-            float radius = Mathf.Max(size * radiusFactor, minPickRadius);
+            float radius = Mathf.Max(size * radiusFactor, minRadius);
             Vector3 oc = t.TransformPoint(pose.position) - ray.origin;
             Vector3 dir = ray.direction.normalized;
             float along = Vector3.Dot(oc, dir);
@@ -102,7 +125,16 @@ namespace Ghost.Interaction
         // 返回射线命中的最近节点 id，没有命中返回 -1。distance 为射线起点到命中点的距离
         public int Pick(Ray ray, out float distance)
         {
-            return Pick(ray, Filter, out distance);
+            int node = Pick(ray, Filter, out distance);
+            if (Resolver == null) return node;
+            int resolved = Resolver(ray, node);
+            if (resolved != node && resolved >= 0)
+            {
+                var poses = morpher.CurrentPoses;
+                float d = poses != null && resolved < poses.Length ? HitSphere(ray, poses[resolved], MinRadius(resolved)) : distance;
+                if (!float.IsPositiveInfinity(d)) distance = d;
+            }
+            return resolved;
         }
 
         public int Pick(Ray ray, Func<int, bool> filter, out float distance)
@@ -127,7 +159,7 @@ namespace Ghost.Interaction
                 float size = Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z))) * lossyMax;
                 if (size < hiddenScale) continue;
 
-                float radius = Mathf.Max(size * radiusFactor, minPickRadius);
+                float radius = Mathf.Max(size * radiusFactor, MinRadius(i));
                 Vector3 center = t.TransformPoint(poses[i].position);
 
                 // 射线-球求交：只取射线前方的第一个交点
@@ -149,7 +181,7 @@ namespace Ghost.Interaction
             foreach (var kv in aliases)
             {
                 if (kv.Key < 0 || kv.Key >= poses.Length) continue;
-                float hit = HitSphere(ray, kv.Value);
+                float hit = HitSphere(ray, kv.Value, minPickRadius);
                 if (hit >= distance) continue;
                 if (filter != null && !filter(kv.Key)) continue;
                 distance = hit;
