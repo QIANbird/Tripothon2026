@@ -13,9 +13,9 @@ namespace Ghost.Core.EditorTools
     // 头显运行时换成 World Space，PC 上不改。只在场景构建时调用，不改各 UI 组件的构建代码。
     //   字幕          LazyFollow，头前 1.5 m、视野下方
     //   Agent 聊天栏   跟右手柄（左上方，和"是否批准"卡片错开），只有头像和气泡，没有底板
-    //   询问框（YES）  视野正中、头前 0.55 m（比矩阵近），跟头、面向玩家，Yes 走手柄射线（XRUIRayTarget）
+    //   询问框（YES）  视野正中、头前 0.55 m（比矩阵近），跟头、面向玩家，Yes 按 A 确认（XRUIRayTarget.approveKey，扳机不点）
     //   详情弹窗       贴在被查看的节点旁边，在这个节点前方 0.1 m、朝向固定
-    //   开始 / 结束    LazyFollow 的 3D 面板，按钮走手柄射线；背后一块跟界面同步淡入淡出的黑幕（XRScreenBackdrop），看不到关卡
+    //   开始 / 结束    LazyFollow 的 3D 面板，开始界面 Awake 按 A 确认，结束界面按钮走手柄射线 + 扳机；背后一块跟界面同步淡入淡出的黑幕（XRScreenBackdrop），看不到关卡
     //   结局视频       LazyFollow 的大屏
     //   黑屏          挂在相机前 0.1 m
     //   阶段面板 / PC 键位提示 / 准星：不参与（占位、或只在 PC 用）
@@ -66,7 +66,7 @@ namespace Ghost.Core.EditorTools
                     new Vector3(0f, 0f, 0.55f), 0.0006f, query.panel);
                 w.contentPivot = new Vector2(0.5f, 0.5f); // 摆放点 = 卡片中心
                 AddLazyFollow(w, 3f, 8f, 8f);
-                AddRayTarget(query.yesButton.gameObject, query.yesButton, w, 30f);
+                AddRayTarget(query.yesButton.gameObject, query.yesButton, w, 30f, approveKey: true);
                 // 卡片本身挡射线，按到卡片空白处不会选中后面的节点
                 AddRayTarget(query.panel.gameObject, null, w, 10f);
             }
@@ -91,7 +91,7 @@ namespace Ghost.Core.EditorTools
                 var w = Add(screen.GetComponent<Canvas>(), XRWorldCanvas.Placement.LazyFollow, head, null,
                     new Vector3(0f, 0f, 2f), 0.0012f, null);
                 AddLazyFollow(w);
-                AddRayTarget(screen.button.gameObject, screen.button, w, 30f);
+                AddRayTarget(screen.button.gameObject, screen.button, w, 30f, approveKey: screen is StartScreen);
                 // 整块黑底挡射线：按在界面上不会选中后面的节点（第一个子物体就是 Background）
                 if (screen.transform.childCount > 0) AddRayTarget(screen.transform.GetChild(0).gameObject, null, w, 10f);
                 BuildScreenBackdrop(screen, head);
@@ -174,9 +174,10 @@ namespace Ghost.Core.EditorTools
             w.lazyFollow = follow;
         }
 
-        static void AddRayTarget(GameObject go, Button button, XRWorldCanvas world, float thickness)
+        static void AddRayTarget(GameObject go, Button button, XRWorldCanvas world, float thickness, bool approveKey = false)
         {
             var target = go.AddComponent<XRUIRayTarget>();
+            target.approveKey = approveKey;
             target.button = button;
             target.world = world;
             target.thickness = thickness;

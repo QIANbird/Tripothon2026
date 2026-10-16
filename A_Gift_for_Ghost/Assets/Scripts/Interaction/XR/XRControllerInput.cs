@@ -14,7 +14,8 @@ namespace Ghost.Interaction.XR
     //                          再按同一个节点 = 取消选中；按另一个节点 = 切换；按空白处 = 取消选中
     //   Select 短按 IInteractable → OnTap() + InteractableTapped（不影响选中）
     //   Select 从节点按住扫过   → DragStart / DragOver / DragEnd（S2 连线，需 allowNodeDrag；旋转开着时不进拖拽，见 rotator）
-    //   Approve（A）          → 有选中：Tap(选中节点)，每按一次算一次；没有选中：TapEmpty（推进对白）
+    //   Approve（A）          → 有 A 键确认的 UI 按钮显示着（XRUIRayTarget.approveKey）：点它，别的都不做；否则
+    //                          有选中：Tap(选中节点)，每按一次算一次；没有选中：TapEmpty（推进对白）
     //   Inspect（握键）按住     → 有选中：InspectStart(选中节点)；松开 → InspectEnd
     //   Rotate（右摇杆）       → DragEmpty(等效像素增量)，回中 → DragEmptyEnd。只发原始两轴，轴过滤由 Stage / TargetRotator 决定
     // 发 Tap / InspectStart 时 CurrentRay 暂时换成选中那一刻的射线（S4 按射线找叶片背后的虫子，要和选中时一致）。
@@ -126,6 +127,10 @@ namespace Ghost.Interaction.XR
         void Update()
         {
             UpdateSelectionPose();
+            // A 优先确认显示着的 UI 按钮（开始界面 Awake、询问框 Yes），确认了就不再算批准 / 推进对白。
+            // 放在 InputEnabled 判断前：这些界面显示时关卡可能关着节点交互
+            bool approvePressed = map != null && approveAction != null && approveAction.WasPressedThisFrame();
+            if (approvePressed && XRUIRayTarget.TryApprove()) approvePressed = false;
             if (map == null || !InputEnabled)
             {
                 if (approvePanel != null) approvePanel.Hide();
@@ -143,7 +148,7 @@ namespace Ghost.Interaction.XR
             if (selectAction.WasReleasedThisFrame() && gesture != Gesture.None) EndPress(ray);
             IsPressed = gesture != Gesture.None;
 
-            if (approveAction != null && approveAction.WasPressedThisFrame()) Approve();
+            if (approvePressed) Approve();
             UpdateInspect();
             UpdateStick();
             UpdateHover(ray);
